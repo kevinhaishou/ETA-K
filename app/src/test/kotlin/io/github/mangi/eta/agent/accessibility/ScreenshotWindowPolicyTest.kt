@@ -8,7 +8,7 @@ class ScreenshotWindowPolicyTest {
     fun `only confirmed own accessibility overlay is excluded`() {
         assertEquals(
             ScreenshotWindowPolicy.Decision.EXCLUDE,
-            decide(overlay = true, resolvedPackage = "io.github.mangi.eta"),
+            decide(overlay = true, resolvedPackage = "io.github.mangi.etak"),
         )
         assertEquals(
             ScreenshotWindowPolicy.Decision.CAPTURE,
@@ -57,7 +57,7 @@ class ScreenshotWindowPolicyTest {
         active = active,
         focused = focused,
         resolvedPackage = resolvedPackage,
-        ownPackage = "io.github.mangi.eta",
+        ownPackage = "io.github.mangi.etak",
         excludedPackages = excluded,
     )
 }
