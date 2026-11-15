@@ -54,20 +54,6 @@ internal fun ChatBackground(modifier: Modifier = Modifier) {
     }
 }
 
-/** 按最长边降采样解码，避免用户选的大图整张进内存。 */
-private fun decodeSampled(file: File, targetMaxEdge: Int = 1440): Bitmap? {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeFile(file.absolutePath, bounds)
-    var sample = 1
-    val longest = maxOf(bounds.outWidth, bounds.outHeight)
-    while (longest > 0 && longest / sample > targetMaxEdge) sample *= 2
-    val options = BitmapFactory.Options().apply {
-        inSampleSize = sample
-        inPreferredConfig = Bitmap.Config.RGB_565
-    }
-    return BitmapFactory.decodeFile(file.absolutePath, options)
-}
-
 /**
  * 全局背景容器：有背景图时先铺背景，再让整棵 UI 树在其上以半透明容器渲染。
  */
