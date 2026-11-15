@@ -13,12 +13,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.customization.LocalSidebarAlpha
@@ -40,16 +38,13 @@ internal fun ChatBackground(modifier: Modifier = Modifier) {
     }
     val dim = remember(revision) { CustomizationStore.wallpaperDim() }
     val enabled = remember(revision) { CustomizationStore.wallpaperEnabled() }
-    val blur = remember(revision) { CustomizationStore.wallpaperBlur() }
     val scale = remember(revision) { CustomizationStore.wallpaperScale() }
     val bitmap = image
     if (enabled && bitmap != null) {
         Image(
             bitmap = bitmap,
             contentDescription = null,
-            modifier = modifier
-                .fillMaxSize()
-                .then(if (blur > 0f) Modifier.blur(blur.dp) else Modifier),
+            modifier = modifier.fillMaxSize(),
             contentScale = if (scale == WallpaperScale.FIT) ContentScale.Fit else ContentScale.Crop,
         )
         if (dim > 0f) {
@@ -101,20 +96,31 @@ internal fun ChatBackgroundScaffold(content: @Composable () -> Unit) {
 }
 
 // 多个页面实例共享同一张位图，避免每页各自解码大图
-private var cachedWallpaperPath: String? = null
+private var cachedWallpaperKey: String? = null
 private var cachedWallpaperBitmap: ImageBitmap? = null
 
 private fun loadWallpaperBitmap(): ImageBitmap? {
-    val file = CustomizationStore.wallpaperFile()
-    if (file == null) {
-        android.util.Log.d("EtaKBackground", "wallpaper file missing")
-        return null
-    }
-    val path = file.absolutePath
-    if (path == cachedWallpaperPath) return cachedWallpaperBitmap
-    val decoded = runCatching { decodeSampled(file)?.asImageBitmap() }.getOrNull()
-    cachedWallpaperPath = path
+    val file = CustomizationStore.wallpaperFile() ?: return null
+    val blur = CustomizationStore.wallpaperBlur()
+    val key = "${file.absolutePath}#$blur"
+    if (key == cachedWallpaperKey) return cachedWallpaperBitmap
+    val decoded = runCatching {
+        val raw = decodeSampled(file) ?: return@runCatching null
+        (if (blur > 0f) downUpBlur(raw, blur) else raw).asImageBitmap()
+    }.getOrNull()
+    cachedWallpaperKey = key
     cachedWallpaperBitmap = decoded
-    android.util.Log.d("EtaKBackground", "decoded ${file.absolutePath} -> ${decoded?.width}x${decoded?.height}")
     return decoded
+}
+
+/**
+ * 廉价模糊：先按半径降采样再用双线性放大，一次性完成。
+ * 相比每帧对全屏图做 RenderEffect 模糊，绘制阶段不再有额外开销。
+ */
+private fun downUpBlur(bitmap: Bitmap, radiusDp: Float): Bitmap {
+    val factor = (1f + radiusDp / 3f).coerceIn(1f, 16f)
+    val width = (bitmap.width / factor).toInt().coerceAtLeast(1)
+    val height = (bitmap.height / factor).toInt().coerceAtLeast(1)
+    val small = Bitmap.createScaledBitmap(bitmap, width, height, true)
+    return Bitmap.createScaledBitmap(small, bitmap.width, bitmap.height, true)
 }
