@@ -70,3 +70,10 @@
 -keep class io.github.mangi.eta.agent.virtualdisplay.VirtualDisplayCommandMain {
     public static void main(java.lang.String[]);
 }
+
+# ── Room ───────────────────────────────────────────────────────────────────
+# RoomDatabase 通过 Class.forName("<db>_Impl") 反射加载 KSP 生成的实现类，
+# R8 无法从字节码推断引用，必须显式保留类名，否则 release 启动即崩溃：
+# Cannot find implementation for ... EtaDatabase. EtaDatabase_Impl does not exist.
+-keep class io.github.mangi.eta.data.db.** { *; }
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
