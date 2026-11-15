@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -71,7 +72,9 @@ import com.itos.coui.topappbar.TopAppBar
 import com.itos.coui.topappbar.TopAppBarButton
 import com.itos.coui.topappbar.TopAppBarButtonGroup
 import io.github.mangi.eta.R
-import io.github.mangi.eta.customization.pageBackgroundColor
+import io.github.mangi.eta.customization.CustomizationStore
+import io.github.mangi.eta.ui.components.drawWallpaperBitmap
+import io.github.mangi.eta.ui.components.rememberWallpaperBitmap
 import io.github.mangi.eta.ui.layout.WidePageContent
 import io.github.mangi.eta.ui.layout.rememberIsWideScreen
 
@@ -275,12 +278,21 @@ internal fun CouiScaffoldPage(
             actions()
         }
     }
+    val pageWallpaper = rememberWallpaperBitmap()
+    val pageWallpaperDim = remember(pageWallpaper) { CustomizationStore.wallpaperDim() }
+    val pageWallpaperScale = remember(pageWallpaper) { CustomizationStore.wallpaperScale() }
     Scaffold(
         modifier = modifier
             .fillMaxSize()
+            .drawWithContent {
+                drawRect(Color(0xFF101114))
+                pageWallpaper?.let { drawWallpaperBitmap(it, pageWallpaperScale) }
+                if (pageWallpaperDim > 0f) drawRect(Color.Black, alpha = pageWallpaperDim)
+                drawContent()
+            }
             .then(imePadding)
             .then(if (behavior != null) Modifier.nestedScroll(behavior.nestedScrollConnection) else Modifier),
-        containerColor = pageBackgroundColor(colors.background),
+        containerColor = Color.Transparent,
         floatingActionButton = floatingAction,
         topBar = {
             if (useCompact) {
@@ -373,12 +385,21 @@ internal fun CouiLazyScaffoldPage(
             actions()
         }
     }
+    val pageWallpaper = rememberWallpaperBitmap()
+    val pageWallpaperDim = remember(pageWallpaper) { CustomizationStore.wallpaperDim() }
+    val pageWallpaperScale = remember(pageWallpaper) { CustomizationStore.wallpaperScale() }
     Scaffold(
         modifier = modifier
             .fillMaxSize()
+            .drawWithContent {
+                drawRect(Color(0xFF101114))
+                pageWallpaper?.let { drawWallpaperBitmap(it, pageWallpaperScale) }
+                if (pageWallpaperDim > 0f) drawRect(Color.Black, alpha = pageWallpaperDim)
+                drawContent()
+            }
             .then(imePadding)
             .then(if (behavior != null) Modifier.nestedScroll(behavior.nestedScrollConnection) else Modifier),
-        containerColor = pageBackgroundColor(colors.background),
+        containerColor = Color.Transparent,
         floatingActionButton = floatingAction,
         topBar = {
             if (useCompact) {
@@ -480,7 +501,7 @@ internal fun CouiScaffold(
         modifier = modifier
             .fillMaxSize()
             .then(if (behavior != null) Modifier.nestedScroll(behavior.nestedScrollConnection) else Modifier),
-        containerColor = pageBackgroundColor(colors.background),
+        containerColor = colors.background,
         floatingActionButton = floatingAction,
         topBar = {
             if (useCompact) {

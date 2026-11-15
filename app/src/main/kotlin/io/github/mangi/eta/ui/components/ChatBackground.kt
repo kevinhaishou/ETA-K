@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.ContentScale
 import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.customization.LocalChatBackgroundActive
@@ -87,4 +88,30 @@ internal fun rememberWallpaperBitmap(): ImageBitmap? {
     }
     val enabled = remember(revision) { CustomizationStore.wallpaperEnabled() }
     return if (enabled) image else null
+}
+
+/** 在任意 DrawScope 中按缩放方式绘制壁纸（铺满裁剪 / 适应留边居中）。 */
+internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawWallpaperBitmap(
+    bitmap: ImageBitmap,
+    scale: WallpaperScale,
+) {
+    val widthScale = size.width / bitmap.width
+    val heightScale = size.height / bitmap.height
+    val factor = if (scale == WallpaperScale.FIT) {
+        minOf(widthScale, heightScale)
+    } else {
+        maxOf(widthScale, heightScale)
+    }
+    val drawWidth = bitmap.width * factor
+    val drawHeight = bitmap.height * factor
+    drawImage(
+        image = bitmap,
+        srcOffset = androidx.compose.ui.unit.IntOffset.Zero,
+        srcSize = androidx.compose.ui.unit.IntSize(bitmap.width, bitmap.height),
+        dstOffset = androidx.compose.ui.unit.IntOffset(
+            ((size.width - drawWidth) / 2f).toInt(),
+            ((size.height - drawHeight) / 2f).toInt(),
+        ),
+        dstSize = androidx.compose.ui.unit.IntSize(drawWidth.toInt(), drawHeight.toInt()),
+    )
 }
