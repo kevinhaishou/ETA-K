@@ -405,9 +405,8 @@ fun AgentAppRoot(
     } else {
         NavSwipeDirection.LeftToRight
     }
-    val swipeDismiss = swipeBackDirection.takeIf {
-        LocalAppearanceSettings.current.swipeDismissEnabled
-    }
+    // 关闭 entry 级滑动转场：它与全局 NavTransitions.None 叠加时旧页会留在下层绘制
+    val swipeDismiss: NavSwipeDirection? = null
     key(navigationResetKey) {
         ChatBackgroundScaffold {
             NavDisplay(
