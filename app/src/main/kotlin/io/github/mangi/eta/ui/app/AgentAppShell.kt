@@ -59,6 +59,7 @@ import com.itos.coui.topappbar.CouiTopAppBarDefaults
 import com.itos.coui.topappbar.TopAppBar as CouiTopAppBar
 import com.itos.coui.topappbar.TopAppBarButtonGroup
 import io.github.mangi.eta.R
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.customization.pageBackgroundColor
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.TtsProvider
@@ -216,7 +217,11 @@ internal fun AgentAppShell(
                                 },
                                 dark = dark,
                                 colors = CouiTopAppBarDefaults.colors(
-                                    backgroundColor = MiuixTheme.colorScheme.surface,
+                                    backgroundColor = if (LocalChatBackgroundActive.current) {
+                                        MiuixTheme.colorScheme.surface.copy(alpha = 0.72f)
+                                    } else {
+                                        MiuixTheme.colorScheme.surface
+                                    },
                                     titleColor = colors.title,
                                     dark = dark,
                                 ),
@@ -233,7 +238,11 @@ internal fun AgentAppShell(
                 // 首页顶栏高度固定，不参与折叠；未绑定顶栏的滚动行为会吞掉聊天列表的单向滑动。
                 val scrollBehavior = if (currentRoute is AppRoute.Home) null else MiuixScrollBehavior()
                 val backdrop = rememberTopBarBackdrop()
-                val topBarColor = topBarContainerColor(backdrop)
+                val topBarColor = if (LocalChatBackgroundActive.current) {
+                    MiuixTheme.colorScheme.surface.copy(alpha = 0.72f)
+                } else {
+                    topBarContainerColor(backdrop)
+                }
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = pageBackgroundColor(MiuixTheme.colorScheme.surface),
