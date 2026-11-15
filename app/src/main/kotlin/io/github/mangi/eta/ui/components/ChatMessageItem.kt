@@ -44,8 +44,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -54,6 +54,7 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -987,6 +988,54 @@ private fun AgentMessageBlock(
         }
     }
 
+    var showAnswerMenu by remember(message.id) { mutableStateOf(false) }
+    val answerAnchor = rememberCouiMenuAnchor()
+    val answerMenuItems = messageActionMenuItems(
+        actions = buildList {
+            if (message.content.isNotBlank()) {
+                add(MessageActionItem(10, stringResource(R.string.copy_answer), ChatActionIcons.Copy))
+            }
+            if (showMessageActions && message.characterEditable) {
+                add(
+                    MessageActionItem(
+                        11,
+                        stringResource(R.string.chat_edit_character_reply),
+                        ChatActionIcons.Edit,
+                    ),
+                )
+            }
+            if (showMessageActions) {
+                add(
+                    MessageActionItem(
+                        12,
+                        stringResource(R.string.ui_regenerate_reply_84a7d9),
+                        ChatActionIcons.Refresh,
+                    ),
+                )
+            }
+            if (showBranchAction) {
+                add(
+                    MessageActionItem(
+                        13,
+                        stringResource(R.string.conversation_branch),
+                        ChatActionIcons.Branch,
+                    ),
+                )
+            }
+            if (showMessageActions) {
+                add(
+                    MessageActionItem(
+                        key = 14,
+                        label = stringResource(R.string.ui_delete_this_conversation_3f351b),
+                        icon = ChatActionIcons.Trash,
+                        destructive = true,
+                        dividerBefore = true,
+                    ),
+                )
+            }
+        },
+        destructiveColor = CouiDialogDefaults.themeColors(CouiTheme.isDark).destructive,
+    )
     val character = LocalRoleplayChat.current.takeUnless { assistantOverlay }
     val isGreeting = character != null && message.id.startsWith(GreetingMessagePrefix)
     Column(
@@ -1129,6 +1178,35 @@ private fun AgentMessageBlock(
                         )
                     }
                 }
+            }
+
+            Box(modifier = Modifier.couiMenuAnchor(answerAnchor)) {
+                AnswerActionButton(
+                    icon = Icons.Rounded.MoreHoriz,
+                    contentDescription = "更多",
+                    onClick = { showAnswerMenu = true },
+                    enabled = messageActionsEnabled,
+                )
+                Menu(
+                    expanded = showAnswerMenu && messageActionsEnabled,
+                    onDismissRequest = { showAnswerMenu = false },
+                    items = answerMenuItems,
+                    onItemClick = { item ->
+                        showAnswerMenu = false
+                        when (item.value) {
+                            10 -> {
+                                @Suppress("DEPRECATION")
+                                clipboardManager.setText(AnnotatedString(message.content))
+                                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            }
+                            11 -> onEdit()
+                            12 -> onRegenerate()
+                            13 -> onBranch()
+                            14 -> onDelete()
+                        }
+                    },
+                    anchor = answerAnchor,
+                )
             }
         }
     }
