@@ -17,7 +17,7 @@ internal data class MessageActionItem(
 internal fun messageActionMenuItems(
     actions: List<MessageActionItem>,
     destructiveColor: Color,
-): List<CouiMenuItem> = actions.map { action ->
+): List<CouiMenuItem<Int>> = actions.map { action ->
     CouiMenuItem(
         value = action.key,
         text = action.label,
