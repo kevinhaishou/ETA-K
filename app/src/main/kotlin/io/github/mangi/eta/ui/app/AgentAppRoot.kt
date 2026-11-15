@@ -27,7 +27,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -36,8 +35,6 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -53,7 +50,6 @@ import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.runtime.AgentRuntimeService
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.customization.CustomizationStore
-import io.github.mangi.eta.customization.WallpaperScale
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
@@ -65,7 +61,6 @@ import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
 import io.github.mangi.eta.ui.components.coui.CouiInputDialog
 import io.github.mangi.eta.ui.components.coui.CouiNoticeDialog
-import io.github.mangi.eta.ui.components.rememberWallpaperBitmap
 import io.github.mangi.eta.ui.markdown.MarkdownTone
 import io.github.mangi.eta.ui.markdown.rememberMarkdownStyle
 import io.github.mangi.eta.ui.markdown.staticMarkdownDocumentCache
@@ -397,39 +392,9 @@ fun AgentAppRoot(
                 agentState.homeState.roleplay?.let { pushRoute(AppRoute.CharacterDetail(it.characterId)) }
             },
         ) { padding ->
-            val customizationRevision by CustomizationStore.revision.collectAsState()
-            val wallpaper = rememberWallpaperBitmap()
-            val wallpaperDim = remember(customizationRevision) { CustomizationStore.wallpaperDim() }
-            val wallpaperScale = remember(customizationRevision) {
-                CustomizationStore.wallpaperScale()
-            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .drawBehind {
-                        // 每个路由页面在自身绘制层铺一张不透明背景图：既显示壁纸，也盖住下层页面
-                        val bitmap = wallpaper ?: return@drawBehind
-                        val widthScale = size.width / bitmap.width
-                        val heightScale = size.height / bitmap.height
-                        val factor = if (wallpaperScale == WallpaperScale.FIT) {
-                            minOf(widthScale, heightScale)
-                        } else {
-                            maxOf(widthScale, heightScale)
-                        }
-                        val drawWidth = bitmap.width * factor
-                        val drawHeight = bitmap.height * factor
-                        drawImage(
-                            image = bitmap,
-                            srcOffset = IntOffset.Zero,
-                            srcSize = IntSize(bitmap.width, bitmap.height),
-                            dstOffset = IntOffset(
-                                ((size.width - drawWidth) / 2f).toInt(),
-                                ((size.height - drawHeight) / 2f).toInt(),
-                            ),
-                            dstSize = IntSize(drawWidth.toInt(), drawHeight.toInt()),
-                        )
-                        if (wallpaperDim > 0f) drawRect(color = Color.Black, alpha = wallpaperDim)
-                    }
                     .then(if (applyShellPadding) Modifier.padding(padding) else Modifier)
             ) {
                 content(padding)
