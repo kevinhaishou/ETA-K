@@ -69,7 +69,9 @@ android {
         }
         release {
             versionNameSuffix = buildMetadataSuffix
-            signingConfig = signingConfigs.findByName("release")
+            // 没有发布证书时回退 debug 签名：release 编译（R8 + 资源压缩）依旧可用，
+            // 且与已安装的 debug 包同签名，可直接覆盖升级
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

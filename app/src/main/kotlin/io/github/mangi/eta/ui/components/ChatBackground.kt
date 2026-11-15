@@ -21,6 +21,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.customization.WallpaperScale
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -84,13 +85,16 @@ internal fun ChatBackgroundScaffold(content: @Composable () -> Unit) {
     val active = remember(revision) {
         CustomizationStore.hasWallpaper() && CustomizationStore.wallpaperEnabled()
     }
-    if (!active) {
-        content()
-        return
-    }
-    Box(modifier = Modifier.fillMaxSize()) {
-        ChatBackground()
-        CompositionLocalProvider(LocalChatBackgroundActive provides true) {
+    val sidebarAlpha = remember(revision) { CustomizationStore.sidebarAlpha() }
+    CompositionLocalProvider(LocalSidebarAlpha provides sidebarAlpha) {
+        if (active) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                ChatBackground()
+                CompositionLocalProvider(LocalChatBackgroundActive provides true) {
+                    content()
+                }
+            }
+        } else {
             content()
         }
     }

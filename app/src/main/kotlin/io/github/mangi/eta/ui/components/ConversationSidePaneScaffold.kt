@@ -48,8 +48,6 @@ import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import io.github.mangi.eta.R
-import io.github.mangi.eta.customization.CustomizationStore
-import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import kotlin.math.roundToInt
@@ -209,13 +207,7 @@ fun ConversationSidePaneScaffold(
         Box(
             modifier = Modifier.fillMaxSize()
                 .clipToBounds()
-                .background(
-                    if (LocalChatBackgroundActive.current) {
-                        conversationPaneContainerColor().copy(alpha = CustomizationStore.sidebarAlpha())
-                    } else {
-                        conversationPaneContainerColor()
-                    },
-                )
+                .background(conversationPaneContainerColor())
                 // 手势由共同容器拥有，侧栏和聊天舞台均可拖动；子级先处理滚动与选择。
                 .anchoredDraggable(
                     state = paneDragState,

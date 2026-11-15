@@ -39,11 +39,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +54,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -88,7 +87,6 @@ import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -102,6 +100,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -132,11 +131,13 @@ import com.itos.coui.theme.CouiTheme
 import com.itos.coui.topappbar.CouiTopAppBarButtonDefaults
 import com.itos.coui.topappbar.TopAppBarSurface
 import io.github.mangi.eta.R
+import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalBlurEnabled
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.coui.CouiIcon
 import io.github.mangi.eta.ui.components.coui.CouiTopAppBarIconButton
+import kotlinx.coroutines.flow.distinctUntilChanged
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
@@ -189,15 +190,19 @@ internal object ConversationPanelMetrics {
  */
 @Composable
 internal fun conversationPaneContainerColor(): Color {
-    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
-        return if (CouiTheme.isDark) Color(0xFF16171B) else CouiPageDefaults.themeColors(false).background
-    }
-    val colors = MiuixTheme.colorScheme
-    return if (colors.surface.luminance() > 0.5f) {
-        colors.surface
+    val base = if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+        if (CouiTheme.isDark) Color(0xFF16171B) else CouiPageDefaults.themeColors(false).background
     } else {
-        lerp(colors.surface, colors.surfaceContainer, 0.45f)
+        val colors = MiuixTheme.colorScheme
+        if (colors.surface.luminance() > 0.5f) {
+            colors.surface
+        } else {
+            lerp(colors.surface, colors.surfaceContainer, 0.45f)
+        }
     }
+    // 透明度来自设置页的「侧边栏透明度」，开壁纸时背景会从面板后透出
+    val paneAlpha = LocalSidebarAlpha.current
+    return if (paneAlpha < 1f) base.copy(alpha = paneAlpha) else base
 }
 
 @Composable
