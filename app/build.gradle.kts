@@ -72,8 +72,10 @@ android {
             // 没有发布证书时回退 debug 签名：release 编译（R8 + 资源压缩）依旧可用，
             // 且与已安装的 debug 包同签名，可直接覆盖升级
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // 暂不启用 R8 裁剪：release 变体里 Room 的 EtaDatabase_Impl 在 R8 输出中缺失，
+            // 启动即 ClassNotFoundException。先用未裁剪的 release（非 debuggable）保证可用与流畅。
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
