@@ -412,23 +412,24 @@ private fun UserMessageBubble(
             val copyText = stringResource(R.string.ui_copy_4edd1d)
             val editText = stringResource(R.string.ui_edit_a7f814)
             val deleteText = stringResource(R.string.ui_delete_3755f5)
-            val menuItems = remember(canCopy, copyText, editText, deleteText, destructiveColor) {
+            val menuActions = remember(canCopy, copyText, editText, deleteText) {
                 buildList {
                     if (canCopy) {
-                        add(CouiMenuItem(value = 0, text = copyText, icon = Icons.Rounded.ContentCopy))
+                        add(MessageActionItem(0, copyText, Icons.Rounded.ContentCopy))
                     }
-                    add(CouiMenuItem(value = 1, text = editText, icon = Icons.Rounded.Edit))
+                    add(MessageActionItem(1, editText, Icons.Rounded.Edit))
                     add(
-                        CouiMenuItem(
-                            value = 2,
-                            text = deleteText,
+                        MessageActionItem(
+                            key = 2,
+                            label = deleteText,
                             icon = Icons.Rounded.Delete,
-                            iconTint = destructiveColor,
+                            destructive = true,
                             dividerBefore = true,
                         ),
                     )
                 }
             }
+            val menuItems = messageActionMenuItems(menuActions, destructiveColor)
             val openCouiMenu: (() -> Unit)? = if (actionsEnabled) {
                 {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
