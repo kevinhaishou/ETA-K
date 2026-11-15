@@ -29,7 +29,7 @@ internal object CustomizationStore {
     const val DEFAULT_DIM = 0.35f
     const val MAX_DIM = 0.85f
     const val MAX_BLUR = 24f
-    const val DEFAULT_SIDEBAR_ALPHA = 0.55f
+    const val DEFAULT_SIDEBAR_ALPHA = 0.25f
 
     @Volatile
     private var prefs: SharedPreferences? = null
@@ -107,11 +107,11 @@ internal object CustomizationStore {
     /** 会话侧栏不透明度。 */
     fun sidebarAlpha(): Float =
         (prefs?.getFloat(KEY_SIDEBAR_ALPHA, DEFAULT_SIDEBAR_ALPHA) ?: DEFAULT_SIDEBAR_ALPHA)
-            .coerceIn(0.3f, 1f)
+            .coerceIn(0.1f, 1f)
 
     fun setSidebarAlpha(value: Float) {
         val persisted = prefs ?: return
-        persisted.edit().putFloat(KEY_SIDEBAR_ALPHA, value.coerceIn(0.3f, 1f)).apply()
+        persisted.edit().putFloat(KEY_SIDEBAR_ALPHA, value.coerceIn(0.1f, 1f)).apply()
         bump()
     }
 

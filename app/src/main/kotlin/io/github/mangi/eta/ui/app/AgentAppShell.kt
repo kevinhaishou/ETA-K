@@ -231,7 +231,6 @@ internal fun AgentAppShell(
                     },
                 ) { padding ->
                     Box(modifier = Modifier.fillMaxSize()) {
-                        ChatBackground()
                         content(padding)
                     }
                 }
@@ -288,7 +287,6 @@ internal fun AgentAppShell(
                                 else Modifier,
                             ),
                     ) {
-                        ChatBackground()
                         content(padding)
                     }
                 }
@@ -297,6 +295,12 @@ internal fun AgentAppShell(
     }
 
     ChatImagePreviewHost(modifier = modifier) {
+        // 不透明底色兜底：无壁纸时保持原观感，有壁纸时挡住下层路由的内容
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MiuixTheme.colorScheme.background),
+        )
         ChatBackground()
         if (conversationPaneState != null && currentRoute is AppRoute.Home) {
             ConversationSidePaneScaffold(
