@@ -88,15 +88,15 @@ import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.ConversationBranchBoundary
-import io.github.mangi.eta.ui.model.branchMessageOutline
 import io.github.mangi.eta.ui.app.AgentConversationRevisionReducer
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.ChatBackground
 import io.github.mangi.eta.ui.markdown.StreamingMarkdownStateCache
-import io.github.mangi.eta.ui.model.ConversationHistoryLoadState
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
+import io.github.mangi.eta.ui.model.ConversationHistoryLoadState
 import io.github.mangi.eta.ui.model.MessageEditUiState
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
@@ -105,6 +105,7 @@ import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
+import io.github.mangi.eta.ui.model.branchMessageOutline
 import io.github.mangi.eta.ui.model.latestContextUsage
 import io.github.mangi.eta.ui.voice.SpeechAutoReadAloud
 import io.github.mangi.eta.ui.voice.SpeechPlaybackHost
@@ -413,6 +414,8 @@ private fun AgentChatScaffold(
         },
     ) { innerPadding ->
         val bottomPadding = innerPadding.calculateBottomPadding()
+        Box(modifier = Modifier.fillMaxSize()) {
+        ChatBackground()
         if (!hasMessages) {
             EmptyChatState(
                 showSuggestions = showEmptySuggestions,
@@ -448,6 +451,7 @@ private fun AgentChatScaffold(
                 onHistoryViewportChanged = onHistoryViewportChanged,
                 modifier = Modifier.fillMaxSize(),
             )
+        }
         }
     }
 }

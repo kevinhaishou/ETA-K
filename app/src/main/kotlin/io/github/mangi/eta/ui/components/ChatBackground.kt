@@ -91,11 +91,16 @@ private var cachedWallpaperPath: String? = null
 private var cachedWallpaperBitmap: ImageBitmap? = null
 
 private fun loadWallpaperBitmap(): ImageBitmap? {
-    val file = CustomizationStore.wallpaperFile() ?: return null
+    val file = CustomizationStore.wallpaperFile()
+    if (file == null) {
+        android.util.Log.d("EtaKBackground", "wallpaper file missing")
+        return null
+    }
     val path = file.absolutePath
     if (path == cachedWallpaperPath) return cachedWallpaperBitmap
     val decoded = runCatching { decodeSampled(file)?.asImageBitmap() }.getOrNull()
     cachedWallpaperPath = path
     cachedWallpaperBitmap = decoded
+    android.util.Log.d("EtaKBackground", "decoded ${file.absolutePath} -> ${decoded?.width}x${decoded?.height}")
     return decoded
 }
