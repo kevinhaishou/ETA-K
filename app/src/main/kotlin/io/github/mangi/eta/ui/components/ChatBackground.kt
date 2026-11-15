@@ -1,7 +1,5 @@
 package io.github.mangi.eta.ui.components
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -21,7 +19,6 @@ import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.customization.WallpaperScale
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -34,7 +31,7 @@ import kotlinx.coroutines.withContext
 internal fun ChatBackground(modifier: Modifier = Modifier) {
     val revision by CustomizationStore.revision.collectAsState()
     val image by produceState<ImageBitmap?>(initialValue = null, revision) {
-        value = withContext(Dispatchers.IO) { loadWallpaperBitmap() }
+        value = withContext(Dispatchers.IO) { CustomizationStore.wallpaperBitmap() }
     }
     val dim = remember(revision) { CustomizationStore.wallpaperDim() }
     val enabled = remember(revision) { CustomizationStore.wallpaperEnabled() }
@@ -95,32 +92,13 @@ internal fun ChatBackgroundScaffold(content: @Composable () -> Unit) {
     }
 }
 
-// 多个页面实例共享同一张位图，避免每页各自解码大图
-private var cachedWallpaperKey: String? = null
-private var cachedWallpaperBitmap: ImageBitmap? = null
-
-private fun loadWallpaperBitmap(): ImageBitmap? {
-    val file = CustomizationStore.wallpaperFile() ?: return null
-    val blur = CustomizationStore.wallpaperBlur()
-    val key = "${file.absolutePath}#$blur"
-    if (key == cachedWallpaperKey) return cachedWallpaperBitmap
-    val decoded = runCatching {
-        val raw = decodeSampled(file) ?: return@runCatching null
-        (if (blur > 0f) downUpBlur(raw, blur) else raw).asImageBitmap()
-    }.getOrNull()
-    cachedWallpaperKey = key
-    cachedWallpaperBitmap = decoded
-    return decoded
-}
-
-/**
- * 廉价模糊：先按半径降采样再用双线性放大，一次性完成。
- * 相比每帧对全屏图做 RenderEffect 模糊，绘制阶段不再有额外开销。
- */
-private fun downUpBlur(bitmap: Bitmap, radiusDp: Float): Bitmap {
-    val factor = (1f + radiusDp / 3f).coerceIn(1f, 16f)
-    val width = (bitmap.width / factor).toInt().coerceAtLeast(1)
-    val height = (bitmap.height / factor).toInt().coerceAtLeast(1)
-    val small = Bitmap.createScaledBitmap(bitmap, width, height, true)
-    return Bitmap.createScaledBitmap(small, bitmap.width, bitmap.height, true)
+/** 供页面用 drawBehind 自绘背景：读取解码后的位图（带缓存）。 */
+@Composable
+internal fun rememberWallpaperBitmap(): ImageBitmap? {
+    val revision by CustomizationStore.revision.collectAsState()
+    val image by produceState<ImageBitmap?>(initialValue = null, revision) {
+        value = withContext(Dispatchers.IO) { CustomizationStore.wallpaperBitmap() }
+    }
+    val enabled = remember(revision) { CustomizationStore.wallpaperEnabled() }
+    return if (enabled) image else null
 }

@@ -2,7 +2,11 @@ package io.github.mangi.eta.customization
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -140,6 +144,52 @@ internal object CustomizationStore {
         persisted.edit().putString(KEY_WALLPAPER_NAME, target.name).apply()
         bump()
         return true
+    }
+
+
+    private var bitmapKey: String? = null
+    private var bitmapValue: ImageBitmap? = null
+    private val bitmapLock = Any()
+
+    /** 解码并缓存壁纸位图（含模糊）；绘制阶段直接复用，不再重复解码。 */
+    fun wallpaperBitmap(): ImageBitmap? {
+        val file = wallpaperFile() ?: return null
+        val key = "${file.absolutePath}#${wallpaperBlur()}"
+        synchronized(bitmapLock) {
+            if (key == bitmapKey) return bitmapValue
+            val decoded = runCatching {
+                val raw = decodeSampled(file) ?: return null
+                val blur = wallpaperBlur()
+                (if (blur > 0f) downUpBlur(raw, blur) else raw).asImageBitmap()
+            }.getOrNull()
+            bitmapKey = key
+            bitmapValue = decoded
+            return decoded
+        }
+    }
+
+    private fun decodeSampled(file: File, targetMaxEdge: Int = 1440): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        var sample = 1
+        val longest = maxOf(bounds.outWidth, bounds.outHeight)
+        while (longest > 0 && longest / sample > targetMaxEdge) sample *= 2
+        return BitmapFactory.decodeFile(
+            file.absolutePath,
+            BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inPreferredConfig = Bitmap.Config.RGB_565
+            },
+        )
+    }
+
+    /** 廉价模糊：降采样再放大，一次性完成。 */
+    private fun downUpBlur(bitmap: Bitmap, radiusDp: Float): Bitmap {
+        val factor = (1f + radiusDp / 3f).coerceIn(1f, 16f)
+        val width = (bitmap.width / factor).toInt().coerceAtLeast(1)
+        val height = (bitmap.height / factor).toInt().coerceAtLeast(1)
+        val small = Bitmap.createScaledBitmap(bitmap, width, height, true)
+        return Bitmap.createScaledBitmap(small, bitmap.width, bitmap.height, true)
     }
 
     fun clearWallpaper(context: Context) {
