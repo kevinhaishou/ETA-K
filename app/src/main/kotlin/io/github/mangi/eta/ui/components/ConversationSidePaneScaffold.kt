@@ -48,6 +48,7 @@ import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import io.github.mangi.eta.R
+import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
@@ -210,7 +211,7 @@ fun ConversationSidePaneScaffold(
                 .clipToBounds()
                 .background(
                     if (LocalChatBackgroundActive.current) {
-                        conversationPaneContainerColor().copy(alpha = 0.55f)
+                        conversationPaneContainerColor().copy(alpha = CustomizationStore.sidebarAlpha())
                     } else {
                         conversationPaneContainerColor()
                     },

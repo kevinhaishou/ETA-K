@@ -1526,4 +1526,12 @@
   <string name="custom_prompt_title">Custom system prompt</string>
   <string name="custom_prompt_summary">Appended after the built-in instructions; applies to every model</string>
   <string name="custom_prompt_hint">Type instructions for the model</string>
+  <string name="appearance_wallpaper_enabled">Use custom wallpaper</string>
+  <string name="appearance_wallpaper_enabled_summary">Turn off to restore the solid color background</string>
+  <string name="appearance_wallpaper_blur">Wallpaper blur</string>
+  <string name="appearance_wallpaper_scale">Wallpaper scaling</string>
+  <string name="appearance_wallpaper_scale_fill">Fill screen</string>
+  <string name="appearance_wallpaper_scale_fit">Fit screen</string>
+  <string name="appearance_sidebar_alpha">Sidebar opacity</string>
+  <string name="appearance_sidebar_alpha_summary">How much the wallpaper shows through the conversation sidebar</string>
 </resources>

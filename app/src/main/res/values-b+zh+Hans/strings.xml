@@ -1507,4 +1507,12 @@
   <string name="custom_prompt_title">自定义系统提示词</string>
   <string name="custom_prompt_summary">在默认提示词之后追加，对所有模型生效</string>
   <string name="custom_prompt_hint">输入给模型的指令</string>
+  <string name="appearance_wallpaper_enabled">使用自定义壁纸</string>
+  <string name="appearance_wallpaper_enabled_summary">关闭后恢复纯色背景</string>
+  <string name="appearance_wallpaper_blur">壁纸模糊</string>
+  <string name="appearance_wallpaper_scale">壁纸缩放方式</string>
+  <string name="appearance_wallpaper_scale_fill">铺满屏幕</string>
+  <string name="appearance_wallpaper_scale_fit">适应屏幕</string>
+  <string name="appearance_sidebar_alpha">侧边栏透明度</string>
+  <string name="appearance_sidebar_alpha_summary">打开会话侧栏时背景的可见程度</string>
 </resources>

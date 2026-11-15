@@ -13,12 +13,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.WallpaperScale
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -35,13 +38,18 @@ internal fun ChatBackground(modifier: Modifier = Modifier) {
         value = withContext(Dispatchers.IO) { loadWallpaperBitmap() }
     }
     val dim = remember(revision) { CustomizationStore.wallpaperDim() }
+    val enabled = remember(revision) { CustomizationStore.wallpaperEnabled() }
+    val blur = remember(revision) { CustomizationStore.wallpaperBlur() }
+    val scale = remember(revision) { CustomizationStore.wallpaperScale() }
     val bitmap = image
-    if (bitmap != null) {
+    if (enabled && bitmap != null) {
         Image(
             bitmap = bitmap,
             contentDescription = null,
-            modifier = modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
+            modifier = modifier
+                .fillMaxSize()
+                .then(if (blur > 0f) Modifier.blur(blur.dp) else Modifier),
+            contentScale = if (scale == WallpaperScale.FIT) ContentScale.Fit else ContentScale.Crop,
         )
         if (dim > 0f) {
             Box(
@@ -73,7 +81,9 @@ private fun decodeSampled(file: File, targetMaxEdge: Int = 2048): Bitmap? {
 @Composable
 internal fun ChatBackgroundScaffold(content: @Composable () -> Unit) {
     val revision by CustomizationStore.revision.collectAsState()
-    val active = remember(revision) { CustomizationStore.hasWallpaper() }
+    val active = remember(revision) {
+        CustomizationStore.hasWallpaper() && CustomizationStore.wallpaperEnabled()
+    }
     if (!active) {
         content()
         return

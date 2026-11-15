@@ -32,6 +32,7 @@ import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.Text as CouiText
 import io.github.mangi.eta.R
 import io.github.mangi.eta.customization.CustomizationStore
+import io.github.mangi.eta.customization.WallpaperScale
 import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
@@ -80,6 +81,16 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val wallpaperRevision by CustomizationStore.revision.collectAsState()
     val hasWallpaper = remember(wallpaperRevision) { CustomizationStore.hasWallpaper() }
+    val wallpaperEnabled = remember(wallpaperRevision) {
+        CustomizationStore.wallpaperEnabled()
+    }
+    var blurDraft by remember(wallpaperRevision) {
+        mutableFloatStateOf(CustomizationStore.wallpaperBlur())
+    }
+    val wallpaperScale = remember(wallpaperRevision) { CustomizationStore.wallpaperScale() }
+    var sidebarDraft by remember(wallpaperRevision) {
+        mutableFloatStateOf(CustomizationStore.sidebarAlpha() * 100f)
+    }
     var dimDraft by remember(wallpaperRevision) {
         mutableFloatStateOf(CustomizationStore.wallpaperDim() * 100f)
     }
@@ -125,6 +136,10 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         stringResource(R.string.appearance_theme_system),
         stringResource(R.string.appearance_theme_light),
         stringResource(R.string.appearance_theme_dark),
+    )
+    val wallpaperScaleLabels = listOf(
+        stringResource(R.string.appearance_wallpaper_scale_fill),
+        stringResource(R.string.appearance_wallpaper_scale_fit),
     )
     val paletteStyles = AppearancePaletteStyle.entries
     val paletteLabels = listOf(
@@ -209,6 +224,18 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                     )
                     Divider()
                     CouiSliderPreference(
+                        title = stringResource(R.string.appearance_sidebar_alpha),
+                        summary = stringResource(R.string.appearance_sidebar_alpha_summary),
+                        value = sidebarDraft,
+                        onValueChange = { sidebarDraft = it },
+                        valueRange = 30f..100f,
+                        onValueChangeFinished = {
+                            CustomizationStore.setSidebarAlpha(sidebarDraft / 100f)
+                        },
+                        valueText = "${sidebarDraft.roundToInt()}%",
+                    )
+                    Divider()
+                    CouiSliderPreference(
                         title = stringResource(R.string.appearance_interface_scale),
                         summary = stringResource(R.string.appearance_interface_scale_summary),
                         value = scaleDraft.coerceIn(
@@ -229,6 +256,13 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                 }
 
                 Group(title = stringResource(R.string.appearance_chat_background_group)) {
+                    CouiSwitchPreference(
+                        title = stringResource(R.string.appearance_wallpaper_enabled),
+                        summary = stringResource(R.string.appearance_wallpaper_enabled_summary),
+                        checked = wallpaperEnabled,
+                        onCheckedChange = { CustomizationStore.setWallpaperEnabled(it) },
+                    )
+                    Divider()
                     CouiPreference(
                         title = stringResource(R.string.appearance_chat_background_pick),
                         summary = stringResource(R.string.appearance_chat_background_summary),
@@ -242,6 +276,26 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         valueRange = 0f..(CustomizationStore.MAX_DIM * 100f),
                         onValueChangeFinished = { commitWallpaperDim() },
                         valueText = "${dimDraft.roundToInt()}%",
+                    )
+                    Divider()
+                    CouiSliderPreference(
+                        title = stringResource(R.string.appearance_wallpaper_blur),
+                        value = blurDraft,
+                        onValueChange = { blurDraft = it },
+                        valueRange = 0f..CustomizationStore.MAX_BLUR,
+                        onValueChangeFinished = { CustomizationStore.setWallpaperBlur(blurDraft) },
+                        valueText = "${blurDraft.roundToInt()}dp",
+                    )
+                    Divider()
+                    CouiDropdownPreference(
+                        title = stringResource(R.string.appearance_wallpaper_scale),
+                        items = wallpaperScaleLabels,
+                        selectedIndex = wallpaperScale.ordinal,
+                        onSelectedIndexChange = { index ->
+                            WallpaperScale.entries.getOrNull(index)?.let { scale ->
+                                CustomizationStore.setWallpaperScale(scale)
+                            }
+                        },
                     )
                     Divider()
                     CouiPreference(
@@ -398,6 +452,17 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                             },
                         )
                         SliderPreference(
+                            title = stringResource(R.string.appearance_sidebar_alpha),
+                            summary = stringResource(R.string.appearance_sidebar_alpha_summary),
+                            value = sidebarDraft,
+                            onValueChange = { sidebarDraft = it },
+                            valueRange = 30f..100f,
+                            onValueChangeFinished = {
+                                CustomizationStore.setSidebarAlpha(sidebarDraft / 100f)
+                            },
+                            valueText = "${sidebarDraft.roundToInt()}%",
+                        )
+                        SliderPreference(
                             title = stringResource(R.string.appearance_interface_scale),
                             summary = stringResource(R.string.appearance_interface_scale_summary),
                             value = scaleDraft.coerceIn(
@@ -427,6 +492,12 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                             .padding(horizontal = 12.dp)
                             .padding(bottom = 12.dp),
                     ) {
+                        SwitchPreference(
+                            title = stringResource(R.string.appearance_wallpaper_enabled),
+                            summary = stringResource(R.string.appearance_wallpaper_enabled_summary),
+                            checked = wallpaperEnabled,
+                            onCheckedChange = { CustomizationStore.setWallpaperEnabled(it) },
+                        )
                         ArrowPreference(
                             title = stringResource(R.string.appearance_chat_background_pick),
                             onClick = { pickWallpaper() },
@@ -438,6 +509,24 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                             valueRange = 0f..(CustomizationStore.MAX_DIM * 100f),
                             onValueChangeFinished = { commitWallpaperDim() },
                             valueText = "${dimDraft.roundToInt()}%",
+                        )
+                        SliderPreference(
+                            title = stringResource(R.string.appearance_wallpaper_blur),
+                            value = blurDraft,
+                            onValueChange = { blurDraft = it },
+                            valueRange = 0f..CustomizationStore.MAX_BLUR,
+                            onValueChangeFinished = { CustomizationStore.setWallpaperBlur(blurDraft) },
+                            valueText = "${blurDraft.roundToInt()}dp",
+                        )
+                        OverlayDropdownPreference(
+                            title = stringResource(R.string.appearance_wallpaper_scale),
+                            items = wallpaperScaleLabels,
+                            selectedIndex = wallpaperScale.ordinal,
+                            onSelectedIndexChange = { index ->
+                                WallpaperScale.entries.getOrNull(index)?.let { scale ->
+                                    CustomizationStore.setWallpaperScale(scale)
+                                }
+                            },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.appearance_chat_background_clear),

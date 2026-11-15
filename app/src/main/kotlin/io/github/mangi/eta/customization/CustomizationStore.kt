@@ -20,10 +20,16 @@ internal object CustomizationStore {
     private const val KEY_SYSTEM_PROMPT = "custom_system_prompt"
     private const val KEY_WALLPAPER_NAME = "chat_background_name"
     private const val KEY_WALLPAPER_DIM = "chat_background_dim"
+    private const val KEY_WALLPAPER_ENABLED = "chat_background_enabled"
+    private const val KEY_WALLPAPER_BLUR = "chat_background_blur"
+    private const val KEY_WALLPAPER_SCALE = "chat_background_scale"
+    private const val KEY_SIDEBAR_ALPHA = "sidebar_alpha"
     private const val DIR_WALLPAPER = "chat-background"
 
     const val DEFAULT_DIM = 0.35f
     const val MAX_DIM = 0.85f
+    const val MAX_BLUR = 24f
+    const val DEFAULT_SIDEBAR_ALPHA = 0.55f
 
     @Volatile
     private var prefs: SharedPreferences? = null
@@ -67,6 +73,48 @@ internal object CustomizationStore {
 
     fun hasWallpaper(): Boolean = wallpaperFile() != null
 
+    /** 壁纸总开关：关闭后不绘制背景，页面回到不透明外观。 */
+    fun wallpaperEnabled(): Boolean = prefs?.getBoolean(KEY_WALLPAPER_ENABLED, true) ?: true
+
+    fun setWallpaperEnabled(value: Boolean) {
+        val persisted = prefs ?: return
+        persisted.edit().putBoolean(KEY_WALLPAPER_ENABLED, value).apply()
+        bump()
+    }
+
+    /** 壁纸模糊半径（dp）。 */
+    fun wallpaperBlur(): Float =
+        (prefs?.getFloat(KEY_WALLPAPER_BLUR, 0f) ?: 0f).coerceIn(0f, MAX_BLUR)
+
+    fun setWallpaperBlur(value: Float) {
+        val persisted = prefs ?: return
+        persisted.edit().putFloat(KEY_WALLPAPER_BLUR, value.coerceIn(0f, MAX_BLUR)).apply()
+        bump()
+    }
+
+    /** 壁纸缩放方式：FILL 铺满屏幕（裁剪），FIT 适应屏幕（留边）。 */
+    fun wallpaperScale(): WallpaperScale =
+        WallpaperScale.entries.firstOrNull {
+            it.persistedValue == prefs?.getString(KEY_WALLPAPER_SCALE, null)
+        } ?: WallpaperScale.FILL
+
+    fun setWallpaperScale(value: WallpaperScale) {
+        val persisted = prefs ?: return
+        persisted.edit().putString(KEY_WALLPAPER_SCALE, value.persistedValue).apply()
+        bump()
+    }
+
+    /** 会话侧栏不透明度。 */
+    fun sidebarAlpha(): Float =
+        (prefs?.getFloat(KEY_SIDEBAR_ALPHA, DEFAULT_SIDEBAR_ALPHA) ?: DEFAULT_SIDEBAR_ALPHA)
+            .coerceIn(0.3f, 1f)
+
+    fun setSidebarAlpha(value: Float) {
+        val persisted = prefs ?: return
+        persisted.edit().putFloat(KEY_SIDEBAR_ALPHA, value.coerceIn(0.3f, 1f)).apply()
+        bump()
+    }
+
     fun wallpaperFile(): File? {
         val name = prefs?.getString(KEY_WALLPAPER_NAME, null)?.takeIf { it.isNotBlank() } ?: return null
         val app = appContext ?: return null
@@ -104,4 +152,10 @@ internal object CustomizationStore {
     private fun bump() {
         revisionState.value += 1
     }
+}
+
+/** 壁纸缩放方式。 */
+internal enum class WallpaperScale(val persistedValue: String) {
+    FILL("crop"),
+    FIT("fit"),
 }
