@@ -662,6 +662,13 @@ private fun SettingsPageContent(
                     )
                     CouiIconDivider()
                     CouiPreference(
+                        title = stringResource(R.string.custom_prompt_title),
+                        summary = stringResource(R.string.custom_prompt_summary),
+                        icon = { CouiSettingsIcon(Icons.Rounded.Description, SettingsIconColors.Blue) },
+                        onClick = { onNavigate(AppRoute.CustomSystemPrompt) },
+                    )
+                    CouiIconDivider()
+                    CouiPreference(
                         title = stringResource(R.string.speech_settings_title),
                         icon = { CouiSettingsIcon(Icons.Rounded.Mic, SettingsIconColors.Blue) },
                         onClick = { onNavigate(AppRoute.SpeechSettings) },
@@ -1113,6 +1120,16 @@ private fun SettingsPageContent(
                                 )
                             },
                             onClick = { onNavigate(AppRoute.AppearanceSettings) },
+                        )
+                        ArrowPreference(
+                            title = stringResource(R.string.custom_prompt_title),
+                            startAction = {
+                                SettingsIcon(
+                                    icon = Icons.Rounded.Description,
+                                    tint = SettingsIconColors.Blue,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.CustomSystemPrompt) },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.speech_settings_title),

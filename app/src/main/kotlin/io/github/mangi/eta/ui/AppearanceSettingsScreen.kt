@@ -1,5 +1,8 @@
 package io.github.mangi.eta.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -10,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +22,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -26,6 +31,7 @@ import com.itos.coui.layout.Group
 import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.Text as CouiText
 import io.github.mangi.eta.R
+import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
@@ -68,6 +74,26 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
     var showScaleDialog by remember { mutableStateOf(false) }
     var scaleInput by remember { mutableStateOf("") }
     val blurSupported = isRuntimeShaderSupported()
+
+    val context = LocalContext.current
+    val wallpaperRevision by CustomizationStore.revision.collectAsState()
+    val hasWallpaper = remember(wallpaperRevision) { CustomizationStore.hasWallpaper() }
+    var dimDraft by remember(wallpaperRevision) {
+        mutableFloatStateOf(CustomizationStore.wallpaperDim() * 100f)
+    }
+    val wallpaperPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) CustomizationStore.importWallpaper(context, uri)
+    }
+
+    fun pickWallpaper() {
+        wallpaperPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
+    fun commitWallpaperDim() {
+        CustomizationStore.setWallpaperDim(dimDraft / 100f)
+    }
 
     fun update(transform: (AppearanceSettings) -> AppearanceSettings) {
         coroutineScope.launch {
@@ -197,6 +223,29 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                             scaleInput = scaleDraft.roundToInt().toString()
                             showScaleDialog = true
                         },
+                    )
+                }
+
+                Group(title = stringResource(R.string.appearance_chat_background_group)) {
+                    CouiPreference(
+                        title = stringResource(R.string.appearance_chat_background_pick),
+                        summary = stringResource(R.string.appearance_chat_background_summary),
+                        onClick = { pickWallpaper() },
+                    )
+                    Divider()
+                    CouiSliderPreference(
+                        title = stringResource(R.string.appearance_chat_background_dim),
+                        value = dimDraft,
+                        onValueChange = { dimDraft = it },
+                        valueRange = 0f..(CustomizationStore.MAX_DIM * 100f),
+                        onValueChangeFinished = { commitWallpaperDim() },
+                        valueText = "${dimDraft.roundToInt()}%",
+                    )
+                    Divider()
+                    CouiPreference(
+                        title = stringResource(R.string.appearance_chat_background_clear),
+                        enabled = hasWallpaper,
+                        onClick = { CustomizationStore.clearWallpaper(context) },
                     )
                 }
 
@@ -366,6 +415,31 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                                 showScaleDialog = true
                             },
                             holdDownState = showScaleDialog,
+                        )
+                    }
+                }
+                item(key = "appearance_chat_background") {
+                    SmallTitle(text = stringResource(R.string.appearance_chat_background_group))
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        ArrowPreference(
+                            title = stringResource(R.string.appearance_chat_background_pick),
+                            onClick = { pickWallpaper() },
+                        )
+                        SliderPreference(
+                            title = stringResource(R.string.appearance_chat_background_dim),
+                            value = dimDraft,
+                            onValueChange = { dimDraft = it },
+                            valueRange = 0f..(CustomizationStore.MAX_DIM * 100f),
+                            onValueChangeFinished = { commitWallpaperDim() },
+                            valueText = "${dimDraft.roundToInt()}%",
+                        )
+                        ArrowPreference(
+                            title = stringResource(R.string.appearance_chat_background_clear),
+                            onClick = { CustomizationStore.clearWallpaper(context) },
                         )
                     }
                 }

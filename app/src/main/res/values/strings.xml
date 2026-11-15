@@ -1518,4 +1518,12 @@
   <string name="assistant_overlay_settings_follow_primary_hint">Uses the default main conversation model</string>
   <string name="assistant_overlay_settings_reasoning_follow_default">Follow default</string>
   <string name="assistant_overlay_settings_note">Independently configure the model and reasoning level for the floating assistant triggered by the power key or system assistant. For quick everyday tasks, choosing a fast lightweight model with lower or disabled reasoning helps reduce latency and token usage.</string>
+  <string name="appearance_chat_background_group">Chat background</string>
+  <string name="appearance_chat_background_pick">Choose image</string>
+  <string name="appearance_chat_background_summary">Use a photo from the gallery as the chat background; overlay opacity keeps text readable</string>
+  <string name="appearance_chat_background_dim">Overlay opacity</string>
+  <string name="appearance_chat_background_clear">Reset background</string>
+  <string name="custom_prompt_title">Custom system prompt</string>
+  <string name="custom_prompt_summary">Appended after the built-in instructions; applies to every model</string>
+  <string name="custom_prompt_hint">Type instructions for the model</string>
 </resources>

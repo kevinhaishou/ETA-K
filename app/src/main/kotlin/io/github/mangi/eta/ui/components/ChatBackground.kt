@@ -1,0 +1,70 @@
+package io.github.mangi.eta.ui.components
+
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import io.github.mangi.eta.customization.CustomizationStore
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/**
+ * 聊天页背景：用户自定义图片 + 可调遮罩浓度。
+ *
+ * 作为铺满父容器的底层绘制，调用方把聊天内容叠在它之后即可。
+ */
+@Composable
+internal fun ChatBackground(modifier: Modifier = Modifier) {
+    val revision by CustomizationStore.revision.collectAsState()
+    val image by produceState<ImageBitmap?>(initialValue = null, revision) {
+        value = withContext(Dispatchers.IO) {
+            CustomizationStore.wallpaperFile()?.let { file ->
+                runCatching { decodeSampled(file)?.asImageBitmap() }.getOrNull()
+            }
+        }
+    }
+    val dim = remember(revision) { CustomizationStore.wallpaperDim() }
+    val bitmap = image
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = null,
+            modifier = modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+        if (dim > 0f) {
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = dim)),
+            )
+        }
+    }
+}
+
+/** 按最长边降采样解码，避免用户选的大图整张进内存。 */
+private fun decodeSampled(file: File, targetMaxEdge: Int = 2048): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.absolutePath, bounds)
+    var sample = 1
+    val longest = maxOf(bounds.outWidth, bounds.outHeight)
+    while (longest > 0 && longest / sample > targetMaxEdge) sample *= 2
+    val options = BitmapFactory.Options().apply {
+        inSampleSize = sample
+        inPreferredConfig = Bitmap.Config.RGB_565
+    }
+    return BitmapFactory.decodeFile(file.absolutePath, options)
+}

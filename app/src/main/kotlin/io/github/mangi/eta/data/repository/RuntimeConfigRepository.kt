@@ -3,6 +3,7 @@ package io.github.mangi.eta.data.repository
 import android.content.SharedPreferences
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.config.Prefs
+import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
@@ -287,7 +288,11 @@ internal object RuntimeConfigRepository {
         json.encodeToString(if (config.authMode == ProviderAuthModes.API_KEY) config else config.copy(apiKey = ""))
 
     fun buildRuntimeConfig(provider: ProviderSetting, model: Model): AgentModelClient.ModelConfig {
-        val systemPrompt = provider.systemPrompt.orEmpty().trim()
+        // ETA-K 定制：全局自定义系统提示词叠加在服务商提示词之后，越靠后越贴近当前请求
+        val customPrompt = CustomizationStore.systemPrompt().trim()
+        val systemPrompt = listOf(provider.systemPrompt.orEmpty().trim(), customPrompt)
+            .filter { it.isNotBlank() }
+            .joinToString("\n\n")
         val sourceType = ProviderSourceRegistry.resolve(provider)
         val profile = ProviderConnectionProfile.forAuthMode(provider.authMode)
         val endpointMode = profile?.endpointMode ?: provider.endpointMode()

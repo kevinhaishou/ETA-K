@@ -1395,4 +1395,12 @@
   <string name="assistant_overlay_settings_follow_primary_hint">預設繼承主對話目前使用的模型</string>
   <string name="assistant_overlay_settings_reasoning_follow_default">跟隨預設</string>
   <string name="assistant_overlay_settings_note">單獨設定電源鍵或系統助手喚起的全域對話浮窗所使用的模型與思考等級；日常輕量指令可選用回應更快的輕量模型並降低或關閉思考，主對話仍保留主力模型。</string>
+  <string name="appearance_chat_background_group">聊天背景</string>
+  <string name="appearance_chat_background_pick">選擇圖片</string>
+  <string name="appearance_chat_background_summary">從相簿選一張圖作為聊天背景，遮罩濃度用於保證文字可讀</string>
+  <string name="appearance_chat_background_dim">遮罩濃度</string>
+  <string name="appearance_chat_background_clear">恢復預設背景</string>
+  <string name="custom_prompt_title">自訂系統提示詞</string>
+  <string name="custom_prompt_summary">在預設提示詞之後追加，對所有模型生效</string>
+  <string name="custom_prompt_hint">輸入給模型的指令</string>
 </resources>
