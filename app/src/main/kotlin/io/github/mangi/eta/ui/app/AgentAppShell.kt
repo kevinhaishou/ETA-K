@@ -231,7 +231,6 @@ internal fun AgentAppShell(
                     },
                 ) { padding ->
                     Box(modifier = Modifier.fillMaxSize()) {
-                        ChatBackground()
                         content(padding)
                     }
                 }
@@ -288,7 +287,6 @@ internal fun AgentAppShell(
                                 else Modifier,
                             ),
                     ) {
-                        ChatBackground()
                         content(padding)
                     }
                 }
