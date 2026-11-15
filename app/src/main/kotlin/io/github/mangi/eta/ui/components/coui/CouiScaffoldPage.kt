@@ -71,8 +71,6 @@ import com.itos.coui.topappbar.TopAppBar
 import com.itos.coui.topappbar.TopAppBarButton
 import com.itos.coui.topappbar.TopAppBarButtonGroup
 import io.github.mangi.eta.R
-import io.github.mangi.eta.customization.pageBackgroundColor
-import io.github.mangi.eta.ui.components.ChatBackground
 import io.github.mangi.eta.ui.layout.WidePageContent
 import io.github.mangi.eta.ui.layout.rememberIsWideScreen
 
@@ -318,8 +316,6 @@ internal fun CouiScaffoldPage(
             }
         },
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-        ChatBackground()
         val contentPadding = remember(behavior, innerPadding, localDensity) {
             behavior?.state?.contentPadding(innerPadding, localDensity) ?: innerPadding
         }
@@ -336,7 +332,6 @@ internal fun CouiScaffoldPage(
             )
         }
         overlay()
-        }
     }
 }
 
@@ -440,7 +435,6 @@ internal fun CouiLazyScaffoldPage(
             }
         }
         overlay()
-        }
     }
 }
 
@@ -522,8 +516,6 @@ internal fun CouiScaffold(
             }
         },
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-        ChatBackground()
         val contentPadding = remember(behavior, innerPadding, localDensity) {
             behavior?.state?.contentPadding(innerPadding, localDensity) ?: innerPadding
         }
