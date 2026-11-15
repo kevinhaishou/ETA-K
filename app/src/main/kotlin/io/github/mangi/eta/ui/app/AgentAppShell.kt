@@ -59,6 +59,7 @@ import com.itos.coui.topappbar.CouiTopAppBarDefaults
 import com.itos.coui.topappbar.TopAppBar as CouiTopAppBar
 import com.itos.coui.topappbar.TopAppBarButtonGroup
 import io.github.mangi.eta.R
+import io.github.mangi.eta.customization.pageBackgroundColor
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.data.repository.SpeechSettingsRepository
@@ -151,7 +152,7 @@ internal fun AgentAppShell(
                 val isHome = currentRoute is AppRoute.Home
                 CouiLayoutScaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = MiuixTheme.colorScheme.surface,
+                    containerColor = pageBackgroundColor(MiuixTheme.colorScheme.surface),
                     windowInsets = WindowInsets.safeDrawing.only(
                         WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
                     ),
@@ -235,6 +236,7 @@ internal fun AgentAppShell(
                 val topBarColor = topBarContainerColor(backdrop)
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
+                    containerColor = pageBackgroundColor(MiuixTheme.colorScheme.surface),
                     contentWindowInsets = WindowInsets.safeDrawing.only(
                         WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
                     ),

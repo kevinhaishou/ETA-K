@@ -16,12 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.customization.pageBackgroundColor
 import io.github.mangi.eta.ui.layout.WidePageContent
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
@@ -46,6 +48,7 @@ fun MiuixScaffoldPage(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = pageBackgroundColor(MiuixTheme.colorScheme.surface),
         topBar = {
             TopBarBackdrop(backdrop) {
                 // 页面自带主视觉（如角色详情）时用紧凑标题，避免大标题与主视觉重复。

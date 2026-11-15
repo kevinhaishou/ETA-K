@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import io.github.mangi.eta.customization.CustomizationStore
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -67,4 +69,23 @@ private fun decodeSampled(file: File, targetMaxEdge: Int = 2048): Bitmap? {
         inPreferredConfig = Bitmap.Config.RGB_565
     }
     return BitmapFactory.decodeFile(file.absolutePath, options)
+}
+
+/**
+ * 全局背景容器：有背景图时先铺背景，再让整棵 UI 树在其上以半透明容器渲染。
+ */
+@Composable
+internal fun ChatBackgroundScaffold(content: @Composable () -> Unit) {
+    val revision by CustomizationStore.revision.collectAsState()
+    val active = remember(revision) { CustomizationStore.hasWallpaper() }
+    if (!active) {
+        content()
+        return
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        ChatBackground()
+        CompositionLocalProvider(LocalChatBackgroundActive provides true) {
+            content()
+        }
+    }
 }

@@ -20,7 +20,6 @@ import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.roleplayChatUi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import io.github.mangi.eta.ui.components.ChatBackground
 
 /**
  * AgentChatHome：首屏为聊天主舞台。
@@ -45,7 +44,6 @@ internal fun AgentHomeScreen(
     // key 内保持完整分支，避免提前返回遗留无法转换为 DEX 的编译器标记。
     key(chatConversationCompositionKey(conversationKey)) {
         Box(modifier = modifier.fillMaxSize()) {
-            ChatBackground()
             if (!state.isConversationLoaded) {
                 AgentConversationLoadState(
                     isLoading = isLoadingConversation,
