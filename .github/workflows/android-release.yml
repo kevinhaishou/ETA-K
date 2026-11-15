@@ -20,7 +20,8 @@ jobs:
   verify:
     name: Lint 与单元测试
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # Debug 构建以外的 lint + 单测在免费 runner 上会超过 40 分钟，放宽以免被取消
+    timeout-minutes: 90
 
     steps:
       - name: 检出代码
