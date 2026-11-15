@@ -71,6 +71,7 @@ import com.itos.coui.topappbar.TopAppBar
 import com.itos.coui.topappbar.TopAppBarButton
 import com.itos.coui.topappbar.TopAppBarButtonGroup
 import io.github.mangi.eta.R
+import io.github.mangi.eta.customization.pageBackgroundColor
 import io.github.mangi.eta.ui.layout.WidePageContent
 import io.github.mangi.eta.ui.layout.rememberIsWideScreen
 
@@ -279,7 +280,7 @@ internal fun CouiScaffoldPage(
             .fillMaxSize()
             .then(imePadding)
             .then(if (behavior != null) Modifier.nestedScroll(behavior.nestedScrollConnection) else Modifier),
-        containerColor = colors.background,
+        containerColor = pageBackgroundColor(colors.background),
         floatingActionButton = floatingAction,
         topBar = {
             if (useCompact) {
@@ -377,7 +378,7 @@ internal fun CouiLazyScaffoldPage(
             .fillMaxSize()
             .then(imePadding)
             .then(if (behavior != null) Modifier.nestedScroll(behavior.nestedScrollConnection) else Modifier),
-        containerColor = colors.background,
+        containerColor = pageBackgroundColor(colors.background),
         floatingActionButton = floatingAction,
         topBar = {
             if (useCompact) {
@@ -479,7 +480,7 @@ internal fun CouiScaffold(
         modifier = modifier
             .fillMaxSize()
             .then(if (behavior != null) Modifier.nestedScroll(behavior.nestedScrollConnection) else Modifier),
-        containerColor = colors.background,
+        containerColor = pageBackgroundColor(colors.background),
         floatingActionButton = floatingAction,
         topBar = {
             if (useCompact) {
