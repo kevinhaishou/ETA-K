@@ -32,11 +32,7 @@ import kotlinx.coroutines.withContext
 internal fun ChatBackground(modifier: Modifier = Modifier) {
     val revision by CustomizationStore.revision.collectAsState()
     val image by produceState<ImageBitmap?>(initialValue = null, revision) {
-        value = withContext(Dispatchers.IO) {
-            CustomizationStore.wallpaperFile()?.let { file ->
-                runCatching { decodeSampled(file)?.asImageBitmap() }.getOrNull()
-            }
-        }
+        value = withContext(Dispatchers.IO) { loadWallpaperBitmap() }
     }
     val dim = remember(revision) { CustomizationStore.wallpaperDim() }
     val bitmap = image
@@ -88,4 +84,18 @@ internal fun ChatBackgroundScaffold(content: @Composable () -> Unit) {
             content()
         }
     }
+}
+
+// 多个页面实例共享同一张位图，避免每页各自解码大图
+private var cachedWallpaperPath: String? = null
+private var cachedWallpaperBitmap: ImageBitmap? = null
+
+private fun loadWallpaperBitmap(): ImageBitmap? {
+    val file = CustomizationStore.wallpaperFile() ?: return null
+    val path = file.absolutePath
+    if (path == cachedWallpaperPath) return cachedWallpaperBitmap
+    val decoded = runCatching { decodeSampled(file)?.asImageBitmap() }.getOrNull()
+    cachedWallpaperPath = path
+    cachedWallpaperBitmap = decoded
+    return decoded
 }

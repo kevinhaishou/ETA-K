@@ -54,6 +54,7 @@ import io.github.mangi.eta.ui.AppearanceSettingsScreen
 import io.github.mangi.eta.ui.CustomSystemPromptScreen
 import io.github.mangi.eta.ui.IncomingShareRequest
 import io.github.mangi.eta.ui.SettingsScreen
+import io.github.mangi.eta.ui.components.ChatBackground
 import io.github.mangi.eta.ui.components.ChatBackgroundScaffold
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
@@ -394,6 +395,7 @@ fun AgentAppRoot(
                     .fillMaxSize()
                     .then(if (applyShellPadding) Modifier.padding(padding) else Modifier)
             ) {
+                ChatBackground()
                 content(padding)
             }
         }
