@@ -72,6 +72,7 @@ import com.itos.coui.topappbar.TopAppBarButton
 import com.itos.coui.topappbar.TopAppBarButtonGroup
 import io.github.mangi.eta.R
 import io.github.mangi.eta.customization.pageBackgroundColor
+import io.github.mangi.eta.ui.components.ChatBackground
 import io.github.mangi.eta.ui.layout.WidePageContent
 import io.github.mangi.eta.ui.layout.rememberIsWideScreen
 
@@ -280,7 +281,7 @@ internal fun CouiScaffoldPage(
             .fillMaxSize()
             .then(imePadding)
             .then(if (behavior != null) Modifier.nestedScroll(behavior.nestedScrollConnection) else Modifier),
-        containerColor = pageBackgroundColor(colors.background),
+        containerColor = colors.background,
         floatingActionButton = floatingAction,
         topBar = {
             if (useCompact) {
@@ -317,6 +318,8 @@ internal fun CouiScaffoldPage(
             }
         },
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
+        ChatBackground()
         val contentPadding = remember(behavior, innerPadding, localDensity) {
             behavior?.state?.contentPadding(innerPadding, localDensity) ?: innerPadding
         }
@@ -333,6 +336,7 @@ internal fun CouiScaffoldPage(
             )
         }
         overlay()
+        }
     }
 }
 
@@ -378,7 +382,7 @@ internal fun CouiLazyScaffoldPage(
             .fillMaxSize()
             .then(imePadding)
             .then(if (behavior != null) Modifier.nestedScroll(behavior.nestedScrollConnection) else Modifier),
-        containerColor = pageBackgroundColor(colors.background),
+        containerColor = colors.background,
         floatingActionButton = floatingAction,
         topBar = {
             if (useCompact) {
@@ -436,6 +440,7 @@ internal fun CouiLazyScaffoldPage(
             }
         }
         overlay()
+        }
     }
 }
 
@@ -480,7 +485,7 @@ internal fun CouiScaffold(
         modifier = modifier
             .fillMaxSize()
             .then(if (behavior != null) Modifier.nestedScroll(behavior.nestedScrollConnection) else Modifier),
-        containerColor = pageBackgroundColor(colors.background),
+        containerColor = colors.background,
         floatingActionButton = floatingAction,
         topBar = {
             if (useCompact) {
@@ -517,6 +522,8 @@ internal fun CouiScaffold(
             }
         },
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
+        ChatBackground()
         val contentPadding = remember(behavior, innerPadding, localDensity) {
             behavior?.state?.contentPadding(innerPadding, localDensity) ?: innerPadding
         }
