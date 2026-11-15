@@ -58,7 +58,7 @@ internal fun ChatBackground(modifier: Modifier = Modifier) {
 }
 
 /** 按最长边降采样解码，避免用户选的大图整张进内存。 */
-private fun decodeSampled(file: File, targetMaxEdge: Int = 2048): Bitmap? {
+private fun decodeSampled(file: File, targetMaxEdge: Int = 1440): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(file.absolutePath, bounds)
     var sample = 1

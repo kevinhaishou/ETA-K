@@ -67,7 +67,6 @@ import io.github.mangi.eta.data.repository.SpeechSettingsRepository
 import io.github.mangi.eta.ui.components.AdaptiveTopAppBar
 import io.github.mangi.eta.ui.components.AgentTopBarChatHeader
 import io.github.mangi.eta.ui.components.ChatActionIcons
-import io.github.mangi.eta.ui.components.ChatBackground
 import io.github.mangi.eta.ui.components.ChatImagePreviewHost
 import io.github.mangi.eta.ui.components.ConversationSidePaneScaffold
 import io.github.mangi.eta.ui.components.MiuixBackButton
@@ -295,13 +294,7 @@ internal fun AgentAppShell(
     }
 
     ChatImagePreviewHost(modifier = modifier) {
-        // 不透明底色兜底：无壁纸时保持原观感，有壁纸时挡住下层路由的内容
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MiuixTheme.colorScheme.background),
-        )
-        ChatBackground()
+
         if (conversationPaneState != null && currentRoute is AppRoute.Home) {
             ConversationSidePaneScaffold(
                 state = conversationPaneState,

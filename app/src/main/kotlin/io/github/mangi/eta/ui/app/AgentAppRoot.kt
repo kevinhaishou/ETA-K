@@ -9,7 +9,6 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,7 +54,6 @@ import io.github.mangi.eta.ui.AppearanceSettingsScreen
 import io.github.mangi.eta.ui.CustomSystemPromptScreen
 import io.github.mangi.eta.ui.IncomingShareRequest
 import io.github.mangi.eta.ui.SettingsScreen
-import io.github.mangi.eta.ui.components.ChatBackground
 import io.github.mangi.eta.ui.components.ChatBackgroundScaffold
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
@@ -119,7 +117,6 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
@@ -397,13 +394,6 @@ fun AgentAppRoot(
                     .fillMaxSize()
                     .then(if (applyShellPadding) Modifier.padding(padding) else Modifier)
             ) {
-                // 每个路由页面自己铺不透明底 + 背景图，确保上层页面完全盖住下层页面
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MiuixTheme.colorScheme.background),
-                )
-                ChatBackground()
                 content(padding)
             }
         }
