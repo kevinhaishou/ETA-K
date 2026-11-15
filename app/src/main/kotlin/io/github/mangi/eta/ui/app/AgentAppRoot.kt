@@ -117,6 +117,7 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
+import top.yukonga.miuix.kmp.nav.transition.NavTransitions
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
@@ -412,6 +413,8 @@ fun AgentAppRoot(
             NavDisplay(
                 backStack = backStack,
                 onBack = { popRoute() },
+                // 无滑动转场：页面直接切换，避免旧页在转场过程中与当前页叠加
+                transition = NavTransitions.None,
                 effects = NavDisplayEffects(
                     cornerClipRadius = rememberNavSystemCornerRadius(),
                 ),
