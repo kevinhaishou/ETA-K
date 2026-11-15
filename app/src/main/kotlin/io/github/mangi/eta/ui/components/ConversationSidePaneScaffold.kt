@@ -210,7 +210,7 @@ fun ConversationSidePaneScaffold(
                 .clipToBounds()
                 .background(
                     if (LocalChatBackgroundActive.current) {
-                        conversationPaneContainerColor().copy(alpha = 0.78f)
+                        conversationPaneContainerColor().copy(alpha = 0.55f)
                     } else {
                         conversationPaneContainerColor()
                     },
