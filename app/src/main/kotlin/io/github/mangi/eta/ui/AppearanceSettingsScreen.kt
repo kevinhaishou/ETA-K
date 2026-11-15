@@ -228,7 +228,7 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         summary = stringResource(R.string.appearance_sidebar_alpha_summary),
                         value = sidebarDraft,
                         onValueChange = { sidebarDraft = it },
-                        valueRange = 10f..100f,
+                        valueRange = 0f..100f,
                         onValueChangeFinished = {
                             CustomizationStore.setSidebarAlpha(sidebarDraft / 100f)
                         },
@@ -456,7 +456,7 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                             summary = stringResource(R.string.appearance_sidebar_alpha_summary),
                             value = sidebarDraft,
                             onValueChange = { sidebarDraft = it },
-                            valueRange = 10f..100f,
+                            valueRange = 0f..100f,
                             onValueChangeFinished = {
                                 CustomizationStore.setSidebarAlpha(sidebarDraft / 100f)
                             },
