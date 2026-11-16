@@ -1337,7 +1337,6 @@
   <string name="speech_read_resume">Resume reading</string>
   <string name="speech_read_prev">Previous sentence</string>
   <string name="speech_read_next">Next sentence</string>
-  <string name="eta_assistant_tile">Eta assistant</string>
   <string name="speech_asr_system">System speech recognition (free)</string>
   <string name="speech_asr_note_system">Uses the phone built-in recognizer; no API quota consumed.</string>
   <string name="speech_disable_auto_read">Disable auto read-aloud</string>

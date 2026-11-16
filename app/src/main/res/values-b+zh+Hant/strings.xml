@@ -1305,7 +1305,6 @@
   <string name="speech_read_resume">繼續朗讀</string>
   <string name="speech_read_prev">上一段</string>
   <string name="speech_read_next">下一段</string>
-  <string name="eta_assistant_tile">Eta 助手</string>
   <string name="speech_asr_system">系統語音辨識（免費）</string>
   <string name="speech_asr_note_system">使用手機內建的語音辨識服務，不消耗額度。</string>
   <string name="speech_disable_auto_read">關閉自動朗讀</string>
