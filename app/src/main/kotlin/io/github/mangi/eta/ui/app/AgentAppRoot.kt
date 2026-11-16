@@ -1235,7 +1235,7 @@ fun AgentAppRoot(
                         Text(
                             text = "朗读",
                             modifier = Modifier
-                                .clickable { SystemTtsProbe.speak(context, paragraph) { } }
+                                .clickable { SystemTtsProbe.speak(context, paragraph, onResult = { }) }
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.primary,
