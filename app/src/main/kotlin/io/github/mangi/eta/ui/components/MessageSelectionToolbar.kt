@@ -22,14 +22,21 @@ import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.platform.TextToolbarStatus
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import io.github.mangi.eta.ui.voice.LocalSpeechPlayback
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 正文选字工具条：接管系统 TextToolbar，选中文字后就地提供复制 / 朗读 / 追问。
+ *
+ * 位置必须按选区矩形算，不能把窗口坐标直接当 Popup 的偏移——那会把菜单推到屏幕外，
+ * 表现为“选中了文字但什么都没有弹出来”。
  *
  * Compose 不暴露选区文本，取选区只能先触发系统的复制动作再从剪贴板读取；
  * 读完立即还原剪贴板，不留下副作用。未选中时这些操作按整条消息处理。
@@ -45,7 +52,7 @@ internal fun MessageSelectionToolbar(
     val clipboard = LocalClipboardManager.current
     val playback = LocalSpeechPlayback.current
     var menuVisible by remember { mutableStateOf(false) }
-    var menuOffset by remember { mutableStateOf(IntOffset.Zero) }
+    var menuRect by remember { mutableStateOf(Rect.Zero) }
     var copyRequest by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     /** 借系统复制动作取出选区；剪贴板原内容随后还原。 */
@@ -73,7 +80,7 @@ internal fun MessageSelectionToolbar(
                 onSelectAllRequested: (() -> Unit)?,
             ) {
                 status = TextToolbarStatus.Shown
-                menuOffset = IntOffset(rect.left.toInt(), rect.top.toInt())
+                menuRect = rect
                 copyRequest = onCopyRequested
                 menuVisible = true
             }
@@ -90,7 +97,7 @@ internal fun MessageSelectionToolbar(
             content()
             if (menuVisible) {
                 Popup(
-                    offset = menuOffset,
+                    popupPositionProvider = remember(menuRect) { SelectionAnchorProvider(menuRect) },
                     onDismissRequest = { toolbar.hide() },
                 ) {
                     Column(
@@ -126,6 +133,23 @@ internal fun MessageSelectionToolbar(
                 }
             }
         }
+    }
+}
+
+/** 把工具条贴在选区下方，越界时收回屏幕内。 */
+private class SelectionAnchorProvider(private val anchor: Rect) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+        val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
+        val x = anchor.left.toInt().coerceIn(0, maxX)
+        val below = anchor.bottom.toInt() + 8
+        val y = if (below <= maxY) below else (anchor.top.toInt() - popupContentSize.height - 8).coerceIn(0, maxY)
+        return IntOffset(x, y)
     }
 }
 

@@ -31,6 +31,8 @@ internal data class SpeechPlaybackState(
     /** 离线朗读按片段推进；0 表示云端整篇播放或尚未开始，界面据此决定是否显示进度。 */
     val segmentIndex: Int = 0,
     val segmentCount: Int = 0,
+    /** 当前片段的前 120 字，供朗读面板定位到具体文字。 */
+    val segmentText: String = "",
 )
 
 internal class SpeechPlaybackController(
@@ -87,7 +89,7 @@ internal class SpeechPlaybackController(
                             segmentRequest.value = null
                             if (requested in segments.indices) index = requested
                         }
-                        publish(messageId, index, segments.size, pausedFlow.value)
+                        publish(messageId, index, segments.size, pausedFlow.value, segments[index].text.take(120))
                         val finished = tts.speak(segments[index].text)
                         if (finished) index++
                     }
@@ -240,12 +242,13 @@ internal class SpeechPlaybackController(
         mutableState.value = SpeechPlaybackState()
     }
 
-    private fun publish(messageId: String, index: Int, count: Int, paused: Boolean) {
+    private fun publish(messageId: String, index: Int, count: Int, paused: Boolean, text: String = "") {
         mutableState.value = SpeechPlaybackState(
             messageId = messageId,
             paused = paused,
             segmentIndex = index,
             segmentCount = count,
+            segmentText = text,
         )
     }
 }

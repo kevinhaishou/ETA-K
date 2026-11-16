@@ -88,6 +88,7 @@ import kotlin.random.Random
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -422,14 +423,17 @@ internal fun SpeechReadAloudButton(messageId: String, text: String) {
                 onClick = { controller.skip(-1) },
                 enabled = state.segmentIndex > 0 && !state.loading,
             )
-            Text(
-                text = "${state.segmentIndex + 1}/${state.segmentCount}",
-                color = accent,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                modifier = Modifier.padding(horizontal = 2.dp),
-            )
+            // 长按进度数字可看到当前正在朗读的那段文字，定位到具体句子。
+            TooltipBox(text = state.segmentText, enabled = state.segmentText.isNotBlank()) {
+                Text(
+                    text = "${state.segmentIndex + 1}/${state.segmentCount}",
+                    color = accent,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 2.dp),
+                )
+            }
             AnswerActionButton(
                 icon = Icons.Rounded.ChevronRight,
                 contentDescription = stringResource(R.string.speech_read_next),
