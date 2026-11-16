@@ -3,6 +3,7 @@ package io.github.mangi.eta.agent.voice
 import android.content.Intent
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import io.github.mangi.eta.R
 
 /**
  * 快捷设置磁贴：一键唤起 Eta 入口浮层。
