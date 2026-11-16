@@ -7,9 +7,8 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import io.github.mangi.eta.agent.voice.offline.OfflineAsrCatalog
+import io.github.mangi.eta.agent.voice.offline.OfflineAsrService
 import io.github.mangi.eta.agent.voice.offline.OfflineAsrStore
-import io.github.mangi.eta.agent.voice.offline.SenseVoiceOnnxEngine
-import io.github.mangi.eta.agent.voice.offline.pcm16ToFloat
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.model.AsrProvider
 import io.github.mangi.eta.data.model.SpeechCredentials
@@ -161,15 +160,8 @@ internal class SpeechInputController(
                                 coroutineContext.ensureActive()
                                 if (generation != session) throw CancellationException("Speech session replaced")
                                 update { it.copy(phase = EtaSpeechPhase.RECOGNIZING, progress = "正在本机识别", level = 0f) }
-                                withContext(Dispatchers.IO) {
-                                    val engine = SenseVoiceOnnxEngine(modelFile.absolutePath, tokensFile.absolutePath)
-                                    try {
-                                        val pcm = if (wav.size > 44) wav.copyOfRange(44, wav.size) else wav
-                                        engine.transcribe(pcm16ToFloat(pcm))
-                                    } finally {
-                                        engine.close()
-                                    }
-                                }
+                                // 交给 :asr 独立进程，模型在那边驻留与释放。
+                                OfflineAsrService.transcribe(context, wav, modelFile, tokensFile)
                             }
                             else -> {
                                 begin()

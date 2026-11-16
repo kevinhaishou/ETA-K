@@ -140,6 +140,11 @@
         </service>
 
         <service
+            android:name=".agent.voice.offline.OfflineAsrService"
+            android:exported="false"
+            android:process=":asr" />
+
+        <service
             android:name=".agent.voice.EtaAssistantOverlayService"
             android:foregroundServiceType="microphone|mediaPlayback"
             android:exported="false" />
