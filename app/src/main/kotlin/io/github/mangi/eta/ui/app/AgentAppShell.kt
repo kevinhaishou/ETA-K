@@ -25,9 +25,7 @@ import androidx.compose.material.icons.automirrored.outlined.ShortText
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -42,7 +40,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -119,11 +116,6 @@ internal fun AgentAppShell(
     onSearchConversations: (String) -> Unit,
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
-    onLaunchKimiWeb: () -> Unit,
-    kimiWebLabel: String,
-    canStopKimiWeb: Boolean,
-    onStopKimiWeb: () -> Unit,
-    onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     onSelectConversation: (String) -> Unit,
     onConversationTogglePin: (ConversationSummaryUi) -> Unit,
@@ -207,11 +199,6 @@ internal fun AgentAppShell(
                                                 colors = colors,
                                                 onNewConversation = onNewConversation,
                                                 onOpenTerminal = onOpenTerminal,
-                                                onLaunchKimiWeb = onLaunchKimiWeb,
-                                                kimiWebLabel = kimiWebLabel,
-                                                canStopKimiWeb = canStopKimiWeb,
-                                                onStopKimiWeb = onStopKimiWeb,
-                                                onRefreshKimiWeb = onRefreshKimiWeb,
                                                 onOpenBrowser = onOpenBrowser,
                                             )
                                         }
@@ -263,11 +250,6 @@ internal fun AgentAppShell(
                                     onOpenConversationPane = onOpenConversationPane,
                                     onNewConversation = onNewConversation,
                                     onOpenTerminal = onOpenTerminal,
-                                    onLaunchKimiWeb = onLaunchKimiWeb,
-                                    kimiWebLabel = kimiWebLabel,
-                                    canStopKimiWeb = canStopKimiWeb,
-                                    onStopKimiWeb = onStopKimiWeb,
-                                    onRefreshKimiWeb = onRefreshKimiWeb,
                                     onOpenBrowser = onOpenBrowser,
                                     homeTitle = homeTitle,
                                     homeCharacter = homeCharacter,
@@ -342,11 +324,6 @@ private fun CouiTopBarOverflowMenu(
     colors: com.itos.coui.layout.CouiPageColors,
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
-    onLaunchKimiWeb: () -> Unit,
-    kimiWebLabel: String,
-    canStopKimiWeb: Boolean,
-    onStopKimiWeb: () -> Unit,
-    onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -358,7 +335,6 @@ private fun CouiTopBarOverflowMenu(
 
     val newConversationText = stringResource(R.string.action_new_conversation)
     val openTerminalText = stringResource(R.string.action_open_terminal)
-    val stopKimiWebText = stringResource(R.string.capability_kimi_stop)
     val openBrowserText = stringResource(R.string.action_open_browser)
     val autoReadText = stringResource(
         if (autoReadEnabled) R.string.speech_disable_auto_read else R.string.speech_enable_auto_read,
@@ -366,10 +342,7 @@ private fun CouiTopBarOverflowMenu(
     val menuItems = remember(
         newConversationText,
         openTerminalText,
-        kimiWebLabel,
         openBrowserText,
-        stopKimiWebText,
-        canStopKimiWeb,
         autoReadText,
         hasSpeechPlayback,
         autoReadEnabled,
@@ -377,15 +350,11 @@ private fun CouiTopBarOverflowMenu(
         buildList {
             add(CouiMenuItem(value = 0, text = newConversationText, icon = ChatActionIcons.NewChat))
             add(CouiMenuItem(value = 1, text = openTerminalText, icon = Icons.Rounded.Terminal))
-            add(CouiMenuItem(value = 2, text = kimiWebLabel, icon = Icons.Rounded.Code))
-            add(CouiMenuItem(value = 3, text = openBrowserText, icon = Icons.Rounded.Language))
-            if (canStopKimiWeb) {
-                add(CouiMenuItem(value = 4, text = stopKimiWebText, icon = Icons.Rounded.Stop))
-            }
+            add(CouiMenuItem(value = 2, text = openBrowserText, icon = Icons.Rounded.Language))
             if (hasSpeechPlayback) {
                 add(
                     CouiMenuItem(
-                        value = 5,
+                        value = 3,
                         text = autoReadText,
                         icon = if (autoReadEnabled) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
                     ),
@@ -402,7 +371,6 @@ private fun CouiTopBarOverflowMenu(
             dark = dark,
             colors = colors,
             onClick = {
-                onRefreshKimiWeb()
                 anchor.open { showMenu = true }
             },
         )
@@ -415,10 +383,8 @@ private fun CouiTopBarOverflowMenu(
                 when (item.value) {
                     0 -> onNewConversation()
                     1 -> onOpenTerminal()
-                    2 -> onLaunchKimiWeb()
-                    3 -> onOpenBrowser()
-                    4 -> onStopKimiWeb()
-                    5 -> speechSettings?.let { current ->
+                    2 -> onOpenBrowser()
+                    3 -> speechSettings?.let { current ->
                         scope.launch {
                             SpeechSettingsRepository.save(current.copy(chatAutoSpeak = !current.chatAutoSpeak))
                         }
@@ -439,11 +405,6 @@ private fun AgentTopBar(
     onOpenConversationPane: () -> Unit,
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
-    onLaunchKimiWeb: () -> Unit,
-    kimiWebLabel: String,
-    canStopKimiWeb: Boolean,
-    onStopKimiWeb: () -> Unit,
-    onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     homeTitle: String?,
     homeCharacter: RoleplayChatUi?,
@@ -459,11 +420,6 @@ private fun AgentTopBar(
             onOpenConversationPane = onOpenConversationPane,
             onNewConversation = onNewConversation,
             onOpenTerminal = onOpenTerminal,
-            onLaunchKimiWeb = onLaunchKimiWeb,
-            kimiWebLabel = kimiWebLabel,
-            canStopKimiWeb = canStopKimiWeb,
-            onStopKimiWeb = onStopKimiWeb,
-            onRefreshKimiWeb = onRefreshKimiWeb,
             onOpenBrowser = onOpenBrowser,
         ) {
             AgentTopBarChatHeader(
@@ -508,11 +464,6 @@ private fun HomeMiuixTopBar(
     onOpenConversationPane: () -> Unit,
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
-    onLaunchKimiWeb: () -> Unit,
-    kimiWebLabel: String,
-    canStopKimiWeb: Boolean,
-    onStopKimiWeb: () -> Unit,
-    onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     centerContent: @Composable () -> Unit,
 ) {
@@ -550,11 +501,6 @@ private fun HomeMiuixTopBar(
         TopBarOverflowMenu(
             onNewConversation = onNewConversation,
             onOpenTerminal = onOpenTerminal,
-            onLaunchKimiWeb = onLaunchKimiWeb,
-            kimiWebLabel = kimiWebLabel,
-            canStopKimiWeb = canStopKimiWeb,
-            onStopKimiWeb = onStopKimiWeb,
-            onRefreshKimiWeb = onRefreshKimiWeb,
             onOpenBrowser = onOpenBrowser,
         )
     }
@@ -566,11 +512,6 @@ private val TopBarMenuIconSize = 20.dp
 private fun TopBarOverflowMenu(
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
-    onLaunchKimiWeb: () -> Unit,
-    kimiWebLabel: String,
-    canStopKimiWeb: Boolean,
-    onStopKimiWeb: () -> Unit,
-    onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -579,7 +520,7 @@ private fun TopBarOverflowMenu(
     val hasSpeechPlayback = speechSettings?.let { it.tts != TtsProvider.NONE } == true
     val autoReadEnabled = speechSettings?.chatAutoSpeak == true
     Box {
-        IconButton(onClick = { onRefreshKimiWeb(); showMenu = true }) {
+        IconButton(onClick = { showMenu = true }) {
             Icon(
                 imageVector = Icons.Outlined.MoreHoriz,
                 modifier = Modifier.size(24.dp),
@@ -593,8 +534,6 @@ private fun TopBarOverflowMenu(
         ) {
             val newConversationText = stringResource(R.string.action_new_conversation)
             val openTerminalText = stringResource(R.string.action_open_terminal)
-            val launchKimiWebText = kimiWebLabel
-            val stopKimiWebText = stringResource(R.string.capability_kimi_stop)
             val openBrowserText = stringResource(R.string.action_open_browser)
             val autoReadText = stringResource(
                 if (autoReadEnabled) R.string.speech_disable_auto_read else R.string.speech_enable_auto_read,
@@ -602,10 +541,7 @@ private fun TopBarOverflowMenu(
             val menuItems = remember(
                 newConversationText,
                 openTerminalText,
-                launchKimiWebText,
                 openBrowserText,
-                stopKimiWebText,
-                canStopKimiWeb,
                 autoReadText,
                 hasSpeechPlayback,
                 autoReadEnabled,
@@ -632,16 +568,6 @@ private fun TopBarOverflowMenu(
                         },
                     ),
                     DropdownItem(
-                        text = launchKimiWebText,
-                        icon = { modifier ->
-                            Icon(
-                                painter = painterResource(R.drawable.ic_kimi_code),
-                                contentDescription = null,
-                                modifier = modifier.size(TopBarMenuIconSize),
-                            )
-                        },
-                    ),
-                    DropdownItem(
                         text = openBrowserText,
                         icon = { modifier ->
                             Icon(
@@ -651,22 +577,7 @@ private fun TopBarOverflowMenu(
                             )
                         },
                     ),
-                ) + (if (canStopKimiWeb) {
-                    listOf(
-                        DropdownItem(
-                            text = stopKimiWebText,
-                            icon = { modifier ->
-                                Icon(
-                                    imageVector = Icons.Rounded.Stop,
-                                    contentDescription = null,
-                                    modifier = modifier.size(TopBarMenuIconSize),
-                                )
-                            },
-                        ),
-                    )
-                } else {
-                    emptyList()
-                }) + if (hasSpeechPlayback) {
+                ) + if (hasSpeechPlayback) {
                     listOf(
                         DropdownItem(
                             text = autoReadText,
@@ -700,9 +611,7 @@ private fun TopBarOverflowMenu(
                             } else when (index) {
                                 0 -> onNewConversation()
                                 1 -> onOpenTerminal()
-                                2 -> onLaunchKimiWeb()
-                                3 -> onOpenBrowser()
-                                4 -> onStopKimiWeb()
+                                2 -> onOpenBrowser()
                             }
                         },
                     )
