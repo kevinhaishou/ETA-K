@@ -39,6 +39,7 @@ internal data class SpeechInputState(
     val progress: String = "",
     val error: String? = null,
     val configureAvailable: Boolean = false,
+    val holdToTalk: Boolean = false,
 ) {
     val active: Boolean get() = phase != EtaSpeechPhase.IDLE
 }
@@ -67,6 +68,9 @@ internal class SpeechInputController(
         ByteArray,
         (String) -> Unit,
     ) -> String = ::recognizeSpeechFile,
+    private val loadSettings: suspend () -> SpeechSettings = SpeechSettingsRepository::settings,
+    private val loadCredentials: suspend () -> SpeechCredentials = { SpeechSettingsRepository.credentials(context) },
+    private val onHoldResult: ((String) -> Unit)? = null,
     private val onResult: (String) -> Unit,
 ) {
     private val mutableState = MutableStateFlow(SpeechInputState())
@@ -86,11 +90,13 @@ internal class SpeechInputController(
     fun start(settings: SpeechSettings? = null, credentials: SpeechCredentials? = null, holdToTalk: Boolean = false) {
         cancel()
         val session = generation
-        mutableState.value = SpeechInputState(phase = EtaSpeechPhase.STARTING, progress = "正在连接")
+        mutableState.value = SpeechInputState(phase = EtaSpeechPhase.STARTING, progress = "正在连接", holdToTalk = holdToTalk)
         job = scope.launch(Dispatchers.Main.immediate) {
             try {
-                val rawConfig = settings ?: SpeechSettingsRepository.settings()
+                val rawConfig = settings ?: loadSettings()
                 if (!rawConfig.recognitionEnabled) return@launch
+                lease = SpeechAudioLease(context) { cancel() }.also { it.acquire(playback = false) }
+                // 本地版本统一走 repository 读取，避免与 SettingsDataStore 的缓存脱节
                 val rawSecrets = credentials ?: SpeechSettingsRepository.credentials(context)
                 val (config, secrets) = SpeechSettingsRepository.resolveDeepSeekFallback(rawConfig, rawSecrets)
                 validateSpeechSettings(config, secrets, synthesis = false)
@@ -123,13 +129,26 @@ internal class SpeechInputController(
                             recording = launch {
                                 try {
                                     audio.record(
-                                        onReady = { update { it.copy(phase = EtaSpeechPhase.LISTENING, progress = "正在聆听，点击完成结束") } },
+                                        onReady = {
+                                            update {
+                                                it.copy(
+                                                    phase = EtaSpeechPhase.LISTENING,
+                                                    progress = if (it.holdToTalk) "松开发送，移出取消" else "正在聆听，点击完成结束",
+                                                )
+                                            }
+                                        },
                                         onLevel = { level -> update { it.copy(level = level) } },
                                     )
                                 } finally {
                                     if (generation == session) releaseCapture()
                                 }
-                                update { it.copy(phase = EtaSpeechPhase.RECOGNIZING, level = 0f, progress = "正在识别") }
+                                update {
+                                    it.copy(
+                                        phase = EtaSpeechPhase.RECOGNIZING,
+                                        level = 0f,
+                                        progress = if (it.holdToTalk) "正在识别并发送" else "正在识别",
+                                    )
+                                }
                             }
                         }
                         Unit
@@ -195,8 +214,13 @@ internal class SpeechInputController(
                 if (text.isBlank()) throw SpeechFailure(SpeechErrorCode.NO_SPEECH, "没有识别到语音，请重试")
                 val final = refined(session, config.refineTranscript, text)
                 if (generation == session) {
+                    val holdMode = mutableState.value.holdToTalk
                     cancel()
-                    onResult(final)
+                    if (holdMode && onHoldResult != null) {
+                        onHoldResult(final)
+                    } else {
+                        onResult(final)
+                    }
                 }
             } catch (error: Exception) {
                 if (error is CancellationException && error !is kotlinx.coroutines.TimeoutCancellationException) throw error
@@ -331,7 +355,8 @@ internal class SpeechInputController(
         }
         if (mutableState.value.phase == EtaSpeechPhase.STARTING) { cancel(); return }
         recorder?.finish()
-        mutableState.value = mutableState.value.copy(phase = EtaSpeechPhase.RECOGNIZING, progress = "正在识别", level = 0f)
+        val progressText = if (mutableState.value.holdToTalk) "正在识别并发送" else "正在识别"
+        mutableState.value = mutableState.value.copy(phase = EtaSpeechPhase.RECOGNIZING, progress = progressText, level = 0f)
     }
 
     fun cancel() {
