@@ -29,7 +29,10 @@ class EtaAssistantTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        val launch = Intent(this, EtaVoiceAssistActivity::class.java)
+        // 指向主界面而不是透明桥接 Activity：后者没有可见 UI，
+        // MagicOS 会把整次启动当作无界面操作静默丢弃。
+        val launch = Intent(this, io.github.mangi.eta.ui.MainActivity::class.java)
+            .putExtra(EtaAssistantOverlayService.EXTRA_SHOW_ASSISTANT, true)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         android.util.Log.i(TAG, "tile click sdk=" + Build.VERSION.SDK_INT)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

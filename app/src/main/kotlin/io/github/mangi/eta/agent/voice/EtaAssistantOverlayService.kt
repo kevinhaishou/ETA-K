@@ -869,6 +869,8 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     }
 
     internal companion object {
+        /** 磁贴等外部入口打开主界面时携带，主界面显示后再叠加助手浮层。 */
+        const val EXTRA_SHOW_ASSISTANT = "io.github.mangi.eta.agent.voice.extra.SHOW_ASSISTANT"
         const val ACTION_SHOW = "io.github.mangi.eta.agent.voice.SHOW"
         const val ACTION_OPEN_CONVERSATION = "io.github.mangi.eta.agent.voice.OPEN_CONVERSATION"
         const val EXTRA_CONVERSATION_KEY = "io.github.mangi.eta.agent.voice.extra.CONVERSATION_KEY"

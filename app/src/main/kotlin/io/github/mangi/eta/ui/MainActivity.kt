@@ -38,6 +38,13 @@ class MainActivity : ComponentActivity() {
         installStartupSplash { contentReady }
         enableEdgeToEdge()
         launchRequests = MainActivityLaunchRequests.restore(savedInstanceState, intent)
+        if (savedInstanceState == null &&
+            intent?.getBooleanExtra(EtaAssistantOverlayService.EXTRA_SHOW_ASSISTANT, false) == true
+        ) {
+            // 磁贴入口：先让主界面成为可见载体被系统放行，再叠加助手浮层。
+            intent.removeExtra(EtaAssistantOverlayService.EXTRA_SHOW_ASSISTANT)
+            EtaAssistantOverlayService.show(this, null)
+        }
         lifecycleScope.launch {
             val initialAppearance = AppearanceSettingsRepository.settings()
             appliedPredictiveBackEnabled = initialAppearance.predictiveBackEnabled
