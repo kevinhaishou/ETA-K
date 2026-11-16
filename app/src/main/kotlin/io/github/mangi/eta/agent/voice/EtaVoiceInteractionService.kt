@@ -55,15 +55,15 @@ class EtaVoiceInteractionService : VoiceInteractionService() {
 }
 
 /**
- * 系统助手入口桥接：优先请求语音会话，服务尚未就绪（冷启动、被系统回收）时直接拉起入口浮窗，
- * 避免按键后没有任何反应。MagicOS 上长按电源键是否走到这里取决于系统助手绑定，实测以日志为准。
+ * 助手入口桥接：磁贴、锁屏按键等外部入口统一走这里，直接拉起入口浮层。
+ * 之前放在 :voice 进程里且依赖会话实例，应用进程被回收时冷启动会失败，表现为“点了没反应”。
  */
 class EtaVoiceAssistActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val session = EtaVoiceInteractionService.requestSession()
-        android.util.Log.i("EtaVoice", "assist activity session=" + session)
-        if (!session) EtaAssistantOverlayService.show(this, null)
+        // 这个入口在主进程运行：拿不到 :voice 进程里的会话实例，
+        // 直接拉起入口浮层，冷启动（应用进程已被回收）时也能出界面。
+        EtaAssistantOverlayService.show(this, null)
         finish()
     }
 }

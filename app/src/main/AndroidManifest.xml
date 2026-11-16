@@ -97,7 +97,6 @@
             android:excludeFromRecents="true"
             android:exported="true"
             android:noHistory="true"
-            android:process=":voice"
             android:showWhenLocked="true"
             android:theme="@style/Theme.EtaVoiceAssistBridge">
             <intent-filter>
