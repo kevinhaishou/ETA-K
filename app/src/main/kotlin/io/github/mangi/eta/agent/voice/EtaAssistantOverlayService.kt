@@ -518,7 +518,10 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                         id = "$conversationKey:$runId",
                         source = AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE,
                         payload = payload.toJson(),
-                        dismissEntrySurfaceOnForegroundOperation = true,
+                        // 普通问答不应把入口浮窗顶掉：识别提交后由 Runtime 打开对话页也会走同名开关，
+                        // 用户看到的就是“说完话浮窗自己退了”。真正需要前台时由
+                        // AgentOverlayVisibilityPolicy 在拿到 GUI 控制权后收起。
+                        dismissEntrySurfaceOnForegroundOperation = false,
                     ),
                 ),
                 onEvent = { event -> handleRuntimeEvent(runId, event) },
