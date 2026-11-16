@@ -25,3 +25,21 @@ runs:
     - name: 安装 Android SDK 37
       shell: bash
       run: sdkmanager --channel=3 "platforms;android-37.0"
+
+    # 离线语音识别依赖 sherpa-onnx 的预编译 AAR（含 arm64-v8a 原生库）。
+    # 本地网络拉不动 GitHub 资产，改由 runner 下载；同时打印关键类签名，便于核对 Kotlin API。
+    - name: 下载 sherpa-onnx AAR
+      shell: bash
+      run: |
+        mkdir -p app/libs
+        curl -sSL --retry 3 --max-time 300 \
+          -o app/libs/sherpa-onnx-2.0.1.aar \
+          https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-2.0.1.aar
+        ls -l app/libs
+        unzip -o -q app/libs/sherpa-onnx-2.0.1.aar classes.jar -d /tmp/ksp_probe
+        unzip -o -q /tmp/ksp_probe/classes.jar -d /tmp/ksp_probe/cls
+        for c in OfflineRecognizer OfflineRecognizerConfig OfflineModelConfig OfflineSenseVoiceModelConfig FeatureConfig;
+        do
+          echo "=== $c ==="
+          javap -classpath /tmp/ksp_probe/cls com.k2fsa.sherpa.onnx.$c 2>/dev/null | head -40 || true
+        done

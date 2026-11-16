@@ -82,6 +82,7 @@ internal fun validateSpeechSettings(
     } else when (settings.asr) {
         // 系统识别由本机服务完成，不需要任何接口凭据。
         AsrProvider.SYSTEM -> Unit
+        AsrProvider.OFFLINE -> Unit
         AsrProvider.MIMO -> {
             required(secrets.mimoAsr, "MiMo 识别 API Key")
             speechBaseUrl(settings.mimoAsr.baseUrl)

@@ -27,6 +27,10 @@ internal suspend fun recognizeSpeechFile(
                 SpeechErrorCode.CONFIGURATION,
                 "本机语音识别不经过文件上传",
             )
+            AsrProvider.OFFLINE -> throw SpeechFailure(
+                SpeechErrorCode.CONFIGURATION,
+                "离线识别不经过文件上传",
+            )
             AsrProvider.MIMO -> {
                 onProgress("正在识别")
                 recognizeMimoSpeech(settings.mimoAsr, credentials.mimoAsr, wav)

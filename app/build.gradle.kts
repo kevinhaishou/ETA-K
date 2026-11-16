@@ -180,6 +180,8 @@ dependencies {
     // DataStore：Provider / Model 结构化 JSON 与当前选中 ID 等键值
     implementation(libs.datastore.preferences)
 
+    // 离线识别原生库（构建时由 CI 下载，不入仓库）
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)

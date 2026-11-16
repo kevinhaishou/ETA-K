@@ -57,6 +57,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun AsrProvider.label(): String = stringResource(
     when (this) {
         AsrProvider.SYSTEM -> R.string.speech_asr_system
+        AsrProvider.OFFLINE -> R.string.speech_asr_offline
         AsrProvider.QWEN_REALTIME -> R.string.speech_asr_qwen_realtime
         AsrProvider.QWEN_FLASH -> R.string.speech_asr_qwen_flash
         AsrProvider.QWEN_FILE -> R.string.speech_asr_qwen_file

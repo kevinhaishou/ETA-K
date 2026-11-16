@@ -1307,6 +1307,8 @@
   <string name="speech_read_next">下一段</string>
   <string name="speech_asr_system">系統語音辨識（免費）</string>
   <string name="speech_asr_note_system">使用手機內建的語音辨識服務，不消耗額度。</string>
+  <string name="speech_asr_offline">本機離線模型（免費）</string>
+  <string name="speech_asr_note_offline">用已下載的模型在本機辨識，不連網、不消耗額度。</string>
   <string name="speech_disable_auto_read">關閉自動朗讀</string>
   <string name="speech_enable_auto_read">開啟自動朗讀</string>
   <string name="read_aloud_channel">朗讀</string>

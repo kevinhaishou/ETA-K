@@ -100,6 +100,10 @@ internal class SpeechInputController(
                     }
                     return@launch
                 }
+                if (config.asr == AsrProvider.OFFLINE) {
+                    // 离线模型在本机独立进程识别，模型未就位时明确提示，不去联网。
+                    throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "还没有下载离线识别模型")
+                }
                 lease = SpeechAudioLease(context) { cancel() }.also { it.acquire(playback = false) }
                 val endpointSilenceMs = if (automaticEndpoint && !holdToTalk) config.autoSendSilenceMs else 0
                 val audio = createRecorder()

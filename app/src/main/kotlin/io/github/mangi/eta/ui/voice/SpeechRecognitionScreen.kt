@@ -46,6 +46,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
     val asrLabels = AsrProvider.entries.map { it.label() }
     val asrNoteRes = when (settings.asr) {
         AsrProvider.SYSTEM -> R.string.speech_asr_note_system
+        AsrProvider.OFFLINE -> R.string.speech_asr_note_offline
         AsrProvider.QWEN_REALTIME, AsrProvider.DOUBAO -> R.string.speech_asr_note_streaming
         AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
         AsrProvider.QWEN_FILE -> R.string.speech_asr_note_file
@@ -54,7 +55,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
     }
     val showQwenLanguage = when (settings.asr) {
         AsrProvider.QWEN_REALTIME, AsrProvider.QWEN_FLASH, AsrProvider.QWEN_FILE -> true
-        AsrProvider.SYSTEM, AsrProvider.DOUBAO, AsrProvider.MIMO, AsrProvider.DEEPSEEK -> false
+        AsrProvider.SYSTEM, AsrProvider.OFFLINE, AsrProvider.DOUBAO, AsrProvider.MIMO, AsrProvider.DEEPSEEK -> false
     }
 
     when (LocalUiStyle.current) {

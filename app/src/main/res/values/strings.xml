@@ -1339,6 +1339,8 @@
   <string name="speech_read_next">Next sentence</string>
   <string name="speech_asr_system">System speech recognition (free)</string>
   <string name="speech_asr_note_system">Uses the phone built-in recognizer; no API quota consumed.</string>
+  <string name="speech_asr_offline">On-device model (offline, free)</string>
+  <string name="speech_asr_note_offline">Runs on this phone with a downloaded model; no network or API key.</string>
   <string name="speech_disable_auto_read">Disable auto read-aloud</string>
   <string name="speech_enable_auto_read">Enable auto read-aloud</string>
   <string name="read_aloud_channel">Read aloud</string>
