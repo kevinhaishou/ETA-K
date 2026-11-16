@@ -37,6 +37,7 @@ internal fun validateSpeechSettings(
     if (synthesis) {
         when (settings.tts) {
             TtsProvider.NONE -> throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "请先在设置中配置语音播报")
+            TtsProvider.ANDROID -> return
             TtsProvider.QWEN -> {
                 required(secrets.qwenTts, "千问播报 API Key")
                 required(settings.qwenVoice, "音色")

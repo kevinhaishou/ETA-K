@@ -136,6 +136,7 @@ internal fun DeepSeekTtsConnectionSection(store: SpeechSettingsStore) {
 @Composable
 internal fun SpeechDeliveryFields(store: SpeechSettingsStore) {
     when (store.settings.tts) {
+        TtsProvider.ANDROID -> Unit
         TtsProvider.GEMINI, TtsProvider.MIMO -> {
             val settings = store.settings
             val mimo = settings.tts == TtsProvider.MIMO

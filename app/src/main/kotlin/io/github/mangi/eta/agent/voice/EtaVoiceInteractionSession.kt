@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.os.Bundle
 import android.graphics.Bitmap
 import android.service.voice.VoiceInteractionSession
+import android.view.KeyEvent
 import android.view.View
 
 /**
@@ -73,6 +74,18 @@ internal class EtaVoiceInteractionSession(context: Context) : VoiceInteractionSe
     override fun onBackPressed() {
         EtaAssistantOverlayService.dismiss(context)
         hide()
+    }
+
+    /**
+     * 数字助理被电源键唤起时，系统可能把按键先交给会话：录音中即结束提交，
+     * 空闲时关闭浮窗；识别中不做处理，避免把请求丢掉。
+     */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_POWER) {
+            EtaAssistantOverlayService.handlePowerKey(context)
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onCloseSystemDialogs() {

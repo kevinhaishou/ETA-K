@@ -1,8 +1,10 @@
 package io.github.mangi.eta.ui.voice
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import com.itos.coui.dialog.CouiDialogDefaults
 import com.itos.coui.layout.Divider
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.voice.SystemTtsProbe
 import io.github.mangi.eta.agent.voice.validateSpeechSettings
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.TtsProvider
@@ -136,10 +139,27 @@ private fun SpeechPreviewSection(store: SpeechSettingsStore) {
     var text by rememberSaveable { mutableStateOf(defaultText) }
     val title = stringResource(if (playing) R.string.speech_preview_stop else R.string.speech_preview_voice)
     val summary = playback.error ?: if (playback.loading) stringResource(R.string.speech_preview_loading) else null
+    // 进入播报页自动试听一次（仅本机引擎）：用于确认调用链是否打通
+    LaunchedEffect(store.settings.tts) {
+        if (store.settings.tts == TtsProvider.ANDROID) {
+            android.util.Log.w("EtaSystemTts", "auto preview enter tts=ANDROID")
+            store.playback.speak("preview-auto", text, store.settings, store.credentials)
+        }
+    }
+
+    val previewContext = LocalContext.current
     val onPreviewClick: () -> Unit = {
-        if (playing) {
-            store.playback.stop()
+        if (store.settings.tts == TtsProvider.ANDROID) {
+            // 本机引擎直接播报，绕开播报控制器与前台服务
+            SystemTtsProbe.speak(
+                context = previewContext,
+                text = text,
+                onResult = { message ->
+                    Toast.makeText(previewContext, message, Toast.LENGTH_SHORT).show()
+                },
+            )
         } else {
+            store.playback.stop()
             store.playback.speak(
                 "preview",
                 text,
@@ -173,7 +193,7 @@ private fun SpeechPreviewSection(store: SpeechSettingsStore) {
                         title = title,
                         summary = summary,
                         summaryColor = if (playback.error != null) dialogColors.destructive else Color.Unspecified,
-                        enabled = !store.saving && text.isNotBlank(),
+                        enabled = text.isNotBlank(),
                         showChevron = false,
                         onClick = onPreviewClick,
                     )
@@ -187,7 +207,7 @@ private fun SpeechPreviewSection(store: SpeechSettingsStore) {
                         } else {
                             BasicComponentDefaults.summaryColor()
                         },
-                        enabled = !store.saving && text.isNotBlank(),
+                        enabled = text.isNotBlank(),
                         onClick = onPreviewClick,
                     )
                 }

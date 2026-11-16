@@ -31,6 +31,8 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -393,19 +395,48 @@ internal fun SpeechPlaybackErrors(controller: SpeechPlaybackController) {
     }
 }
 
-/** 朗读入口与相邻的消息操作共享同一套尺寸与线性图标风格，播放中转为停止。 */
+/** 朗读入口与相邻的消息操作共享同一套尺寸与线性图标风格，播放中展开为进度 + 暂停 / 停止。 */
 @Composable
 internal fun SpeechReadAloudButton(messageId: String, text: String) {
     val controller = LocalSpeechPlayback.current ?: return
     if (!LocalSpeechPlaybackEnabled.current) return
     val state by controller.state.collectAsState()
     val active = state.messageId == messageId
-    AnswerActionButton(
-        icon = if (active) ChatActionIcons.Stop else ChatActionIcons.Volume,
-        contentDescription = stringResource(
-            if (active) R.string.speech_read_stop else R.string.speech_read_aloud,
-        ),
-        onClick = { if (active) controller.stop() else controller.speak(messageId, text) },
-        tint = if (active) MiuixTheme.colorScheme.primary else null,
-    )
+    if (!active) {
+        AnswerActionButton(
+            icon = ChatActionIcons.Volume,
+            contentDescription = stringResource(R.string.speech_read_aloud),
+            onClick = { controller.speak(messageId, text) },
+        )
+        return
+    }
+    val accent = MiuixTheme.colorScheme.primary
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // 离线朗读按片段推进，进度让用户知道读到哪；云端整篇播放没有片段概念，不显示。
+        if (state.segmentCount > 1) {
+            Text(
+                text = "${state.segmentIndex + 1}/${state.segmentCount}",
+                color = accent,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                modifier = Modifier.padding(end = 2.dp),
+            )
+        }
+        AnswerActionButton(
+            icon = if (state.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+            contentDescription = stringResource(
+                if (state.paused) R.string.speech_read_resume else R.string.speech_read_pause,
+            ),
+            onClick = { controller.togglePause() },
+            enabled = !state.loading,
+            tint = if (state.paused) accent else null,
+        )
+        AnswerActionButton(
+            icon = ChatActionIcons.Stop,
+            contentDescription = stringResource(R.string.speech_read_stop),
+            onClick = { controller.stop() },
+            tint = accent,
+        )
+    }
 }

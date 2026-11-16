@@ -9,11 +9,15 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,9 +52,11 @@ import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.device.DeviceLocationProvider
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.runtime.AgentRuntimeService
+import io.github.mangi.eta.agent.skill.SkillRuntime
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
 import io.github.mangi.eta.ui.CustomSystemPromptScreen
@@ -66,6 +72,7 @@ import io.github.mangi.eta.ui.markdown.rememberMarkdownStyle
 import io.github.mangi.eta.ui.markdown.staticMarkdownDocumentCache
 import io.github.mangi.eta.ui.model.AgentHomeAction
 import io.github.mangi.eta.ui.model.AgentMemoryAction
+import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.AgentSkillsAction
 import io.github.mangi.eta.ui.model.AgentSystemEnhanceAction
 import io.github.mangi.eta.ui.model.AgentToolsAction
@@ -73,6 +80,7 @@ import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import io.github.mangi.eta.ui.model.LOCAL_NETWORK_PERMISSION_ITEM_ID
 import io.github.mangi.eta.ui.model.PermissionHealthAction
 import io.github.mangi.eta.ui.model.PermissionStatusUi
+import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.model.roleplayChatUi
 import io.github.mangi.eta.ui.navigation.AgentNavigator
 import io.github.mangi.eta.ui.navigation.AppRoute
@@ -108,10 +116,12 @@ import io.github.mangi.eta.ui.voice.SpeechOssScreen
 import io.github.mangi.eta.ui.voice.SpeechRecognitionScreen
 import io.github.mangi.eta.ui.voice.SpeechSettingsScreen
 import io.github.mangi.eta.ui.voice.SpeechSynthesisScreen
+import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.layout.DialogDefaults
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
@@ -120,6 +130,7 @@ import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import top.yukonga.miuix.kmp.nav.transition.NavTransitions
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
@@ -200,6 +211,8 @@ fun AgentAppRoot(
     var conversationDeleteTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var conversationExportTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var messageDeleteTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
+    var memorySaveDraft by remember { mutableStateOf<String?>(null) }
+    var quotePickerMessageId by remember { mutableStateOf<String?>(null) }
     var messageRegenerateTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
     val conversationExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/markdown"),
@@ -298,6 +311,55 @@ fun AgentAppRoot(
         agentState.selectConversation(conversationId)
         navigator.popToHome()
         conversationPaneOpen = false
+    }
+
+    /** 把一条回复落成技能：写入 skills/<id>/SKILL.md 后刷新技能列表。 */
+    fun commitSkillFromMessage(content: String) {
+        uiScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    val root = SkillRuntime.skillsRoot(context)
+                    val id = "from-chat-" + System.currentTimeMillis()
+                    val dir = File(root, id).apply { mkdirs() }
+                    val title = content.lineSequence().firstOrNull { it.isNotBlank() }
+                        .orEmpty().trim().take(60).ifBlank { id }
+                    val description = content.replace(Regex("\\s+"), " ").take(120)
+                    File(dir, "SKILL.md").writeText(
+                        "---\nname: $id\ndescription: $description\n---\n\n# $title\n\n$content\n",
+                    )
+                    true
+                }.getOrDefault(false)
+            }
+            if (ok) {
+                skills.refreshSkills()
+                Toast.makeText(context, "已保存为技能", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "保存技能失败", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /** 把审核后的片段追加到记忆末尾，不覆盖原有内容。 */
+    fun commitMemorySnippet(snippet: String) {
+        uiScope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                runCatching {
+                    val current = AgentMemoryRepository.snapshot().content
+                    val next = if (current.isBlank()) {
+                        snippet
+                    } else {
+                        current.trimEnd() + "\n\n" + snippet
+                    }
+                    AgentMemoryRepository.replaceAll(next)
+                    true
+                }.getOrDefault(false)
+            }
+            Toast.makeText(
+                context,
+                if (saved) "已追加到记忆（未覆盖原内容）" else "保存记忆失败",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
     }
 
     fun createConversation() {
@@ -451,6 +513,31 @@ fun AgentAppRoot(
                                     is AgentHomeAction.RemoveFileReference ->
                                         agentState.removePendingFileReference(action.id)
                                     is AgentHomeAction.EditMessage -> agentState.beginMessageEdit(action.id)
+                                    is AgentHomeAction.QuoteMessage -> {
+                                        if (action.excerpt != null) {
+                                            agentState.quoteMessage(action.id, action.excerpt)
+                                        } else {
+                                            quotePickerMessageId = action.id
+                                        }
+                                    }
+                                    is AgentHomeAction.SaveMemoryFromMessage -> {
+                                        val content = (
+                                            agentState.homeState.messages
+                                                .firstOrNull { it.id == action.id } as? AgentMessageUi
+                                            )?.content.orEmpty().trim()
+                                        if (content.isNotEmpty()) {
+                                            memorySaveDraft = content.take(4000)
+                                        }
+                                    }
+                                    is AgentHomeAction.SaveSkillFromMessage -> {
+                                        val content = (
+                                            agentState.homeState.messages
+                                                .firstOrNull { it.id == action.id } as? AgentMessageUi
+                                            )?.content.orEmpty().trim()
+                                        if (content.isNotEmpty()) {
+                                            commitSkillFromMessage(content.take(8000))
+                                        }
+                                    }
                                     AgentHomeAction.CancelMessageEdit -> agentState.cancelMessageEdit()
                                     is AgentHomeAction.DeleteMessage -> {
                                         agentState.messageRevisionImpact(action.id)?.let { impact ->
@@ -1060,6 +1147,83 @@ fun AgentAppRoot(
                             onConfirm = onConfirmRegenerate,
                         )
                     }
+                }
+            }
+        }
+    }
+    memorySaveDraft?.let { draft ->
+        val snippetPreview = if (draft.length > 300) draft.take(300) + "…" else draft
+        when (LocalUiStyle.current) {
+            AppearanceUiStyle.COUI -> {
+                CouiConfirmDialog(
+                    visible = true,
+                    title = "保存到记忆",
+                    message = "确认后追加到记忆末尾，不覆盖原有内容：\n\n$snippetPreview",
+                    confirmText = stringResource(R.string.action_confirm),
+                    onConfirm = {
+                        commitMemorySnippet(draft)
+                        memorySaveDraft = null
+                    },
+                    onDismissRequest = { memorySaveDraft = null },
+                )
+            }
+            AppearanceUiStyle.MIUIX -> {
+                WindowDialog(
+                    show = true,
+                    cornerRadius = DialogDefaults.CornerRadius,
+                    title = "保存到记忆",
+                    summary = "确认后追加到记忆末尾，不覆盖原有内容。",
+                    onDismissRequest = { memorySaveDraft = null },
+                ) {
+                    MiuixDialogActions(
+                        confirmText = stringResource(R.string.action_confirm),
+                        onCancel = { memorySaveDraft = null },
+                        onConfirm = {
+                            commitMemorySnippet(draft)
+                            memorySaveDraft = null
+                        },
+                    )
+                }
+            }
+        }
+    }
+    quotePickerMessageId?.let { messageId ->
+        val quotedContent = when (
+            val message = agentState.homeState.messages.firstOrNull { it.id == messageId }
+        ) {
+            is UserMessageUi -> message.content
+            is AgentMessageUi -> message.content
+            else -> ""
+        }
+        val paragraphs = quotedContent
+            .split(Regex("\n\\s*\n"))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        WindowDialog(
+            show = true,
+            cornerRadius = DialogDefaults.CornerRadius,
+            title = "选择要引用的段落",
+            summary = "点某一段，把它的摘录加到输入框顶部",
+            onDismissRequest = { quotePickerMessageId = null },
+        ) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                paragraphs.forEach { paragraph ->
+                    Text(
+                        text = paragraph.take(100) + if (paragraph.length > 100) "…" else "",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                agentState.quoteMessage(messageId, paragraph)
+                                quotePickerMessageId = null
+                            }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurface,
+                    )
                 }
             }
         }

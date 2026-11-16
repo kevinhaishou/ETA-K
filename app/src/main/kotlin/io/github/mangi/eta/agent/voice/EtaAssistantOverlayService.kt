@@ -303,6 +303,16 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         speechState = EtaSpeechState()
     }
 
+    /** 电源键：录音中直接结束并提交，识别中保持不动，空闲时关闭浮窗。 */
+    private fun handlePowerKey() {
+        val phase = speechInput.state.value.phase
+        when {
+            phase == EtaSpeechPhase.STARTING || phase == EtaSpeechPhase.LISTENING -> speechInput.finish()
+            phase == EtaSpeechPhase.RECOGNIZING -> Unit
+            else -> dismissAndStop()
+        }
+    }
+
     private fun switchToKeyboard() {
         speechInput.cancel()
         speechState = EtaSpeechState()
@@ -926,6 +936,20 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             context.applicationContext.stopService(
                 Intent(context.applicationContext, EtaAssistantOverlayService::class.java),
             )
+        }
+
+        /** 系统会话收到电源键时转交给入口浮层，语义与浮层内的结束 / 关闭一致。 */
+        fun handlePowerKey(context: Context) {
+            val service = activeService
+            if (service == null) {
+                EtaVoiceInteractionSession.requestHideForForegroundOperation(context)
+                return
+            }
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                service.handlePowerKey()
+            } else {
+                mainHandler.post { activeService?.handlePowerKey() }
+            }
         }
 
         fun notifyHandoffReady(context: Context) {

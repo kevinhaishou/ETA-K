@@ -56,6 +56,14 @@ internal class SpeechPcmOutput : SpeechAudioOutput {
         finished && (it.playbackHeadPosition.toLong() and 0xffffffffL) >= frames
     } ?: true
 
+    @Synchronized override fun pause() {
+        track?.let { if (it.playState == AudioTrack.PLAYSTATE_PLAYING) it.pause() }
+    }
+
+    @Synchronized override fun resume() {
+        track?.let { if (it.playState == AudioTrack.PLAYSTATE_PAUSED) it.play() }
+    }
+
     @Synchronized override fun close() {
         track?.let { it.pause(); it.flush(); it.release() }
         track = null

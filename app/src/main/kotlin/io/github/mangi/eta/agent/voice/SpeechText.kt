@@ -99,4 +99,29 @@ internal object SpeechText {
         }
         return result
     }
+
+    /** 分段文本及其在原文中的位置，供朗读进度与续读定位使用；切分规则与 [chunks] 一致。 */
+    fun segments(text: String, limit: Int = 500): List<SpeechSegment> {
+        require(limit >= 2)
+        val result = mutableListOf<SpeechSegment>()
+        val length = text.length
+        var cursor = 0
+        while (cursor < length) {
+            while (cursor < length && text[cursor].isWhitespace()) cursor++
+            if (cursor >= length) break
+            var end = minOf(cursor + limit, length)
+            if (end < length) {
+                val boundary = text.substring(cursor, end).indexOfLast { it in "。！？.!?；;\n" }
+                if (boundary >= (end - cursor) / 2) end = cursor + boundary + 1
+                if (end > cursor && text[end - 1].isHighSurrogate()) end--
+            }
+            if (end <= cursor) end = minOf(cursor + limit, length)
+            result += SpeechSegment(cursor until end, text.substring(cursor, end))
+            cursor = end
+        }
+        return result.ifEmpty { listOf(SpeechSegment(0 until length, text)) }
+    }
 }
+
+/** [range] 对应朗读源文本中的下标区间，[text] 是可直接送进引擎的片段。 */
+internal data class SpeechSegment(val range: IntRange, val text: String)

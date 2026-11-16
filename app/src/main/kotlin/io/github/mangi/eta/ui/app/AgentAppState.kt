@@ -1476,6 +1476,33 @@ internal class AgentAppState(
         )
     }
 
+    /** 引用某条消息继续追问：把引用片段追加在草稿之前，保留已有草稿、不自动发送。 */
+    fun quoteMessage(messageId: String, excerpt: String? = null) {
+        val content = when (val message = homeState.messages.firstOrNull { it.id == messageId }) {
+            is UserMessageUi -> message.content
+            is AgentMessageUi -> message.content
+            else -> return
+        }.trim()
+        if (content.isEmpty()) return
+        // 优先用选区文本；没有选区时取首段。引用保持一行、最多 120 字
+        val plain = excerpt?.trim()?.takeIf { it.isNotEmpty() }
+            ?: content.lineSequence()
+                .map { it.trim() }
+                .firstOrNull { it.isNotBlank() }
+                .orEmpty()
+        val excerpt = plain.take(120).trimEnd()
+        val quoted = "> " + excerpt + if (plain.length > excerpt.length) "…" else ""
+        val draft = homeState.input
+        val next = if (draft.isBlank()) "$quoted\n\n" else "$quoted\n\n$draft"
+        updateCurrentConversation(
+            homeState.copy(
+                input = next,
+                inputSyncVersion = homeState.inputSyncVersion + 1,
+                focusInputOnSync = false,
+            ),
+        )
+    }
+
     fun beginMessageEdit(messageId: String) {
         if (homeState.isStreaming || homeState.messageEdit != null || isBranchingCurrentConversation) return
         if (homeState.roleplay != null) {

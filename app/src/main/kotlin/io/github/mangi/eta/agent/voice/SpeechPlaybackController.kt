@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.model.SpeechCredentials
 import io.github.mangi.eta.data.model.SpeechSettings
+import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.data.repository.SpeechSettingsRepository
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
@@ -15,13 +16,22 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
-internal data class SpeechPlaybackState(val messageId: String? = null, val loading: Boolean = false, val error: String? = null)
+internal data class SpeechPlaybackState(
+    val messageId: String? = null,
+    val loading: Boolean = false,
+    val error: String? = null,
+    val paused: Boolean = false,
+    /** 离线朗读按片段推进；0 表示云端整篇播放或尚未开始，界面据此决定是否显示进度。 */
+    val segmentIndex: Int = 0,
+    val segmentCount: Int = 0,
+)
 
 internal class SpeechPlaybackController(
     private val context: Context,
@@ -41,6 +51,9 @@ internal class SpeechPlaybackController(
     private var output: SpeechAudioOutput? = null
     private var lease: SpeechAudioLease? = null
     private var playbackActive = false
+    private var systemTts: SystemTtsPlayer? = null
+    /** 暂停是一个闸门：已排队的片段停在原地，恢复后从当前片段继续。 */
+    private val pausedFlow = MutableStateFlow(false)
 
     fun speak(messageId: String, text: String, settings: SpeechSettings? = null, credentials: SpeechCredentials? = null) {
         stop()
@@ -48,10 +61,33 @@ internal class SpeechPlaybackController(
         mutableState.value = SpeechPlaybackState(messageId, loading = true)
         job = scope.launch(Dispatchers.Main.immediate) {
             try {
-                lease = SpeechAudioLease(context, interruptOnScreenOff) { stop() }.also { it.acquire(playback = false) }
                 val rawConfig = settings ?: SpeechSettingsRepository.settings()
                 val rawSecrets = credentials ?: SpeechSettingsRepository.credentials(context)
                 val (config, secrets) = SpeechSettingsRepository.resolveDeepSeekFallback(rawConfig, rawSecrets)
+                android.util.Log.w("EtaSystemTts", "branch enter tts=" + config.tts)
+                if (config.tts == TtsProvider.ANDROID) {
+                    val readableText = withContext(Dispatchers.Default) { SpeechText.readable(text) }
+                    if (readableText.isBlank()) {
+                        throw SpeechFailure(SpeechErrorCode.NO_SPEECH, "这条消息没有可朗读的正文")
+                    }
+                    val segments = withContext(Dispatchers.Default) {
+                        SpeechText.segments(readableText.take(4000))
+                    }
+                    val tts = systemTts ?: SystemTtsPlayer(context).also { systemTts = it }
+                    // 系统引擎没有 pause：按片段循环，暂停只停当前片段，继续时重播该片段。
+                    var index = 0
+                    while (index < segments.size) {
+                        if (session != generation) return@launch
+                        if (pausedFlow.value) pausedFlow.first { !it }
+                        if (session != generation) return@launch
+                        publish(messageId, index, segments.size, pausedFlow.value)
+                        val finished = tts.speak(segments[index].text)
+                        if (finished) index++
+                    }
+                    return@launch
+                }
+                lease = SpeechAudioLease(context, interruptOnScreenOff) { stop() }
+                    .also { it.acquire(playback = false) }
                 validateSpeechSettings(config, secrets, synthesis = true)
                 val readable = withContext(Dispatchers.Default) { SpeechText.readable(text) }
                 if (readable.isBlank()) throw SpeechFailure(SpeechErrorCode.NO_SPEECH, "这条消息没有可朗读的正文")
@@ -59,9 +95,10 @@ internal class SpeechPlaybackController(
                 lease?.requestPlaybackFocus { beforePlayback(); playbackActive = true }
                 val player = createOutput()
                 output = player
+                publish(messageId, 0, 0, pausedFlow.value)
                 playChunks(config, secrets, SpeechText.chunks(readable), player) {
                     scope.launch(Dispatchers.Main.immediate) {
-                        if (session == generation) mutableState.value = SpeechPlaybackState(messageId)
+                        if (session == generation) publish(messageId, 0, 0, pausedFlow.value)
                     }
                 }
                 player.finish()
@@ -79,6 +116,26 @@ internal class SpeechPlaybackController(
                 if (session == generation) stop()
             }
         }
+    }
+
+    /** 暂停：离线停当前片段、云端停住音轨；两条路径都保留进度，继续时接上。 */
+    fun pause() {
+        if (mutableState.value.messageId == null || mutableState.value.paused) return
+        pausedFlow.value = true
+        systemTts?.pause()
+        output?.pause()
+        mutableState.value = mutableState.value.copy(paused = true)
+    }
+
+    fun resume() {
+        if (mutableState.value.messageId == null || !mutableState.value.paused) return
+        pausedFlow.value = false
+        output?.resume()
+        mutableState.value = mutableState.value.copy(paused = false)
+    }
+
+    fun togglePause() {
+        if (mutableState.value.paused) resume() else pause()
     }
 
     /**
@@ -151,6 +208,8 @@ internal class SpeechPlaybackController(
     }
 
     fun stop() {
+        pausedFlow.value = false
+        systemTts?.stop()
         generation++
         output?.close(); output = null
         job?.cancel(); job = null
@@ -158,6 +217,15 @@ internal class SpeechPlaybackController(
         if (playbackActive) afterPlayback()
         playbackActive = false
         mutableState.value = SpeechPlaybackState()
+    }
+
+    private fun publish(messageId: String, index: Int, count: Int, paused: Boolean) {
+        mutableState.value = SpeechPlaybackState(
+            messageId = messageId,
+            paused = paused,
+            segmentIndex = index,
+            segmentCount = count,
+        )
     }
 }
 
@@ -172,4 +240,9 @@ internal interface SpeechAudioOutput : Closeable {
     fun write(bytes: ByteArray)
     fun finish()
     fun drained(): Boolean
+
+    /** 暂停只是让音轨停住，合成与队列仍可继续；恢复时从停下的位置续播。 */
+    fun pause() {}
+
+    fun resume() {}
 }

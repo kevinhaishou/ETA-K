@@ -9,7 +9,7 @@ private const val DEEPSEEK_SPEECH_BASE_URL = "https://api.deepseek.com"
 enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO, DEEPSEEK }
 
 @Serializable
-enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, DEEPSEEK }
+enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, DEEPSEEK, ANDROID }
 
 @Serializable
 enum class SpeechRegion { BEIJING, SINGAPORE }

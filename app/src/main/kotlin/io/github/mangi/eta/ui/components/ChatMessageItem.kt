@@ -236,6 +236,9 @@ internal fun ChatMessageItem(
     onDeleteMessage: (String) -> Unit = {},
     onRegenerateMessage: (String) -> Unit = {},
     onBranchMessage: (String) -> Unit = {},
+    onQuoteMessage: (String, String?) -> Unit = { _, _ -> },
+    onSaveMemoryMessage: (String) -> Unit = {},
+    onSaveSkillMessage: (String) -> Unit = {},
     onSelectReplyCandidate: (String, Int) -> Unit = { _, _ -> },
 ) {
     when (message) {
@@ -257,6 +260,9 @@ internal fun ChatMessageItem(
             showMessageActions = showMessageActions,
             showBranchAction = showBranchAction,
             onBranch = { onBranchMessage(message.id) },
+            onQuote = { selected -> onQuoteMessage(message.id, selected) },
+            onSaveMemory = { onSaveMemoryMessage(message.id) },
+            onSaveSkill = { onSaveSkillMessage(message.id) },
             messageActionsEnabled = messageActionsEnabled,
             onDelete = { onDeleteMessage(message.id) },
             onRegenerate = { onRegenerateMessage(message.id) },
@@ -953,6 +959,9 @@ private fun AgentMessageBlock(
     onRegenerate: () -> Unit,
     onEdit: () -> Unit = {},
     onSelectCandidate: (Int) -> Unit = {},
+    onQuote: (String?) -> Unit = {},
+    onSaveMemory: () -> Unit = {},
+    onSaveSkill: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
@@ -1022,6 +1031,19 @@ private fun AgentMessageBlock(
                     ),
                 )
             }
+            if (message.content.isNotBlank()) {
+                add(MessageActionItem(15, "引用追问", ChatActionIcons.Copy))
+            }
+            if (!showBranchAction && message.content.isNotBlank()) {
+                // 不满足分支条件时，明确给出「只引用片段」的继续方式，不冒充继承历史
+                add(MessageActionItem(18, "引用片段继续（不继承历史）", ChatActionIcons.Branch))
+            }
+            if (message.content.isNotBlank()) {
+                add(MessageActionItem(16, "保存记忆", ChatActionIcons.Check))
+            }
+            if (message.content.isNotBlank()) {
+                add(MessageActionItem(17, "保存技能", ChatActionIcons.Branch))
+            }
             if (showMessageActions) {
                 add(
                     MessageActionItem(
@@ -1068,6 +1090,7 @@ private fun AgentMessageBlock(
                 )
             }
             message.renderMarkdown -> {
+                MessageSelectionToolbar(messageText = message.content, onQuote = onQuote) {
                 SelectionContainer {
                     StaticMarkdown(
                         content = message.content,
@@ -1076,8 +1099,10 @@ private fun AgentMessageBlock(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                }
             }
             message.content.isNotBlank() -> {
+                MessageSelectionToolbar(messageText = message.content, onQuote = onQuote) {
                 SelectionContainer {
                     Text(
                         text = message.content,
@@ -1087,6 +1112,7 @@ private fun AgentMessageBlock(
                         ),
                         color = MiuixTheme.colorScheme.onSurface,
                     )
+                }
                 }
             }
         }
@@ -1177,10 +1203,7 @@ private fun AgentMessageBlock(
                             onSelect = onSelectCandidate,
                         )
                     }
-                }
-            }
-
-            Box(modifier = Modifier.couiMenuAnchor(answerAnchor)) {
+                    Box(modifier = Modifier.couiMenuAnchor(answerAnchor)) {
                 AnswerActionButton(
                     icon = Icons.Rounded.MoreHoriz,
                     contentDescription = "更多",
@@ -1203,11 +1226,19 @@ private fun AgentMessageBlock(
                             12 -> onRegenerate()
                             13 -> onBranch()
                             14 -> onDelete()
+                            15 -> onQuote(null)
+                            16 -> onSaveMemory()
+                            17 -> onSaveSkill()
+                            18 -> onQuote(null)
                         }
                     },
                     anchor = answerAnchor,
                 )
             }
+                }
+            }
+
+
         }
     }
 }

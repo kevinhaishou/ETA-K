@@ -22,6 +22,9 @@ sealed interface AgentHomeAction {
     data class FilePathAttached(val path: String) : AgentHomeAction
     data class RemoveFileReference(val id: String) : AgentHomeAction
     data class EditMessage(val id: String) : AgentHomeAction
+    data class QuoteMessage(val id: String, val excerpt: String? = null) : AgentHomeAction
+    data class SaveMemoryFromMessage(val id: String) : AgentHomeAction
+    data class SaveSkillFromMessage(val id: String) : AgentHomeAction
     data object CancelMessageEdit : AgentHomeAction
     data class DeleteMessage(val id: String) : AgentHomeAction
     data class RegenerateMessage(val id: String) : AgentHomeAction
