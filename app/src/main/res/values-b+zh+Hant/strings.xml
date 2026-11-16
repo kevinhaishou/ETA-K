@@ -1305,6 +1305,7 @@
   <string name="speech_read_resume">繼續朗讀</string>
   <string name="speech_read_prev">上一段</string>
   <string name="speech_read_next">下一段</string>
+  <string name="eta_assistant_tile">Eta 助手</string>
   <string name="speech_disable_auto_read">關閉自動朗讀</string>
   <string name="speech_enable_auto_read">開啟自動朗讀</string>
   <string name="read_aloud_channel">朗讀</string>
