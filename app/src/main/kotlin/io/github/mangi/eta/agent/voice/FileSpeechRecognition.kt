@@ -23,6 +23,10 @@ internal suspend fun recognizeSpeechFile(
 ): String = withContext(Dispatchers.IO) {
     withTimeout(300_000) {
         when (settings.asr) {
+            AsrProvider.SYSTEM -> throw SpeechFailure(
+                SpeechErrorCode.CONFIGURATION,
+                "本机语音识别不经过文件上传",
+            )
             AsrProvider.MIMO -> {
                 onProgress("正在识别")
                 recognizeMimoSpeech(settings.mimoAsr, credentials.mimoAsr, wav)

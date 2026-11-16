@@ -1318,6 +1318,8 @@
   <string name="speech_read_prev">上一段</string>
   <string name="speech_read_next">下一段</string>
   <string name="eta_assistant_tile">Eta 助手</string>
+  <string name="speech_asr_system">系统语音识别（免费）</string>
+  <string name="speech_asr_note_system">使用手机自带的语音识别服务，不消耗接口额度。</string>
   <string name="speech_disable_auto_read">关闭自动朗读</string>
   <string name="speech_enable_auto_read">开启自动朗读</string>
   <string name="read_aloud_channel">朗读</string>
