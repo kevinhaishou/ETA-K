@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.Cloud
@@ -804,6 +805,7 @@ private fun SettingsPageContent(
                         context = context,
                         prefs = agentPrefs,
                         title = stringResource(R.string.settings_keep_screen_on),
+                        summary = stringResource(R.string.settings_keep_screen_on_summary),
                         key = Prefs.Keys.AGENT_KEEP_SCREEN_ON_ENABLED,
                         icon = Icons.Rounded.BrightnessHigh,
                         iconTint = SettingsIconColors.Orange,
@@ -1315,6 +1317,7 @@ private fun SettingsPageContent(
                             context = context,
                             prefs = agentPrefs,
                             title = stringResource(R.string.settings_keep_screen_on),
+                            summary = stringResource(R.string.settings_keep_screen_on_summary),
                             key = Prefs.Keys.AGENT_KEEP_SCREEN_ON_ENABLED,
                             icon = Icons.Rounded.BrightnessHigh,
                             iconTint = SettingsIconColors.Orange,

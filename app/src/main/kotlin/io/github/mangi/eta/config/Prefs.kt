@@ -54,6 +54,7 @@ internal object Prefs {
         const val AGENT_SUBAGENT_ENABLED = "agent_subagent_enabled"
         const val AGENT_VIRTUAL_DISPLAY_ENABLED = "agent_virtual_display_enabled"
         const val AGENT_TOOL_APPROVAL_ENABLED = "agent_tool_approval_enabled"
+        const val AGENT_KEEP_SCREEN_ON_ENABLED = "agent_keep_screen_on_enabled"
         const val AGENT_RUNTIME_CONFIG_JSON = "agent_runtime_config_json"
         const val AGENT_DISABLED_TOOLS_JSON = "agent_disabled_tools_json"
 
@@ -78,6 +79,7 @@ internal object Prefs {
             AGENT_SUBAGENT_ENABLED to true,
             AGENT_VIRTUAL_DISPLAY_ENABLED to true,
             AGENT_TOOL_APPROVAL_ENABLED to true,
+            AGENT_KEEP_SCREEN_ON_ENABLED to true,
         )
 
         /** 由 Eta Runtime 最终裁决、不要求 Xposed 框架在线的开关。 */
@@ -92,6 +94,7 @@ internal object Prefs {
             AGENT_SUBAGENT_ENABLED,
             AGENT_VIRTUAL_DISPLAY_ENABLED,
             AGENT_TOOL_APPROVAL_ENABLED,
+            AGENT_KEEP_SCREEN_ON_ENABLED,
         )
     }
 
