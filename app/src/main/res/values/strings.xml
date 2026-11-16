@@ -1548,4 +1548,5 @@
   <string name="appearance_sidebar_alpha_summary">How much the wallpaper shows through the conversation sidebar</string>
   <string name="speech_tts_android">System offline TTS</string>
   <string name="speech_tts_clone">Voice clone (on-device)</string>
+  <string name="settings_keep_screen_on">Keep screen on while running</string>
 </resources>
