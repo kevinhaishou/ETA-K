@@ -13,8 +13,9 @@ import io.github.mangi.eta.R
  * 荣耀 X50 的长按电源键由厂商写死给自家助手，禁用后长按无反应、启用又会抢回默认助手，
  * 所以给一个不依赖按键路由的入口，任何界面下拉通知栏都能用。
  *
- * 点击必须走 [startActivityAndCollapse]：TileService 属于后台上下文，直接 startActivity
- * 会被系统的后台启动限制静默丢弃，表现为“点了没反应”。
+ * 启动方式准备了两条：官方的 startActivityAndCollapse 之外再补一条直接 startActivity。
+ * MagicOS 上曾观察到 collapse 被静默丢弃——日志里只有 `TileLifecycleManager: onclick`，
+ * 既没有 START 也没有 blocked，所以不能只依赖一条通道。
  */
 class EtaAssistantTileService : TileService() {
     override fun onStartListening() {
@@ -30,17 +31,25 @@ class EtaAssistantTileService : TileService() {
         super.onClick()
         val launch = Intent(this, EtaVoiceAssistActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        android.util.Log.i(TAG, "tile click sdk=" + Build.VERSION.SDK_INT)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startActivityAndCollapse(
-                PendingIntent.getActivity(this, 0, launch, PendingIntent.FLAG_IMMUTABLE),
-            )
+            val pending = PendingIntent.getActivity(this, 0, launch, PendingIntent.FLAG_IMMUTABLE)
+            runCatching { startActivityAndCollapse(pending) }
+                .onFailure { android.util.Log.w(TAG, "collapse failed: " + it.javaClass.simpleName) }
         } else {
             @Suppress("DEPRECATION")
-            startActivityAndCollapse(launch)
+            runCatching { startActivityAndCollapse(launch) }
+                .onFailure { android.util.Log.w(TAG, "collapse failed: " + it.javaClass.simpleName) }
         }
+        runCatching { startActivity(launch) }
+            .onFailure { android.util.Log.w(TAG, "direct start failed: " + it.javaClass.simpleName) }
         qsTile?.apply {
             state = Tile.STATE_INACTIVE
             updateTile()
         }
+    }
+
+    private companion object {
+        const val TAG = "EtaVoice"
     }
 }
