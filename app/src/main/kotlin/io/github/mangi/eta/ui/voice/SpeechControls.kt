@@ -29,6 +29,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Pause
@@ -412,15 +414,27 @@ internal fun SpeechReadAloudButton(messageId: String, text: String) {
     }
     val accent = MiuixTheme.colorScheme.primary
     Row(verticalAlignment = Alignment.CenterVertically) {
-        // 离线朗读按片段推进，进度让用户知道读到哪；云端整篇播放没有片段概念，不显示。
+        // 离线朗读按片段推进，可上一段 / 下一段跳转；云端整篇流式播放没有片段概念，不显示。
         if (state.segmentCount > 1) {
+            AnswerActionButton(
+                icon = Icons.Rounded.ChevronLeft,
+                contentDescription = stringResource(R.string.speech_read_prev),
+                onClick = { controller.skip(-1) },
+                enabled = state.segmentIndex > 0 && !state.loading,
+            )
             Text(
                 text = "${state.segmentIndex + 1}/${state.segmentCount}",
                 color = accent,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                modifier = Modifier.padding(end = 2.dp),
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+            AnswerActionButton(
+                icon = Icons.Rounded.ChevronRight,
+                contentDescription = stringResource(R.string.speech_read_next),
+                onClick = { controller.skip(1) },
+                enabled = state.segmentIndex < state.segmentCount - 1 && !state.loading,
             )
         }
         AnswerActionButton(

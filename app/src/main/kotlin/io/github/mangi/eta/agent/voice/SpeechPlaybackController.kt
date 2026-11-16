@@ -54,6 +54,8 @@ internal class SpeechPlaybackController(
     private var systemTts: SystemTtsPlayer? = null
     /** 暂停是一个闸门：已排队的片段停在原地，恢复后从当前片段继续。 */
     private val pausedFlow = MutableStateFlow(false)
+    /** 面板上「上一段 / 下一段」的落点；离线循环在每个片段开始前取一次。 */
+    private val segmentRequest = MutableStateFlow<Int?>(null)
 
     fun speak(messageId: String, text: String, settings: SpeechSettings? = null, credentials: SpeechCredentials? = null) {
         stop()
@@ -80,6 +82,11 @@ internal class SpeechPlaybackController(
                         if (session != generation) return@launch
                         if (pausedFlow.value) pausedFlow.first { !it }
                         if (session != generation) return@launch
+                        // 面板跳段：当前片段被打断后在这里落到目标片段，避免跳过整段。
+                        segmentRequest.value?.let { requested ->
+                            segmentRequest.value = null
+                            if (requested in segments.indices) index = requested
+                        }
                         publish(messageId, index, segments.size, pausedFlow.value)
                         val finished = tts.speak(segments[index].text)
                         if (finished) index++
@@ -136,6 +143,19 @@ internal class SpeechPlaybackController(
 
     fun togglePause() {
         if (mutableState.value.paused) resume() else pause()
+    }
+
+    /** 上一段 / 下一段：离线朗读按片段跳，云端整篇流式播放没有片段可跳。 */
+    fun skip(delta: Int) {
+        val current = mutableState.value
+        if (current.messageId == null || current.segmentCount <= 1) return
+        val target = (current.segmentIndex + delta).coerceIn(0, current.segmentCount - 1)
+        if (target == current.segmentIndex) return
+        segmentRequest.value = target
+        // 跳段本身就是「继续听」，暂停闸门一起放开。
+        pausedFlow.value = false
+        systemTts?.pause()
+        mutableState.value = current.copy(segmentIndex = target, paused = false)
     }
 
     /**
@@ -209,6 +229,7 @@ internal class SpeechPlaybackController(
 
     fun stop() {
         pausedFlow.value = false
+        segmentRequest.value = null
         systemTts?.stop()
         generation++
         output?.close(); output = null

@@ -1335,6 +1335,8 @@
   <string name="speech_read_stop">Stop reading</string>
   <string name="speech_read_pause">Pause reading</string>
   <string name="speech_read_resume">Resume reading</string>
+  <string name="speech_read_prev">Previous sentence</string>
+  <string name="speech_read_next">Next sentence</string>
   <string name="speech_disable_auto_read">Disable auto read-aloud</string>
   <string name="speech_enable_auto_read">Enable auto read-aloud</string>
   <string name="read_aloud_channel">Read aloud</string>

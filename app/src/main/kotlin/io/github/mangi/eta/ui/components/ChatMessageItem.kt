@@ -1090,7 +1090,7 @@ private fun AgentMessageBlock(
                 )
             }
             message.renderMarkdown -> {
-                MessageSelectionToolbar(messageText = message.content, onQuote = onQuote) {
+                MessageSelectionToolbar(messageText = message.content, onQuote = onQuote, messageId = message.id) {
                 SelectionContainer {
                     StaticMarkdown(
                         content = message.content,
@@ -1102,7 +1102,7 @@ private fun AgentMessageBlock(
                 }
             }
             message.content.isNotBlank() -> {
-                MessageSelectionToolbar(messageText = message.content, onQuote = onQuote) {
+                MessageSelectionToolbar(messageText = message.content, onQuote = onQuote, messageId = message.id) {
                 SelectionContainer {
                     Text(
                         text = message.content,
