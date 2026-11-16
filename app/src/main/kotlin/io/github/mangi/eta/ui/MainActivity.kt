@@ -28,6 +28,17 @@ import java.util.IdentityHashMap
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    /**
+     * 磁贴等外部入口：主界面先成为可见载体被系统放行，随后叠加助手浮层。
+     *
+     * 已存在的实例被带到前台时只会走 [onNewIntent]，两个入口都要处理。
+     */
+    private fun handleAssistantLaunch(intent: Intent?) {
+        if (intent?.getBooleanExtra(EtaAssistantOverlayService.EXTRA_SHOW_ASSISTANT, false) != true) return
+        intent.removeExtra(EtaAssistantOverlayService.EXTRA_SHOW_ASSISTANT)
+        EtaAssistantOverlayService.show(this, null)
+    }
+
     private var launchRequests by mutableStateOf(MainActivityLaunchRequests())
     private var appliedPredictiveBackEnabled = true
 
@@ -38,13 +49,7 @@ class MainActivity : ComponentActivity() {
         installStartupSplash { contentReady }
         enableEdgeToEdge()
         launchRequests = MainActivityLaunchRequests.restore(savedInstanceState, intent)
-        if (savedInstanceState == null &&
-            intent?.getBooleanExtra(EtaAssistantOverlayService.EXTRA_SHOW_ASSISTANT, false) == true
-        ) {
-            // 磁贴入口：先让主界面成为可见载体被系统放行，再叠加助手浮层。
-            intent.removeExtra(EtaAssistantOverlayService.EXTRA_SHOW_ASSISTANT)
-            EtaAssistantOverlayService.show(this, null)
-        }
+        if (savedInstanceState == null) handleAssistantLaunch(intent)
         lifecycleScope.launch {
             val initialAppearance = AppearanceSettingsRepository.settings()
             appliedPredictiveBackEnabled = initialAppearance.predictiveBackEnabled
@@ -132,6 +137,7 @@ class MainActivity : ComponentActivity() {
         AndroidAgentLogger.info("Agent UI new intent: task=$taskId launcher=$fromLauncher")
         setIntent(intent)
         launchRequests = launchRequests.accept(intent)
+        handleAssistantLaunch(intent)
     }
 
     override fun onDestroy() {
