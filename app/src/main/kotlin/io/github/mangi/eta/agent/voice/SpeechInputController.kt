@@ -6,6 +6,10 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import io.github.mangi.eta.agent.voice.offline.OfflineAsrCatalog
+import io.github.mangi.eta.agent.voice.offline.OfflineAsrStore
+import io.github.mangi.eta.agent.voice.offline.SenseVoiceOnnxEngine
+import io.github.mangi.eta.agent.voice.offline.pcm16ToFloat
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.model.AsrProvider
 import io.github.mangi.eta.data.model.SpeechCredentials
@@ -100,10 +104,6 @@ internal class SpeechInputController(
                     }
                     return@launch
                 }
-                if (config.asr == AsrProvider.OFFLINE) {
-                    // 离线模型在本机独立进程识别，模型未就位时明确提示，不去联网。
-                    throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "还没有下载离线识别模型")
-                }
                 lease = SpeechAudioLease(context) { cancel() }.also { it.acquire(playback = false) }
                 val endpointSilenceMs = if (automaticEndpoint && !holdToTalk) config.autoSendSilenceMs else 0
                 val audio = createRecorder()
@@ -134,24 +134,51 @@ internal class SpeechInputController(
                         Unit
                     }
                     try {
-                        if (config.asr == AsrProvider.QWEN_REALTIME || config.asr == AsrProvider.DOUBAO) {
-                            recognizeStream(
-                                config,
-                                secrets,
-                                audio.frames,
-                                begin,
-                                { preview -> update { it.copy(preview = preview) } },
-                                { audio.finish() },
-                                endpointSilenceMs,
-                            )
-                        } else {
-                            begin()
-                            val wav = withTimeout(65_000) { collectSpeechAudio(audio.frames) }
-                            // 关闭通道可能同步唤醒收集器，旧会话不能在取消传播完成前启动请求。
-                            coroutineContext.ensureActive()
-                            if (generation != session) throw CancellationException("Speech session replaced")
-                            recognizeFile(context, config, secrets, wav) { progress ->
-                                update { it.copy(phase = EtaSpeechPhase.RECOGNIZING, progress = progress) }
+                        when {
+                            config.asr == AsrProvider.QWEN_REALTIME || config.asr == AsrProvider.DOUBAO ->
+                                recognizeStream(
+                                    config,
+                                    secrets,
+                                    audio.frames,
+                                    begin,
+                                    { preview -> update { it.copy(preview = preview) } },
+                                    { audio.finish() },
+                                    endpointSilenceMs,
+                                )
+                            config.asr == AsrProvider.OFFLINE -> {
+                                val model = OfflineAsrCatalog.find(config.offlineModelId)
+                                    ?: throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "还没有选择离线模型")
+                                if (!OfflineAsrCatalog.isRunnable(model)) {
+                                    throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "这个模型格式还没接入")
+                                }
+                                val modelFile = OfflineAsrStore.modelFile(context, model.id)
+                                    ?: throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "还没有导入模型文件")
+                                val tokensFile = OfflineAsrStore.tokensFile(context, model.id)
+                                    ?: throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "还没有导入 tokens.txt")
+                                begin()
+                                val wav = withTimeout(120_000) { collectSpeechAudio(audio.frames) }
+                                coroutineContext.ensureActive()
+                                if (generation != session) throw CancellationException("Speech session replaced")
+                                update { it.copy(phase = EtaSpeechPhase.RECOGNIZING, progress = "正在本机识别", level = 0f) }
+                                withContext(Dispatchers.IO) {
+                                    val engine = SenseVoiceOnnxEngine(modelFile.absolutePath, tokensFile.absolutePath)
+                                    try {
+                                        val pcm = if (wav.size > 44) wav.copyOfRange(44, wav.size) else wav
+                                        engine.transcribe(pcm16ToFloat(pcm))
+                                    } finally {
+                                        engine.close()
+                                    }
+                                }
+                            }
+                            else -> {
+                                begin()
+                                val wav = withTimeout(65_000) { collectSpeechAudio(audio.frames) }
+                                // 关闭通道可能同步唤醒收集器，旧会话不能在取消传播完成前启动请求。
+                                coroutineContext.ensureActive()
+                                if (generation != session) throw CancellationException("Speech session replaced")
+                                recognizeFile(context, config, secrets, wav) { progress ->
+                                    update { it.copy(phase = EtaSpeechPhase.RECOGNIZING, progress = progress) }
+                                }
                             }
                         }
                     } finally {
