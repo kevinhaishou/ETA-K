@@ -26,29 +26,74 @@ internal data class OfflineAsrModel(
     val sizeLabel: String,
     val ramLabel: String,
     val engine: OfflineAsrEngine,
+    val engineLabel: String,
+    val description: String,
 )
 
 internal object OfflineAsrCatalog {
     val models = listOf(
-        OfflineAsrModel("qwen3-asr-q4km", "Qwen Q4_K_M", "428.6 MB", "868 MiB", OfflineAsrEngine.GGUF),
-        OfflineAsrModel("qwen3-asr-q5km", "Qwen Q5_K_M", "495.7 MB", "948 MiB", OfflineAsrEngine.GGUF),
-        OfflineAsrModel("sense-voice-f16", "SenseVoice F16", "442.1 MB", "510 MiB", OfflineAsrEngine.GGUF),
-        OfflineAsrModel("sense-voice-q8", "SenseVoice Q8_0", "253.0 MB", "447 MiB", OfflineAsrEngine.GGUF),
-        OfflineAsrModel("sense-voice-q4km", "SV Q4_K_M", "209.7 MB", "372 MiB", OfflineAsrEngine.GGUF),
-        OfflineAsrModel("sense-voice-int8", "SenseVoice INT8", "227.7 MB", "389 MiB", OfflineAsrEngine.ONNX),
+        OfflineAsrModel(
+            id = "qwen3-asr-q4km",
+            displayName = "Qwen Q4_K_M",
+            sizeLabel = "428.6 MB",
+            ramLabel = "868 MiB",
+            engine = OfflineAsrEngine.GGUF,
+            engineLabel = "GGUF Q4_K_M",
+            description = "Qwen3-ASR 4 位量化，中英长句更稳，四个量化档里体积最小。",
+        ),
+        OfflineAsrModel(
+            id = "qwen3-asr-q5km",
+            displayName = "Qwen Q5_K_M",
+            sizeLabel = "495.7 MB",
+            ramLabel = "948 MiB",
+            engine = OfflineAsrEngine.GGUF,
+            engineLabel = "GGUF Q5_K_M",
+            description = "Qwen3-ASR 5 位量化，比 Q4 略准，内存占用也更高。",
+        ),
+        OfflineAsrModel(
+            id = "sense-voice-f16",
+            displayName = "SenseVoice F16",
+            sizeLabel = "442.1 MB",
+            ramLabel = "510 MiB",
+            engine = OfflineAsrEngine.GGUF,
+            engineLabel = "GGUF F16",
+            description = "SenseVoice 半精度未量化，准确率最高，占用也最大。",
+        ),
+        OfflineAsrModel(
+            id = "sense-voice-q8",
+            displayName = "SenseVoice Q8_0",
+            sizeLabel = "253.0 MB",
+            ramLabel = "447 MiB",
+            engine = OfflineAsrEngine.GGUF,
+            engineLabel = "GGUF Q8_0",
+            description = "SenseVoice 8 位量化，多语言说完识别；兼顾体积与量化程度。",
+        ),
+        OfflineAsrModel(
+            id = "sense-voice-q4km",
+            displayName = "SV Q4_K_M",
+            sizeLabel = "209.7 MB",
+            ramLabel = "372 MiB",
+            engine = OfflineAsrEngine.GGUF,
+            engineLabel = "GGUF Q4_K_M",
+            description = "SenseVoice 4 位量化，体积最小，嘈杂环境下比 Q8 略差。",
+        ),
+        OfflineAsrModel(
+            id = "sense-voice-int8",
+            displayName = "SenseVoice INT8",
+            sizeLabel = "227.7 MB",
+            ramLabel = "389 MiB",
+            engine = OfflineAsrEngine.ONNX,
+            engineLabel = "ONNX INT8",
+            description = "SenseVoice 整型量化 ONNX，sherpa-onnx 运行时；当前已接通的离线引擎。",
+        ),
     )
 
     fun find(id: String?): OfflineAsrModel? = models.firstOrNull { it.id == id }
 
-    /** 目前只有 ONNX 引擎接通，其余模型可以先导入，但选到它们会明确提示尚未接入。 */
+    /** 目前只有 ONNX 引擎接通，GGUF 那几档可以先导入，选到会明确提示尚未接入。 */
     fun isRunnable(model: OfflineAsrModel): Boolean = model.engine == OfflineAsrEngine.ONNX
 }
 
-/**
- * 离线模型存放与导入。
- *
- * 模型不打进 APK：用户自己把权重放进手机，再在这里选中导入，目录为 files/offline-asr/<id>/。
- */
 internal object OfflineAsrStore {
     private const val ROOT = "offline-asr"
 
