@@ -165,12 +165,15 @@ internal fun LocalSpeechSection(store: SpeechSettingsStore) {
                     LocalAction("下载模型（联网）", enabled = !busy) {
                         scope.launch {
                             busy = true
-                            message = try {
-                                LocalSpeechEngine.download(context, model.id) { }
+                            message = "开始下载 " + formatBytes(model.sizeBytes)
+                            try {
+                                LocalSpeechEngine.download(context, model.id) { fraction ->
+                                    message = "下载中 " + (fraction * 100).toInt() + "%"
+                                }
                                 revision++
-                                "下载完成"
+                                message = "下载完成"
                             } catch (error: Exception) {
-                                error.message ?: "下载失败"
+                                message = error.message ?: "下载失败"
                             } finally {
                                 busy = false
                             }
