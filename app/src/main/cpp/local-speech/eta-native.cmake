@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.22)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+foreach(opt TRANSCRIBE_BUILD_SHARED TRANSCRIBE_BUILD_TESTS TRANSCRIBE_BUILD_EXAMPLES TRANSCRIBE_BUILD_TOOLS TRANSCRIBE_USE_SYSTEM_BLAS TRANSCRIBE_USE_OPENMP TRANSCRIBE_GGML_BACKEND_DL TRANSCRIBE_METAL TRANSCRIBE_VULKAN TRANSCRIBE_CUDA TRANSCRIBE_HIP GGML_NATIVE GGML_CPU_KLEIDIAI GGML_OPENMP GGML_BLAS GGML_BACKEND_DL)
+ set(${opt} OFF CACHE BOOL "" FORCE)
+endforeach()
+set(GGML_CPU_ARM_ARCH armv8-a CACHE STRING "" FORCE)
+
+# CMake's first failed toolchain detection left C RELEASE flags empty in cache.
+# Quantized ggml C kernels then ran unoptimized while C++ F16 kernels did not.
+# Stamp the deployment Release profile explicitly, including existing caches.
+set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG" CACHE STRING "Eta optimized C kernels" FORCE)

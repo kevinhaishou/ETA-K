@@ -1,0 +1,1 @@
+{ global: JNI_OnLoad; Java_io_github_mangi_eta_agent_voice_local_GgufSpeechNative_*; local: *; };
