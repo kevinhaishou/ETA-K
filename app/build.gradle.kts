@@ -203,6 +203,8 @@ dependencies {
 
     // 离线识别原生库（构建时由 CI 下载，不入仓库）
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
+    // 离线识别：Vosk 的 Java 绑定（原生 .so 由 AAR 自带，仅 arm64 生效）
+    implementation("com.alphacephei:vosk-android:0.3.75")
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
