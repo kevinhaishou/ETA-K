@@ -46,6 +46,9 @@ internal fun LocalSpeechSection(store: SpeechSettingsStore) {
     val scope = rememberCoroutineScope()
     var revision by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf<String?>(null) }
+    // 下载/导入的进度与结果单独存放：它耗时长，不能被旁边按钮的提示顶掉。
+    var transfer by remember { mutableStateOf<String?>(null) }
+    var transferFailed by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf<String?>(null) }
     var models by remember { mutableStateOf<List<LocalSpeechModelDescriptor>>(emptyList()) }
     var selectedId by remember { mutableStateOf("") }
@@ -73,14 +76,18 @@ internal fun LocalSpeechSection(store: SpeechSettingsStore) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             busy = true
-            message = try {
+            transferFailed = false
+            transfer = "正在导入…"
+            try {
                 LocalSpeechEngine.importModel(context, model.id) {
                     context.contentResolver.openInputStream(uri) ?: error("无法读取所选文件")
                 }
                 revision++
-                "已导入并校验"
+                transferFailed = false
+                transfer = "已导入并校验"
             } catch (error: Exception) {
-                error.message ?: "导入失败"
+                transferFailed = true
+                transfer = error.message ?: "导入失败"
             } finally {
                 busy = false
             }
@@ -165,15 +172,17 @@ internal fun LocalSpeechSection(store: SpeechSettingsStore) {
                     LocalAction("下载模型（联网）", enabled = !busy) {
                         scope.launch {
                             busy = true
-                            message = "开始下载 " + formatBytes(model.sizeBytes)
+                            transferFailed = false
+                            transfer = "开始下载 " + formatBytes(model.sizeBytes)
                             try {
                                 LocalSpeechEngine.download(context, model.id) { fraction ->
-                                    message = "下载中 " + (fraction * 100).toInt() + "%"
+                                    transfer = "下载中 " + (fraction * 100).toInt() + "%"
                                 }
                                 revision++
-                                message = "下载完成"
+                                transfer = "下载完成，已通过校验"
                             } catch (error: Exception) {
-                                message = error.message ?: "下载失败"
+                                transferFailed = true
+                                transfer = error.message ?: "下载失败"
                             } finally {
                                 busy = false
                             }
@@ -183,12 +192,20 @@ internal fun LocalSpeechSection(store: SpeechSettingsStore) {
                     LocalAction("导入本地文件", enabled = !busy) {
                         importer.launch(arrayOf("*/*"))
                     }
+                    transfer?.let { text ->
+                        Text(
+                            text = text,
+                            style = MiuixTheme.textStyles.body2,
+                            color = if (transferFailed) Color(0xFFC0392B) else accent,
+                            modifier = Modifier.padding(top = 10.dp),
+                        )
+                    }
                     message?.let { text ->
                         Text(
                             text = text,
                             style = MiuixTheme.textStyles.body2,
                             color = accent,
-                            modifier = Modifier.padding(top = 10.dp),
+                            modifier = Modifier.padding(top = 6.dp),
                         )
                     }
                 }
