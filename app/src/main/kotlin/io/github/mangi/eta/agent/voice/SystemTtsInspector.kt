@@ -48,17 +48,12 @@ internal object SystemTtsInspector {
     }
 
     /**
-     * Oplus 引擎（com.oplus.ttsaccessibilityengine）把音色建成 zho-CHN / eng-USA，
-     * Android 把 chn/usa 当成 extlang，语言与地区一起丢。只对这一个引擎做别名修正，
-     * 不推广到其它引擎或任意语言。
+     * 音色 locale 归一化：只做与引擎无关的标准化（三字母语言/国家码折算）。
+     *
+     * 本机引擎是荣耀 com.hihonor.voiceengine，不做任何厂商特判；实际数据以诊断输出为准，
+     * 确认存在畸形标记后再针对该引擎加别名，不预先猜。
      */
-    fun normalizedSystemVoiceLocale(locale: Locale, engine: String?): Locale {
-        if (engine == "com.oplus.ttsaccessibilityengine" && locale.country.isEmpty() && locale.script.isEmpty()) {
-            when (locale.language.lowercase(Locale.ROOT)) {
-                "chn" -> return Locale.SIMPLIFIED_CHINESE
-                "usa" -> return Locale.US
-            }
-        }
+    fun normalizedSystemVoiceLocale(locale: Locale, @Suppress("UNUSED_PARAMETER") engine: String?): Locale {
         return systemTtsLocale(
             if (locale.country.length == 3) "${locale.language}-${locale.country}" else locale.toLanguageTag(),
         )
@@ -153,7 +148,7 @@ internal object SystemTtsInspector {
                         }
                         append("仅检测元数据，不发声、不录音、不下载。离线判断依据引擎声明，不是流量审计。")
                     },
-                )
+                ).also { android.util.Log.i("EtaSystemTts", it.text.replace("\n", " | ")) }
             }
         } finally {
             withContext(NonCancellable + Dispatchers.Main.immediate) { runCatching { tts?.shutdown() } }
