@@ -150,7 +150,7 @@ private fun buildDiagnostics(info: SystemTtsInfo, checking: Boolean): String {
         info.voices.forEach { voice ->
             appendLine(
                 voice.name + " : " + voice.locale + "；network=" + voice.networkRequired +
-                    "；features=" + voice.features,
+                    "；features=[" + voice.features + "]",
             )
         }
     }.trimEnd()

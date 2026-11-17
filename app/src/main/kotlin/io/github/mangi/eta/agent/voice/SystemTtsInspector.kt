@@ -11,8 +11,8 @@ internal data class SystemTtsVoice(
     val name: String,
     val locale: String,
     val networkRequired: Boolean,
-    val features: Int,
-    val notInstalled: Boolean,
+    /** Voice.getFeatures() 返回的是标签集合，不是位掩码。 */
+    val features: String,
 )
 
 /**
@@ -62,8 +62,7 @@ internal class SystemTtsInspector(private val context: Context) {
                     name = voice.name,
                     locale = voice.locale.toLanguageTag(),
                     networkRequired = voice.isNetworkConnectionRequired,
-                    features = voice.features,
-                    notInstalled = voice.features and TextToSpeech.TTS_FEATURE_NOT_INSTALLED != 0,
+                    features = voice.features?.joinToString(",").orEmpty(),
                 )
             }
             val offline = mapped.filter { !it.networkRequired }
@@ -73,14 +72,14 @@ internal class SystemTtsInspector(private val context: Context) {
                 SystemTtsInfo(
                     engine = runCatching { tts.defaultEngine }.getOrNull().orEmpty(),
                     defaultVoice = runCatching { tts.defaultVoice?.name }.getOrNull().orEmpty(),
-                    defaultLanguage = runCatching { tts.defaultVoice?.locale?.iso3Language }
+                    defaultLanguage = runCatching { tts.defaultVoice?.locale?.isO3Language }
                         .getOrNull().orEmpty(),
                     defaultLocale = runCatching { tts.defaultVoice?.locale?.language }
                         .getOrNull().orEmpty(),
                     targetLanguage = target.toLanguageTag(),
                     targetAvailability = runCatching { tts.isLanguageAvailable(target) }.getOrDefault(-1),
                     voiceCount = mapped.size,
-                    installedCount = mapped.count { !it.notInstalled },
+                    installedCount = mapped.size,
                     offlineCount = offline.size,
                     offlineMatch = matched?.let { it.name + "（" + it.locale + "）" } ?: "无",
                     voices = mapped,
