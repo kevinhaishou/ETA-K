@@ -59,6 +59,10 @@ internal fun SystemTtsSection() {
             TtsInfoRow("默认音色", info.defaultVoice.ifBlank { "—" }, secondary)
             TtsInfoRow("语言", info.language.ifBlank { "—" }, secondary)
             TtsInfoRow("可用中文音色", info.voices.size.toString() + " 个", secondary)
+            // 语速与音调属于系统引擎的全局设置，应用内不做第二份配置，只标注来源。
+            TtsInfoRow("语速", "本机引擎默认", secondary)
+            TtsInfoRow("音调", "本机引擎默认", secondary)
+            TtsInfoRow("音色来源", "仅本机离线音色", secondary)
             info.error?.let { error ->
                 Text(
                     text = error,
