@@ -43,7 +43,9 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
     val store = remember { SpeechSettingsStore(context, scope) }
     SpeechLifecycle { store.stop() }
     val settings = store.settings
-    val asrLabels = AsrProvider.entries.map { it.label() }
+    // 只剩一个「本机离线」入口：OFFLINE 仅用于兼容旧设置，不再出现在选择里。
+    val selectableAsr = AsrProvider.entries.filter { it != AsrProvider.OFFLINE }
+    val asrLabels = selectableAsr.map { it.label() }
     val asrNoteRes = when (settings.asr) {
         AsrProvider.SYSTEM -> R.string.speech_asr_note_system
         AsrProvider.OFFLINE -> R.string.speech_asr_note_offline
@@ -83,7 +85,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                             items = asrLabels,
                             selectedIndex = settings.asr.ordinal,
                             onSelectedIndexChange = { index ->
-                                AsrProvider.entries.getOrNull(index)?.let { store.edit(settings.copy(asr = it)) }
+                                selectableAsr.getOrNull(index)?.let { store.edit(settings.copy(asr = it)) }
                             },
                         )
                     }
@@ -153,7 +155,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                                     items = asrLabels,
                                     selectedIndex = settings.asr.ordinal,
                                     onSelectedIndexChange = { index ->
-                                        AsrProvider.entries.getOrNull(index)?.let { store.edit(settings.copy(asr = it)) }
+                                        selectableAsr.getOrNull(index)?.let { store.edit(settings.copy(asr = it)) }
                                     },
                                 )
                             }

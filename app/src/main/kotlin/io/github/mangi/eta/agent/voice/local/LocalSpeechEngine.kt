@@ -36,6 +36,17 @@ object LocalSpeechEngine {
 
     suspend fun deleteModel(context: Context, id: String): LocalSpeechInstallation = LocalSpeechModelStore.deleteModel(context, id)
 
+    suspend fun inspect(context: Context, id: String): LocalSpeechInstallation =
+        LocalSpeechModelStore.inspect(context, id)
+
+    suspend fun download(context: Context, id: String, progress: (Float) -> Unit): LocalSpeechInstallation =
+        LocalSpeechModelStore.download(context, id) { p ->
+            progress(if (p.total > 0) (p.bytes.toFloat() / p.total).coerceIn(0f, 1f) else 0f)
+        }
+
+    suspend fun importModel(context: Context, id: String, opener: () -> java.io.InputStream): LocalSpeechInstallation =
+        LocalSpeechModelStore.importModel(context, id, opener) { }
+
     suspend fun recognize(
         context: Context,
         frames: ReceiveChannel<ByteArray>,
