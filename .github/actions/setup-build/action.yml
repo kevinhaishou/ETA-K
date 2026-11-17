@@ -48,8 +48,10 @@ runs:
     - name: 探测 OfflineTts 签名
       shell: bash
       run: |
-        for c in OfflineTts OfflineTtsConfig OfflineTtsModelConfig OfflineTtsVitsModelConfig OfflineTtsZipvoiceModelConfig GeneratedAudio;
+        # 类名大小写按 jar 实际内容枚举，不靠猜
+        unzip -l /tmp/ksp_probe/classes.jar | grep -oE "com/k2fsa/sherpa/onnx/OfflineTts[A-Za-z]*\.class" | sed 's|\.class||;s|/|.|g' | sort -u
+        for c in OfflineTtsZipVoiceModelConfig OfflineTtsZipvoiceModelConfig OfflineTtsModelConfig GenerationConfig;
         do
           echo "=== $c ==="
-          javap -classpath /tmp/ksp_probe/cls com.k2fsa.sherpa.onnx.$c 2>/dev/null | head -25 || true
+          javap -classpath /tmp/ksp_probe/cls com.k2fsa.sherpa.onnx.$c 2>/dev/null | head -30 || true
         done
