@@ -65,7 +65,11 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                 }
                 if (settings.tts != TtsProvider.NONE) {
                     SpeechConnectionSection(store, synthesis = true)
-                    SpeechVoiceSection(store)
+                    if (settings.tts == TtsProvider.ANDROID) {
+                        SystemTtsSection()
+                    } else {
+                        SpeechVoiceSection(store)
+                    }
                     SpeechPreviewSection(store)
                 }
                 SpeechSaveBlock(store) {
@@ -108,7 +112,11 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                         SpeechConnectionSection(store, synthesis = true)
                     }
                     item(key = "voice") {
-                        SpeechVoiceSection(store)
+                        if (settings.tts == TtsProvider.ANDROID) {
+                            SystemTtsSection()
+                        } else {
+                            SpeechVoiceSection(store)
+                        }
                     }
                     item(key = "preview") {
                         SpeechPreviewSection(store)
