@@ -25,9 +25,9 @@ import io.github.libxposed.service.XposedServiceHelper
 import java.util.concurrent.CopyOnWriteArraySet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 /**
  * 模块 UI 进程的 Application。
@@ -56,15 +56,20 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         RootAccess.initialize(this)
         applicationScope.launch { TerminalRuntime.backgroundJobs(this@EtaApp).resume() }
         SettingsDataStore.init(this)
-        val predictiveBackEnabled = runBlocking(Dispatchers.IO) {
-            AppearanceSettingsRepository.settings().predictiveBackEnabled
+        // 启动路径上不做阻塞读取：预测式返回开关改为后台读取后再应用。
+        // 之前用 runBlocking(IO) 读 DataStore，把首帧硬生生拖了几百毫秒。
+        applicationScope.launch {
+            val enabled = runCatching {
+                AppearanceSettingsRepository.settings().predictiveBackEnabled
+            }.getOrDefault(true)
+            PredictiveBackController.apply(applicationInfo, enabled)
         }
-        PredictiveBackController.apply(applicationInfo, predictiveBackEnabled)
         AgentMemoryRepository.init(this)
         ProviderRepository.init(this)
         McpServerRepository.init(this)
         XposedServiceHelper.registerListener(this)
         applicationScope.launch {
+            delay(4_000)
             try {
                 SpeechOssUpload(this@EtaApp).retryPending(this@EtaApp)
             } catch (error: Exception) {
@@ -73,6 +78,8 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
             }
         }
         applicationScope.launch {
+            // 预热与首帧无因果关系，让出启动窗口再跑，减少冷启动竞争。
+            delay(2_500)
             LinuxEnvironmentSettingsRepository.initialize(this@EtaApp)
             runCatching {
                 SkillRuntime.createIndexService(this@EtaApp).listInstalledSkills()
