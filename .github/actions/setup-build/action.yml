@@ -43,3 +43,13 @@ runs:
           echo "=== $c ==="
           javap -classpath /tmp/ksp_probe/cls com.k2fsa.sherpa.onnx.$c 2>/dev/null | head -40 || true
         done
+
+    # 语音克隆用 sherpa 的 OfflineTts（含 zipvoice zero-shot），打印签名以便按实测写封装。
+    - name: 探测 OfflineTts 签名
+      shell: bash
+      run: |
+        for c in OfflineTts OfflineTtsConfig OfflineTtsModelConfig OfflineTtsVitsModelConfig OfflineTtsZipvoiceModelConfig GeneratedAudio;
+        do
+          echo "=== $c ==="
+          javap -classpath /tmp/ksp_probe/cls com.k2fsa.sherpa.onnx.$c 2>/dev/null | head -25 || true
+        done
