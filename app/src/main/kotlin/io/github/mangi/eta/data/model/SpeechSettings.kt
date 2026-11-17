@@ -6,7 +6,11 @@ private const val MIMO_SPEECH_BASE_URL = "https://api.xiaomimimo.com/v1"
 private const val DEEPSEEK_SPEECH_BASE_URL = "https://api.deepseek.com"
 
 @Serializable
-enum class AsrProvider { SYSTEM, OFFLINE, QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO, DEEPSEEK }
+enum class AsrProvider { SYSTEM, OFFLINE, QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO, DEEPSEEK, LOCAL;
+
+    /** 本机识别：OFFLINE（ONNX）与 LOCAL（GGUF/Vosk）都算。 */
+    val isLocal: Boolean get() = this == OFFLINE || this == LOCAL
+}
 
 @Serializable
 enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, DEEPSEEK, ANDROID }

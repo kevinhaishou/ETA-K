@@ -27,6 +27,7 @@ internal suspend fun recognizeSpeechFile(
                 SpeechErrorCode.CONFIGURATION,
                 "本机语音识别不经过文件上传",
             )
+            AsrProvider.LOCAL,
             AsrProvider.OFFLINE -> throw SpeechFailure(
                 SpeechErrorCode.CONFIGURATION,
                 "离线识别不经过文件上传",

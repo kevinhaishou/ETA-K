@@ -43,6 +43,7 @@ internal fun SpeechConnectionSection(store: SpeechSettingsStore, synthesis: Bool
             // 系统识别用本机服务，没有接口地址与凭据可填。
             AsrProvider.SYSTEM -> Unit
             AsrProvider.OFFLINE -> OfflineAsrSection(store)
+            AsrProvider.LOCAL -> OfflineAsrSection(store)
             AsrProvider.MIMO -> MimoAsrConnectionSection(store)
             AsrProvider.DEEPSEEK -> DeepSeekAsrConnectionSection(store)
             AsrProvider.QWEN_REALTIME, AsrProvider.QWEN_FLASH, AsrProvider.QWEN_FILE, AsrProvider.DOUBAO ->

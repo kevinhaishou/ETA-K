@@ -7,6 +7,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import io.github.mangi.eta.agent.voice.offline.OfflineAsrCatalog
+import io.github.mangi.eta.agent.voice.local.LocalSpeechEngine
 import io.github.mangi.eta.agent.voice.offline.OfflineAsrService
 import io.github.mangi.eta.agent.voice.offline.OfflineAsrStore
 import io.github.mangi.eta.core.AndroidAgentLogger
@@ -145,6 +146,18 @@ internal class SpeechInputController(
                                     { audio.finish() },
                                     endpointSilenceMs,
                                 )
+                            config.asr == AsrProvider.LOCAL -> {
+                                // GGUF / Vosk：交给 :local_speech 独立进程，流式喂 PCM。
+                                begin()
+                                LocalSpeechEngine.recognize(
+                                    context,
+                                    audio.frames,
+                                    { },
+                                    { preview -> update { it.copy(preview = preview) } },
+                                    { audio.finish() },
+                                    endpointSilenceMs,
+                                )
+                            }
                             config.asr == AsrProvider.OFFLINE -> {
                                 val model = OfflineAsrCatalog.find(config.offlineModelId)
                                     ?: throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "还没有选择离线模型")
