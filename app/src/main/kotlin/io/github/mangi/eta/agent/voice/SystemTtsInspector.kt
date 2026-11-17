@@ -36,6 +36,8 @@ internal object SystemTtsInspector {
     private fun canonicalLanguage(language: String): String = when (language.lowercase(Locale.ROOT)) {
         "zho", "cmn", "chi" -> "zh"
         "eng" -> "en"
+        // 荣耀引擎的 defaultVoice.locale 只有语言、没有国家，脚本信息由音色名承载，
+        // 因此这里保留原始语言码，交给 systemTtsLocale 决定 script 归属。
         else -> language.lowercase(Locale.ROOT)
     }
 
@@ -74,14 +76,30 @@ internal object SystemTtsInspector {
         defaultName: String?,
         engine: String? = null,
     ): Voice? {
-        val target = normalizedSystemVoiceLocale(locale, null)
+        // 荣耀引擎不提供 zh-CN 这种国家码音色，只有 zh / zh-Hans。
+        // 目标若是 zh-CN，就按简体（Hans）去找，否则永远匹配不到带 script 的音色。
+        val base = normalizedSystemVoiceLocale(locale, null)
+        val target = if (base.country.isNotEmpty() && base.script.isEmpty()) {
+            val script = when (base.country.uppercase()) {
+                "CN", "SG" -> "Hans"
+                "TW", "HK", "MO" -> "Hant"
+                else -> ""
+            }
+            if (script.isEmpty()) base else Locale.Builder().setLocale(base).setScript(script).build()
+        } else {
+            base
+        }
         return voices.asSequence().filter {
             val candidate = normalizedSystemVoiceLocale(it.locale, engine)
             isInstalledOfflineSystemVoice(it) && target.language.isNotBlank() &&
                 candidate.language == target.language &&
                 (target.script.isEmpty() || candidate.script.isEmpty() || target.script == candidate.script)
         }.sortedWith(
+            // 荣耀引擎的音色名就是语言码（zh / zh-Hans / zh-Hant），裸 zh 与 zh-Hans 语言相同。
+            // 先按「带 script 且与目标一致」优先，再按 script 完整度，最后才看默认音色名：
+            // 否则默认音色那个裸 zh 会胜出，等于丢掉了简体标记。
             compareByDescending<Voice> { normalizedSystemVoiceLocale(it.locale, engine) == target }
+                .thenByDescending { it.locale.script.isNotEmpty() }
                 .thenByDescending { it.name == defaultName }
                 .thenBy { it.name },
         ).firstOrNull()
