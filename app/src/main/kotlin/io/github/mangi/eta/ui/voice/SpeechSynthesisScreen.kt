@@ -66,7 +66,7 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                 if (settings.tts != TtsProvider.NONE) {
                     SpeechConnectionSection(store, synthesis = true)
                     if (settings.tts == TtsProvider.ANDROID) {
-                        SystemTtsSection()
+                        SystemTtsSection(store)
                     } else {
                         SpeechVoiceSection(store)
                     }
@@ -113,7 +113,7 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                     }
                     item(key = "voice") {
                         if (settings.tts == TtsProvider.ANDROID) {
-                            SystemTtsSection()
+                            SystemTtsSection(store)
                         } else {
                             SpeechVoiceSection(store)
                         }

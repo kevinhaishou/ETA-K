@@ -123,6 +123,14 @@ data class SpeechSettings(
     val minimaxTts: MiniMaxTtsConfig = MiniMaxTtsConfig(),
     val oss: SpeechOssConfig = SpeechOssConfig(),
     /** 助手浮窗停顿多久后自动发送；0 表示只在用户点击完成或松手时发送。 */
+    /** 系统离线朗读：引擎包名，空串表示用系统默认引擎。 */
+    val systemTtsEngine: String = "",
+    /** 系统离线朗读的语言标记，如 zh-CN；空串表示用语音默认语言。 */
+    val systemTtsLanguage: String = "zh-CN",
+    val systemTtsRate: Float = 1.0f,
+    val systemTtsPitch: Float = 1.0f,
+    /** 只使用引擎声明为不联网的音色。 */
+    val systemTtsOfflineOnly: Boolean = true,
     /** 离线识别选中的模型 id；空串表示还没选。 */
     val offlineModelId: String = "",
     val autoSendSilenceMs: Int = DEFAULT_AUTO_SEND_SILENCE_MS,

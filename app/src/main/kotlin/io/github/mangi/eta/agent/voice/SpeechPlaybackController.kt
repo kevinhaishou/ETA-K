@@ -90,7 +90,7 @@ internal class SpeechPlaybackController(
                             if (requested in segments.indices) index = requested
                         }
                         publish(messageId, index, segments.size, pausedFlow.value, segments[index].text.take(120))
-                        val finished = tts.speak(segments[index].text)
+                        val finished = tts.speak(segments[index].text, config)
                         if (finished) index++
                     }
                     return@launch

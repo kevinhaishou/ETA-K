@@ -3,6 +3,7 @@ package io.github.mangi.eta.agent.voice
 import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import io.github.mangi.eta.data.model.SpeechSettings
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CompletableDeferred
@@ -11,13 +12,15 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 /**
  * 系统离线 TTS：直接调用本机语音引擎播报，不经过云端合成，也不上传文本。
  *
- * 语言用 [Locale] 对象传入——Oplus 引擎按 BCP-47 字符串匹配时会挑不到中文音色。
+ * 语言用 [Locale] 对象传入——按 BCP-47 字符串匹配时部分引擎挑不到中文音色。
+ * 设置里的引擎包名、语言、语速、音调、仅离线音色都在这里生效；引擎变更时重建实例。
  *
  * 系统引擎没有 pause：暂停只能停掉当前片段，因此播报以片段为单位循环，
  * [speak] 返回片段是否读完，由调用方决定前进还是原地重播。
  */
 internal class SystemTtsPlayer(private val context: Context) {
     private var engine: TextToSpeech? = null
+    private var engineName: String? = null
     private var ready = false
     private var pending: CompletableDeferred<Unit>? = null
     private var interrupted = false
@@ -28,13 +31,31 @@ internal class SystemTtsPlayer(private val context: Context) {
      * 必须等读完：调用方在协程收尾时会把播放停掉，提前返回会让刚排队的语音立刻被 stop，
      * 表现为“界面看着在播、实际没声音”。
      */
-    suspend fun speak(text: String): Boolean {
-        val tts = ensureEngine()
+    suspend fun speak(text: String, settings: SpeechSettings? = null): Boolean {
+        val desiredEngine = settings?.systemTtsEngine.orEmpty()
+        val tts = ensureEngine(desiredEngine)
             ?: throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "本机没有可用的语音引擎")
-        val language = tts.setLanguage(Locale.SIMPLIFIED_CHINESE)
+
+        val tag = settings?.systemTtsLanguage?.takeIf { it.isNotBlank() } ?: "zh-CN"
+        val locale = runCatching { Locale.forLanguageTag(tag) }.getOrDefault(Locale.SIMPLIFIED_CHINESE)
+        val language = tts.setLanguage(locale)
         if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
-            throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "本机语音引擎缺少中文离线音色")
+            throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "本机语音引擎缺少该语言的离线音色")
         }
+
+        // 仅离线音色：在引擎声明的音色里挑一个不联网且语言匹配的，挑不到就沿用引擎默认。
+        if (settings?.systemTtsOfflineOnly == true) {
+            val matched = runCatching { tts.voices }.getOrNull()
+                ?.firstOrNull { voice ->
+                    !voice.isNetworkConnectionRequired &&
+                        voice.locale.toLanguageTag().startsWith(locale.language, ignoreCase = true)
+                }
+            if (matched != null) runCatching { tts.voice = matched }
+        }
+
+        runCatching { tts.setSpeechRate((settings?.systemTtsRate ?: 1.0f).coerceIn(0.1f, 3.0f)) }
+        runCatching { tts.setPitch((settings?.systemTtsPitch ?: 1.0f).coerceIn(0.1f, 3.0f)) }
+
         interrupted = false
         val done = CompletableDeferred<Unit>()
         pending = done
@@ -89,17 +110,27 @@ internal class SystemTtsPlayer(private val context: Context) {
     fun release() {
         runCatching { engine?.shutdown() }
         engine = null
+        engineName = null
         ready = false
     }
 
-    private suspend fun ensureEngine(): TextToSpeech? {
-        engine?.let { if (ready) return it }
+    /** 引擎包名变化时重建实例，否则复用已初始化的引擎。 */
+    private suspend fun ensureEngine(desired: String): TextToSpeech? {
+        if (engine != null && ready && engineName == desired) return engine
+        release()
         return suspendCancellableCoroutine { continuation ->
-            val created = TextToSpeech(context.applicationContext) { status ->
+            val listener = TextToSpeech.OnInitListener { status ->
                 ready = status == TextToSpeech.SUCCESS
                 if (continuation.isActive) continuation.resume(if (ready) engine else null)
             }
+            val created = if (desired.isBlank()) {
+                TextToSpeech(context.applicationContext, listener)
+            } else {
+                runCatching { TextToSpeech(context.applicationContext, listener, desired) }
+                    .getOrElse { TextToSpeech(context.applicationContext, listener) }
+            }
             engine = created
+            engineName = desired
         }
     }
 

@@ -3,49 +3,96 @@ package io.github.mangi.eta.agent.voice
 import android.content.Context
 import android.content.Intent
 import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
 import java.util.Locale
 
-/** 本机 TTS 引擎的一次探测结果，供诊断面板展示。 */
-internal data class SystemTtsInfo(
-    val engine: String = "",
-    val defaultVoice: String = "",
-    val language: String = "",
-    val voices: List<String> = emptyList(),
-    val error: String? = null,
+/** 单个音色的元数据，仅用于诊断展示，不参与发声。 */
+internal data class SystemTtsVoice(
+    val name: String,
+    val locale: String,
+    val networkRequired: Boolean,
+    val features: Int,
+    val notInstalled: Boolean,
 )
 
 /**
- * 查询系统 TTS 引擎：默认引擎包名、默认音色、语言，以及可用的中文音色列表。
+ * 本机 TTS 引擎的一次探测结果。
  *
- * 只读探测，不参与播报；查询结束立刻释放引擎，避免与播报用的实例抢资源。
+ * 只读元数据：查询过程不发声、不录音、不下载语言包；离线与否依据引擎自己的声明
+ * （`isNetworkConnectionRequired`），不做流量审计。
  */
+internal data class SystemTtsInfo(
+    val engine: String = "",
+    val defaultVoice: String = "",
+    val defaultLanguage: String = "",
+    val defaultLocale: String = "",
+    val targetLanguage: String = "",
+    val targetAvailability: Int = -1,
+    val voiceCount: Int = 0,
+    val installedCount: Int = 0,
+    val offlineCount: Int = 0,
+    val offlineMatch: String = "",
+    val voices: List<SystemTtsVoice> = emptyList(),
+    val error: String? = null,
+)
+
 internal class SystemTtsInspector(private val context: Context) {
     private var engine: TextToSpeech? = null
 
-    fun inspect(onResult: (SystemTtsInfo) -> Unit) {
+    fun inspect(
+        engineName: String = "",
+        languageTag: String = "zh-CN",
+        onResult: (SystemTtsInfo) -> Unit,
+    ) {
         runCatching { engine?.shutdown() }
         engine = null
-        val created = TextToSpeech(context.applicationContext) { status ->
+        val app = context.applicationContext
+        val listener = TextToSpeech.OnInitListener { status ->
             val tts = engine
             if (status != TextToSpeech.SUCCESS || tts == null) {
                 onResult(SystemTtsInfo(error = "引擎初始化失败（$status）"))
-                return@TextToSpeech
+                return@OnInitListener
             }
-            val all = runCatching { tts.voices?.map { it.name }.orEmpty() }.getOrDefault(emptyList())
-            val chinese = all.filter {
-                it.contains("zh", ignoreCase = true) || it.contains("cmn", ignoreCase = true)
+            val target = runCatching { Locale.forLanguageTag(languageTag.ifBlank { "zh-CN" }) }
+                .getOrDefault(Locale.SIMPLIFIED_CHINESE)
+            val voices = runCatching { tts.voices?.toList().orEmpty() }
+                .getOrDefault(emptyList())
+            val mapped = voices.map { voice: Voice ->
+                SystemTtsVoice(
+                    name = voice.name,
+                    locale = voice.locale.toLanguageTag(),
+                    networkRequired = voice.isNetworkConnectionRequired,
+                    features = voice.features,
+                    notInstalled = voice.features and TextToSpeech.TTS_FEATURE_NOT_INSTALLED != 0,
+                )
             }
+            val offline = mapped.filter { !it.networkRequired }
+            val matched = offline.firstOrNull { it.locale.equals(target.toLanguageTag(), true) }
+                ?: offline.firstOrNull { it.locale.startsWith(target.language, true) }
             onResult(
                 SystemTtsInfo(
                     engine = runCatching { tts.defaultEngine }.getOrNull().orEmpty(),
                     defaultVoice = runCatching { tts.defaultVoice?.name }.getOrNull().orEmpty(),
-                    language = runCatching { tts.defaultVoice?.locale?.toLanguageTag() }
+                    defaultLanguage = runCatching { tts.defaultVoice?.locale?.iso3Language }
                         .getOrNull().orEmpty(),
-                    voices = chinese.ifEmpty { all },
+                    defaultLocale = runCatching { tts.defaultVoice?.locale?.language }
+                        .getOrNull().orEmpty(),
+                    targetLanguage = target.toLanguageTag(),
+                    targetAvailability = runCatching { tts.isLanguageAvailable(target) }.getOrDefault(-1),
+                    voiceCount = mapped.size,
+                    installedCount = mapped.count { !it.notInstalled },
+                    offlineCount = offline.size,
+                    offlineMatch = matched?.let { it.name + "（" + it.locale + "）" } ?: "无",
+                    voices = mapped,
                 ),
             )
         }
-        engine = created
+        engine = if (engineName.isBlank()) {
+            TextToSpeech(app, listener)
+        } else {
+            runCatching { TextToSpeech(app, listener, engineName) }
+                .getOrElse { TextToSpeech(app, listener) }
+        }
     }
 
     fun release() {
@@ -54,7 +101,6 @@ internal class SystemTtsInspector(private val context: Context) {
     }
 
     companion object {
-        /** 打开系统的文字转语音设置页，不同 ROM 的入口名不一致，逐个尝试。 */
         fun openSettings(context: Context) {
             val candidates = listOf(
                 Intent("com.android.settings.TTS_SETTINGS"),
@@ -65,7 +111,5 @@ internal class SystemTtsInspector(private val context: Context) {
                 if (runCatching { context.startActivity(intent) }.isSuccess) return
             }
         }
-
-        fun chineseLocale(): Locale = Locale.SIMPLIFIED_CHINESE
     }
 }

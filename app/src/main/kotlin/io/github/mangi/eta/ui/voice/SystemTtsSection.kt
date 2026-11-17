@@ -3,7 +3,6 @@ package io.github.mangi.eta.ui.voice
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,104 +24,140 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.voice.SystemTtsInfo
 import io.github.mangi.eta.agent.voice.SystemTtsInspector
+import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
+import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+private val RateOptions = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+private val RateLabels = RateOptions.map { String.format("%.2fx", it) }
+
 /**
- * 系统离线朗读的引擎信息与诊断。
+ * 系统离线朗读：仅离线音色开关、引擎包名、语言、语速与音调，以及引擎诊断。
  *
- * 只读展示本机引擎、默认音色、语言与可用中文音色；「重新检测」重新初始化一次引擎取最新状态。
- * 音色与语速由系统设置决定，这里只给入口，不在应用内另存一份配置。
+ * 这些设置只作用在本机 TTS 引擎调用上，不改系统设置；诊断只读元数据，
+ * 不发声、不录音、不下载语言包。
  */
 @Composable
-internal fun SystemTtsSection() {
+internal fun SystemTtsSection(store: SpeechSettingsStore) {
     val context = LocalContext.current
+    val settings = store.settings
     val inspector = remember { SystemTtsInspector(context) }
     var info by remember { mutableStateOf(SystemTtsInfo()) }
     var revision by remember { mutableIntStateOf(0) }
     var checking by remember { mutableStateOf(false) }
     val secondary = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.62f)
-    val accent = MiuixTheme.colorScheme.primary
 
-    LaunchedEffect(revision) {
+    LaunchedEffect(revision, settings.systemTtsEngine, settings.systemTtsLanguage) {
         checking = true
-        inspector.inspect { result ->
+        inspector.inspect(settings.systemTtsEngine, settings.systemTtsLanguage) { result ->
             info = result
             checking = false
         }
     }
     DisposableEffect(inspector) { onDispose { inspector.release() } }
 
-    SpeechGroupCard(title = "系统离线朗读") {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            TtsInfoRow("引擎", info.engine.ifBlank { if (checking) "检测中…" else "未知" }, secondary)
-            TtsInfoRow("默认音色", info.defaultVoice.ifBlank { "—" }, secondary)
-            TtsInfoRow("语言", info.language.ifBlank { "—" }, secondary)
-            TtsInfoRow("可用中文音色", info.voices.size.toString() + " 个", secondary)
-            // 语速与音调属于系统引擎的全局设置，应用内不做第二份配置，只标注来源。
-            TtsInfoRow("语速", "本机引擎默认", secondary)
-            TtsInfoRow("音调", "本机引擎默认", secondary)
-            TtsInfoRow("音色来源", "仅本机离线音色", secondary)
-            info.error?.let { error ->
-                Text(
-                    text = error,
-                    style = MiuixTheme.textStyles.body2,
-                    color = Color(0xFFC0392B),
-                    modifier = Modifier.padding(top = 6.dp),
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            TtsAction("打开系统文字转语音设置") { SystemTtsInspector.openSettings(context) }
+    SpeechGroupCard(title = "声音") {
+        CouiSwitchPreference(
+            title = "仅离线音色",
+            checked = settings.systemTtsOfflineOnly,
+            onCheckedChange = { store.edit(settings.copy(systemTtsOfflineOnly = it)) },
+            summary = "开启：只使用引擎声明已安装且无需联网的音色。关闭：允许使用系统默认音色，" +
+                "联网与否由引擎决定；播放失败不会自动切换。",
+        )
+        SpeechFieldColumn {
+            SpeechField(
+                label = "引擎包名（留空使用系统默认）",
+                value = settings.systemTtsEngine,
+                onChange = { store.edit(store.settings.copy(systemTtsEngine = it.trim())) },
+            )
+            SpeechField(
+                label = "离线音色语言（如 zh-CN；留空使用语音语言）",
+                value = settings.systemTtsLanguage,
+                onChange = { store.edit(store.settings.copy(systemTtsLanguage = it.trim())) },
+            )
+            CouiDropdownPreference(
+                title = "语速",
+                items = RateLabels,
+                selectedIndex = nearestIndex(settings.systemTtsRate),
+                onSelectedIndexChange = { index ->
+                    RateOptions.getOrNull(index)?.let {
+                        store.edit(store.settings.copy(systemTtsRate = it))
+                    }
+                },
+            )
+            CouiDropdownPreference(
+                title = "音调",
+                items = RateLabels,
+                selectedIndex = nearestIndex(settings.systemTtsPitch),
+                onSelectedIndexChange = { index ->
+                    RateOptions.getOrNull(index)?.let {
+                        store.edit(store.settings.copy(systemTtsPitch = it))
+                    }
+                },
+            )
             Spacer(Modifier.height(8.dp))
-            TtsAction(if (checking) "检测中…" else "重新检测", enabled = !checking) { revision++ }
+            SystemTtsAction("打开系统文字转语音设置") { SystemTtsInspector.openSettings(context) }
+        }
+    }
+
+    SpeechGroupCard(title = "系统 TTS 诊断") {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
             Text(
-                text = "音色、语速与试听由系统引擎负责；这里只读展示，不改动系统设置。",
+                text = buildDiagnostics(info, checking),
+                style = MiuixTheme.textStyles.body2,
+                color = secondary,
+            )
+            Spacer(Modifier.height(10.dp))
+            SystemTtsAction(if (checking) "检测中…" else "重新检测", enabled = !checking) { revision++ }
+            Text(
+                text = "仅检测元数据，不发声、不录音、不下载。离线判断依据引擎声明，不是流量审计。",
                 style = MiuixTheme.textStyles.body2,
                 color = secondary,
                 modifier = Modifier.padding(top = 10.dp),
             )
         }
     }
+}
 
-    if (info.voices.isNotEmpty()) {
-        SpeechGroupCard(title = "可用音色") {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                info.voices.forEach { voice ->
-                    Text(
-                        text = voice,
-                        style = MiuixTheme.textStyles.body2,
-                        color = accent,
-                        modifier = Modifier.padding(vertical = 4.dp),
-                    )
-                }
-            }
+private fun nearestIndex(value: Float): Int {
+    var best = 0
+    var delta = Float.MAX_VALUE
+    RateOptions.forEachIndexed { index, option ->
+        val d = kotlin.math.abs(option - value)
+        if (d < delta) {
+            delta = d
+            best = index
         }
     }
+    return best
+}
+
+private fun buildDiagnostics(info: SystemTtsInfo, checking: Boolean): String {
+    if (info.error != null) return "引擎：${info.error}"
+    if (info.engine.isBlank()) return if (checking) "正在检测引擎…" else "尚未检测"
+    return buildString {
+        appendLine("引擎：${info.engine}")
+        appendLine("默认音色：${info.defaultVoice.ifBlank { "—" }}")
+        appendLine("默认语言：${info.defaultLanguage.ifBlank { "—" }}")
+        appendLine("默认音色 locale：${info.defaultLocale.ifBlank { "—" }}")
+        appendLine("目标语言：${info.targetLanguage}；可用性：${info.targetAvailability}")
+        appendLine(
+            "音色总数：${info.voiceCount}；已安装标记：${info.installedCount}；" +
+                "离线可选：${info.offlineCount}",
+        )
+        appendLine("离线匹配：${info.offlineMatch}")
+        info.voices.forEach { voice ->
+            appendLine(
+                voice.name + " : " + voice.locale + "；network=" + voice.networkRequired +
+                    "；features=" + voice.features,
+            )
+        }
+    }.trimEnd()
 }
 
 @Composable
-private fun TtsInfoRow(label: String, value: String, secondary: Color) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp),
-    ) {
-        Text(
-            text = label,
-            style = MiuixTheme.textStyles.body2,
-            color = secondary,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = value,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurface,
-        )
-    }
-}
-
-@Composable
-private fun TtsAction(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+private fun SystemTtsAction(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     Text(
         text = text,
         style = MiuixTheme.textStyles.body1,
