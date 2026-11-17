@@ -36,7 +36,7 @@ android {
 
     defaultConfig {
         // 独立标识：namespace 保持上游包结构，安装包 id 独立，可与官方 Eta 并存
-        applicationId = "io.github.mangi.etak"
+        applicationId = "io.github.kevinhaishou.etak"
         minSdk = 33
         targetSdk = 37
         // versionCode 规则：yyyyMMdd + 两位当日序号（01 起），发版时随 versionName 一起手动递增。

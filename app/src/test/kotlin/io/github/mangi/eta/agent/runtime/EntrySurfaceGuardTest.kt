@@ -62,11 +62,11 @@ class EntrySurfaceGuardTest {
         )
 
         assertNotNull(guard)
-        assertEquals("io.github.mangi.etak", guard?.targetPackageName)
+        assertEquals("io.github.kevinhaishou.etak", guard?.targetPackageName)
         assertTrue(guard?.dismissOnce() == true)
         assertTrue(guard?.dismissOnce() == true)
         assertEquals(1, dismissCalls.get())
-        assertEquals(setOf("io.github.mangi.etak"), guard?.consumeScreenshotExcludedPackages())
+        assertEquals(setOf("io.github.kevinhaishou.etak"), guard?.consumeScreenshotExcludedPackages())
     }
 
     @Test
