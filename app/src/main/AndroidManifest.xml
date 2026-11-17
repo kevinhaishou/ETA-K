@@ -144,6 +144,12 @@
             android:exported="false"
             android:process=":asr" />
 
+        <!-- 离线识别（GGUF/Vosk）：原生库只在这条进程里加载，崩了也不牵连聊天。 -->
+        <service
+            android:name=".agent.voice.local.LocalSpeechService"
+            android:exported="false"
+            android:process=":local_speech" />
+
         <service
             android:name=".agent.voice.EtaAssistantOverlayService"
             android:foregroundServiceType="microphone|mediaPlayback"

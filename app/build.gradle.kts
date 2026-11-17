@@ -47,6 +47,27 @@ android {
             // 同时过滤本地与依赖 AAR 的原生库，确保 APK 仅包含 ARM64。
             abiFilters += "arm64-v8a"
         }
+
+        // 离线识别原生层：transcribe.cpp + CPU-only ggml，产出 libeta_transcribe_jni.so。
+        externalNativeBuild {
+            cmake {
+                arguments += listOf(
+                    "-DANDROID_STL=c++_shared",
+                    "-DCMAKE_BUILD_TYPE=Release",
+                    "-DGGML_NATIVE=OFF",
+                    "-DGGML_OPENMP=OFF",
+                    "-DGGML_BLAS=OFF",
+                )
+                cppFlags += "-O2"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/local-speech/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     signingConfigs {
