@@ -51,7 +51,8 @@ jobs:
   build-apks:
     name: 构建 Debug 与 Release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # 离线识别带 ggml 原生层，首次编译明显更久，放宽以免中途被取消
+    timeout-minutes: 90
 
     steps:
       - name: 检出代码
