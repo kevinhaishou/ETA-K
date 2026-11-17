@@ -37,20 +37,24 @@ internal class SystemTtsPlayer(private val context: Context) {
             ?: throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "本机没有可用的语音引擎")
 
         val tag = settings?.systemTtsLanguage?.takeIf { it.isNotBlank() } ?: "zh-CN"
-        val locale = runCatching { Locale.forLanguageTag(tag) }.getOrDefault(Locale.SIMPLIFIED_CHINESE)
+        val locale = SystemTtsInspector.systemTtsLocale(tag)
         val language = tts.setLanguage(locale)
         if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
             throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "本机语音引擎缺少该语言的离线音色")
         }
 
-        // 仅离线音色：在引擎声明的音色里挑一个不联网且语言匹配的，挑不到就沿用引擎默认。
+        // 仅离线音色：用与诊断同一套判定（不含 KEY_FEATURE_NETWORK_SYNTHESIS / NOT_INSTALLED），
+        // 挑不到就报错，不悄悄退回联网音色。
         if (settings?.systemTtsOfflineOnly == true) {
-            val matched = runCatching { tts.voices }.getOrNull()
-                ?.firstOrNull { voice ->
-                    !voice.isNetworkConnectionRequired &&
-                        voice.locale.toLanguageTag().startsWith(locale.language, ignoreCase = true)
-                }
-            if (matched != null) runCatching { tts.voice = matched }
+            val voices = runCatching { tts.voices }.getOrNull().orEmpty()
+            val engine = runCatching { tts.defaultEngine }.getOrNull()
+            val matched = SystemTtsInspector.chooseOfflineSystemVoice(
+                voices, locale, runCatching { tts.defaultVoice?.name }.getOrNull(), engine,
+            ) ?: throw SpeechFailure(
+                SpeechErrorCode.CONFIGURATION,
+                SystemTtsInspector.offlineSystemVoiceFailure(voices, locale, engine),
+            )
+            runCatching { tts.voice = matched }
         }
 
         runCatching { tts.setSpeechRate((settings?.systemTtsRate ?: 1.0f).coerceIn(0.1f, 3.0f)) }
