@@ -60,7 +60,10 @@ internal class CloneVoiceEngine private constructor(
             val tokens = requireFile(directory, "tokens.txt")
             val encoder = firstFile(directory, listOf("encoder", "text_encoder"))
             val decoder = firstFile(directory, listOf("decoder"))
-            val vocoder = firstFile(directory, listOf("vocoder"))
+            // zipvoice distill 包里没有独立 vocoder，缺省交给运行时按空串处理。
+            val vocoder = directory.listFiles()?.firstOrNull {
+                it.isFile && it.name.contains("vocoder", ignoreCase = true)
+            }
             val dataDir = File(directory, "espeak-ng-data").takeIf { it.isDirectory }?.absolutePath.orEmpty()
             val config = OfflineTtsConfig(
                 model = OfflineTtsModelConfig(
@@ -68,7 +71,7 @@ internal class CloneVoiceEngine private constructor(
                         tokens = tokens.absolutePath,
                         encoder = encoder.absolutePath,
                         decoder = decoder.absolutePath,
-                        vocoder = vocoder.absolutePath,
+                        vocoder = vocoder?.absolutePath.orEmpty(),
                         dataDir = dataDir,
                     ),
                     numThreads = 2,

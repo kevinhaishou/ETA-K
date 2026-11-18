@@ -32,8 +32,8 @@ internal object CloneVoiceStore {
         val hasTokens = names.any { it.contains("tokens") }
         val hasEncoder = names.any { it.contains("encoder") }
         val hasDecoder = names.any { it.contains("decoder") }
-        val hasVocoder = names.any { it.contains("vocoder") }
-        return hasTokens && hasEncoder && hasDecoder && hasVocoder
+        // vocoder 可选：distill 包把声码器并进了 decoder。
+        return hasTokens && hasEncoder && hasDecoder
     }
 
     fun hasReference(context: Context): Boolean = referenceFile(context).length() > 0
@@ -89,24 +89,52 @@ internal object CloneVoiceStore {
         file.writeBytes(buffer.array())
     }
 
-    /** 从选中的目录里复制模型文件；同名覆盖。 */
-    suspend fun importModelDir(context: Context, treeUri: Uri, names: List<String>): Int =
-        withContext(Dispatchers.IO) {
-            val target = modelDir(context).apply { mkdirs() }
-            var copied = 0
-            for (name in names) {
-                val cleaned = name.substringAfterLast('/')
-                if (cleaned.isBlank() || cleaned.contains("..")) continue
-                val uri = Uri.withAppendedPath(treeUri, name)
-                val input = runCatching { context.contentResolver.openInputStream(uri) }.getOrNull()
-                    ?: continue
-                input.use { source ->
-                    File(target, cleaned).outputStream().use { sink -> source.copyTo(sink) }
+    /**
+     * 递归导入选中的目录：模型包里 espeak-ng-data 是子目录，必须整棵复制。
+     * 只保留文件名安全的结构，不跟随 .. 之类的路径。
+     */
+    suspend fun importTree(context: Context, treeUri: Uri): Int = withContext(Dispatchers.IO) {
+        val target = modelDir(context).apply { mkdirs() }
+        val rootId = android.provider.DocumentsContract.getTreeDocumentId(treeUri)
+        copyTree(context, treeUri, rootId, target)
+    }
+
+    private fun copyTree(
+        context: Context,
+        treeUri: Uri,
+        parentDocumentId: String,
+        target: File,
+    ): Int {
+        var copied = 0
+        val children = android.provider.DocumentsContract
+            .buildChildDocumentsUriUsingTree(treeUri, parentDocumentId)
+        val projection = arrayOf(
+            android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE,
+        )
+        context.contentResolver.query(children, projection, null, null, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(0)
+                val name = cursor.getString(1)?.substringAfterLast('/')?.trim().orEmpty()
+                val mime = cursor.getString(2).orEmpty()
+                if (name.isBlank() || name == "." || name == "..") continue
+                if (mime == android.provider.DocumentsContract.Document.MIME_TYPE_DIR) {
+                    val sub = File(target, name).apply { mkdirs() }
+                    copied += copyTree(context, treeUri, id, sub)
+                } else {
+                    val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
+                    val ok = runCatching {
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            File(target, name).outputStream().use { sink -> input.copyTo(sink) }
+                        } != null
+                    }.getOrDefault(false)
+                    if (ok) copied++
                 }
-                copied++
             }
-            copied
         }
+        return copied
+    }
 
     fun clearModel(context: Context) {
         modelDir(context).deleteRecursively()

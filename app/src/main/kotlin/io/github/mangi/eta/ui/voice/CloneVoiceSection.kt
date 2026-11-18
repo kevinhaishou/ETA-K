@@ -70,29 +70,12 @@ internal fun CloneVoiceSection() {
         scope.launch {
             busy = true
             try {
-                val names = withContext(Dispatchers.IO) {
-                    val docId = android.provider.DocumentsContract.getTreeDocumentId(uri)
-                    val children = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(uri, docId)
-                    val list = mutableListOf<String>()
-                    context.contentResolver.query(
-                        children,
-                        arrayOf(android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME),
-                        null, null, null,
-                    )?.use { cursor ->
-                        while (cursor.moveToNext()) list.add(cursor.getString(0))
-                    }
-                    list
-                }
-                val needed = names.filter {
-                    val lower = it.lowercase()
-                    lower.endsWith(".onnx") || lower.contains("tokens")
-                }
-                if (needed.isEmpty()) {
-                    report("这个目录里没有 onnx 或 tokens 文件", isError = true)
+                val copied = CloneVoiceStore.importTree(context, uri)
+                revision++
+                if (copied == 0) {
+                    report("这个目录里没有可导入的文件", isError = true)
                 } else {
-                    val copied = CloneVoiceStore.importModelDir(context, uri, needed)
-                    revision++
-                    report("已导入 $copied 个模型文件")
+                    report("已导入 $copied 个文件")
                 }
             } catch (error: Exception) {
                 report(error.message ?: "模型导入失败", isError = true)
