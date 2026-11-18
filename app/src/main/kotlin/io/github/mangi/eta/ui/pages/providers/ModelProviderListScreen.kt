@@ -10,7 +10,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.TravelExplore
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -21,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -74,6 +80,9 @@ internal fun ModelProviderListScreen(
     val selectedProviderId by RuntimeConfigRepository.selectedProviderIdFlow().collectAsState(initial = null)
     var searchQuery by remember { mutableStateOf("") }
     var providerToDelete by remember { mutableStateOf<ProviderSetting?>(null) }
+    var showSortDialog by remember { mutableStateOf(false) }
+    // 排序只在未过滤时开放：过滤视图中相邻交换会打乱全局语义。
+    val reorderEnabled = searchQuery.isBlank()
 
     LaunchedEffect(Unit) {
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
@@ -134,6 +143,20 @@ internal fun ModelProviderListScreen(
                     )
                 }
 
+                ProviderSection(title = null) {
+                    CouiPreference(
+                        title = "排序方式",
+                        summary = "自动按名称或创建时间排列，或在列表项上用箭头手动微调",
+                        icon = {
+                            CouiSettingsIcon(
+                                icon = Icons.Rounded.KeyboardArrowUp,
+                                tint = colors.accent,
+                            )
+                        },
+                        onClick = { showSortDialog = true },
+                    )
+                }
+
                 ProviderSection(
                     title = pluralStringResource(
                         R.plurals.provider_configured_count,
@@ -160,9 +183,23 @@ internal fun ModelProviderListScreen(
                         }
                     } else {
                         filteredProviders.forEachIndexed { index, provider ->
+                            val canMoveUp = reorderEnabled && index > 0
+                            val canMoveDown = reorderEnabled && index < filteredProviders.lastIndex
                             ProviderListItem(
                                 provider = provider,
                                 isSelected = provider.id == selectedProviderId,
+                                canMoveUp = canMoveUp,
+                                canMoveDown = canMoveDown,
+                                onMoveUp = if (canMoveUp) {
+                                    { scope.launch { ProviderRepository.moveProvider(provider.id, -1) } }
+                                } else {
+                                    null
+                                },
+                                onMoveDown = if (canMoveDown) {
+                                    { scope.launch { ProviderRepository.moveProvider(provider.id, 1) } }
+                                } else {
+                                    null
+                                },
                                 onOpen = { onNavigate(AppRoute.ModelProviderDetail(provider.id)) },
                                 onDelete = if (!provider.isBuiltIn) {
                                     { providerToDelete = provider }
@@ -251,6 +288,16 @@ internal fun ModelProviderListScreen(
                     }
                 }
 
+                item(key = "sort_entry") {
+                    ProviderSection(title = null) {
+                        ArrowPreference(
+                            title = "排序方式",
+                            summary = "自动按名称或创建时间排列，或在列表项上用箭头手动微调",
+                            onClick = { showSortDialog = true },
+                        )
+                    }
+                }
+
                 item(key = "list_section") {
                     ProviderSection(title = pluralStringResource(R.plurals.provider_configured_count, filteredProviders.size, filteredProviders.size)) {
                         if (filteredProviders.isEmpty()) {
@@ -269,10 +316,24 @@ internal fun ModelProviderListScreen(
                                 )
                             }
                         } else {
-                            filteredProviders.forEach { provider ->
+                            filteredProviders.forEachIndexed { index, provider ->
+                                val canMoveUp = reorderEnabled && index > 0
+                                val canMoveDown = reorderEnabled && index < filteredProviders.lastIndex
                                 ProviderListItem(
                                     provider = provider,
                                     isSelected = provider.id == selectedProviderId,
+                                    canMoveUp = canMoveUp,
+                                    canMoveDown = canMoveDown,
+                                    onMoveUp = if (canMoveUp) {
+                                        { scope.launch { ProviderRepository.moveProvider(provider.id, -1) } }
+                                    } else {
+                                        null
+                                    },
+                                    onMoveDown = if (canMoveDown) {
+                                        { scope.launch { ProviderRepository.moveProvider(provider.id, 1) } }
+                                    } else {
+                                        null
+                                    },
                                     onOpen = { onNavigate(AppRoute.ModelProviderDetail(provider.id)) },
                                     onDelete = if (!provider.isBuiltIn) {
                                         { providerToDelete = provider }
@@ -289,6 +350,59 @@ internal fun ModelProviderListScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    if (showSortDialog) {
+        val modes = listOf(
+            "按名称 A → Z" to ProviderRepository.ProviderSortMode.NAME_ASC,
+            "按名称 Z → A" to ProviderRepository.ProviderSortMode.NAME_DESC,
+            "按创建时间（新 → 旧）" to ProviderRepository.ProviderSortMode.CREATED_DESC,
+        )
+        when (LocalUiStyle.current) {
+            AppearanceUiStyle.COUI -> {
+                CouiConfirmDialog(
+                    visible = true,
+                    title = "排序方式",
+                    message = "选择自动排序规则，立即应用到列表顺序",
+                    confirmText = "完成",
+                    onConfirm = { showSortDialog = false },
+                    onDismissRequest = { showSortDialog = false },
+                ) {
+                    modes.forEach { (label, mode) ->
+                        CouiPreference(
+                            title = label,
+                            onClick = {
+                                scope.launch { ProviderRepository.autoSortProviders(mode) }
+                                showSortDialog = false
+                            },
+                        )
+                    }
+                }
+            }
+            AppearanceUiStyle.MIUIX -> {
+                OverlayDialog(
+                    show = true,
+                    title = "排序方式",
+                    summary = "选择自动排序规则，立即应用到列表顺序",
+                    onDismissRequest = { showSortDialog = false },
+                ) {
+                    modes.forEach { (label, mode) ->
+                        BasicComponent(
+                            title = label,
+                            onClick = {
+                                scope.launch { ProviderRepository.autoSortProviders(mode) }
+                                showSortDialog = false
+                            },
+                        )
+                    }
+                    MiuixDialogActions(
+                        confirmText = "完成",
+                        onCancel = { showSortDialog = false },
+                        onConfirm = { showSortDialog = false },
+                    )
                 }
             }
         }
@@ -341,10 +455,50 @@ internal fun ModelProviderListScreen(
 private fun ProviderListItem(
     provider: ProviderSetting,
     isSelected: Boolean,
+    canMoveUp: Boolean = false,
+    canMoveDown: Boolean = false,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
     onOpen: () -> Unit,
     onDelete: (() -> Unit)?,
     onSelect: () -> Unit,
 ) {
+    // 竖排上下箭头：与选择控件并排，紧凑且不破坏既有布局。
+    @Composable
+    fun MoveArrows(titleColor: Color) {
+        Column(
+            modifier = Modifier.width(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp, 16.dp)
+                    .clickable(enabled = canMoveUp, onClick = { onMoveUp?.invoke() }, role = Role.Button),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowUp,
+                    contentDescription = "上移",
+                    modifier = Modifier.size(18.dp),
+                    tint = titleColor.copy(alpha = if (canMoveUp) 1f else 0.3f),
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(28.dp, 16.dp)
+                    .clickable(enabled = canMoveDown, onClick = { onMoveDown?.invoke() }, role = Role.Button),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = "下移",
+                    modifier = Modifier.size(18.dp),
+                    tint = titleColor.copy(alpha = if (canMoveDown) 1f else 0.3f),
+                )
+            }
+        }
+    }
+
     val opacity = if (provider.isEnabled) 1f else 0.6f
     val subtitle = listOfNotNull(
         provider.typeLabel,
@@ -398,22 +552,29 @@ private fun ProviderListItem(
                     )
                 },
                 trailing = {
-                    Box(
-                        modifier = Modifier
-                            .padding(start = 12.dp)
-                            .size(32.dp)
-                            .clickable(
-                                enabled = provider.isEnabled,
-                                role = Role.RadioButton,
-                                onClick = onSelect,
-                            ),
-                        contentAlignment = Alignment.Center,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        RadioButton(
-                            modifier = Modifier.size(24.dp),
-                            selected = isSelected,
-                            enabled = provider.isEnabled,
-                        )
+                        if (onMoveUp != null || onMoveDown != null) {
+                            MoveArrows(colors.title)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clickable(
+                                    enabled = provider.isEnabled,
+                                    role = Role.RadioButton,
+                                    onClick = onSelect,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            RadioButton(
+                                modifier = Modifier.size(24.dp),
+                                selected = isSelected,
+                                enabled = provider.isEnabled,
+                            )
+                        }
                     }
                 },
             )
@@ -426,6 +587,9 @@ private fun ProviderListItem(
                     .graphicsLayer { alpha = opacity },
                 startAction = { ProviderIcon(provider) },
                 endActions = {
+                    if (onMoveUp != null || onMoveDown != null) {
+                        MoveArrows(MiuixTheme.colorScheme.onSurface)
+                    }
                     Checkbox(
                         state = ToggleableState(isSelected),
                         onClick = if (provider.isEnabled) onSelect else null,
