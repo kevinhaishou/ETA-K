@@ -78,6 +78,7 @@ internal fun TtsProvider.label(): String = stringResource(
         TtsProvider.MINIMAX -> R.string.speech_tts_minimax
         TtsProvider.MIMO -> R.string.speech_tts_mimo
         TtsProvider.DEEPSEEK -> R.string.speech_tts_deepseek
+        TtsProvider.CLONE -> R.string.speech_tts_clone
         TtsProvider.ANDROID -> R.string.speech_tts_android
     },
 )

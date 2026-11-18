@@ -19,6 +19,7 @@ internal suspend fun synthesizeSpeech(settings: SpeechSettings, credentials: Spe
         TtsProvider.DEEPSEEK -> return@withTimeout synthesizeDeepSeek(settings.deepseekTts, credentials.deepseekTts, text, onAudio)
         TtsProvider.NONE -> throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "请先选择语音播报服务")
         TtsProvider.ANDROID -> throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "系统语音由本机引擎直接播报")
+        TtsProvider.CLONE -> throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "语音克隆由本机模型直接合成")
         TtsProvider.QWEN, TtsProvider.DOUBAO -> Unit
     }
     val qwen = settings.tts == TtsProvider.QWEN
