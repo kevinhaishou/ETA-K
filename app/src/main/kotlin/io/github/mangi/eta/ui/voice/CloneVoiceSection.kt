@@ -80,7 +80,13 @@ internal fun CloneVoiceSection() {
                     report("已导入 $copied 个文件")
                 }
             } catch (error: Exception) {
-                report(error.message ?: "模型导入失败", isError = true)
+                val reason = if (error is io.github.mangi.eta.agent.voice.SpeechFailure) {
+                    error.userMessage
+                } else {
+                    error.message ?: error.javaClass.simpleName
+                }
+                android.util.Log.e("EtaVoiceClone", "import failed: $reason", error)
+                report(reason, isError = true)
             } finally {
                 busy = false
             }
@@ -99,7 +105,13 @@ internal fun CloneVoiceSection() {
                 revision++
                 report("参考音频已导入，约 $seconds 秒")
             } catch (error: Exception) {
-                report("参考音频导入失败：" + (error.message ?: "未知原因"), isError = true)
+                val reason = if (error is io.github.mangi.eta.agent.voice.SpeechFailure) {
+                    error.userMessage
+                } else {
+                    error.message ?: error.javaClass.simpleName
+                }
+                android.util.Log.e("EtaVoiceClone", "reference import failed: $reason", error)
+                report("参考音频导入失败：" + reason, isError = true)
             } finally {
                 busy = false
             }
@@ -211,7 +223,14 @@ internal fun CloneVoiceSection() {
                             report("合成完成，时长约 ${samples.first.size / samples.second} 秒")
                             CloneVoicePlayback.play(samples.first, samples.second)
                         } catch (error: Exception) {
-                            report(error.message ?: "合成失败", isError = true)
+                            // SpeechFailure 的 message 只是错误码名，真正原因在 userMessage。
+                            val reason = if (error is io.github.mangi.eta.agent.voice.SpeechFailure) {
+                                error.userMessage
+                            } else {
+                                error.message ?: error.javaClass.simpleName
+                            }
+                            android.util.Log.e("EtaVoiceClone", "synthesize failed: $reason", error)
+                            report(reason, isError = true)
                         } finally {
                             busy = false
                         }
