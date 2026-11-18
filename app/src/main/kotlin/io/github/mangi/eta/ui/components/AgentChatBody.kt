@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.components
 
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.LocalSidebarAlpha
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -1091,6 +1093,9 @@ private fun AgentChatBottomBar(
     onCancelMessageEdit: () -> Unit,
 ) {
     val surface = MiuixTheme.colorScheme.surface
+    // 壁纸模式下底部渐隐也跟随「侧边栏透明度」，否则整块实心把壁纸盖住。
+    val wallpaperActive = LocalChatBackgroundActive.current
+    val barAlpha = if (wallpaperActive) 1f - LocalSidebarAlpha.current else 1f
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1103,9 +1108,9 @@ private fun AgentChatBottomBar(
                 .background(
                     Brush.verticalGradient(
                         0.0f to Color.Transparent,
-                        0.26f to surface.copy(alpha = 0.86f),
-                        0.55f to surface.copy(alpha = 0.98f),
-                        1.0f to surface,
+                        0.26f to surface.copy(alpha = 0.86f * barAlpha),
+                        0.55f to surface.copy(alpha = 0.98f * barAlpha),
+                        1.0f to surface.copy(alpha = barAlpha),
                     ),
                 ),
         )

@@ -207,10 +207,14 @@ internal fun conversationPaneContainerColor(): Color {
 
 @Composable
 internal fun conversationPaneCardColor(): Color {
-    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
-        return if (CouiTheme.isDark) Color(0xFF212328) else Color.White
+    val base = if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+        if (CouiTheme.isDark) Color(0xFF212328) else Color.White
+    } else {
+        MiuixTheme.colorScheme.surfaceContainer
     }
-    return MiuixTheme.colorScheme.surfaceContainer
+    // 与面板容器共用「侧边栏透明度」：否则面板透明了、里面的卡片还是实心色块。
+    val paneAlpha = LocalSidebarAlpha.current
+    return if (paneAlpha < 1f) base.copy(alpha = 1f - paneAlpha) else base
 }
 
 @Composable
