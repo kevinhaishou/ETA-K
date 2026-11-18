@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.components
 
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.ui.voice.SpeechDictationButton
 import io.github.mangi.eta.ui.voice.SpeechInputFeedback
 import io.github.mangi.eta.ui.voice.rememberSpeechInput
@@ -309,10 +311,16 @@ internal fun AgentChatInputBar(
         val couiDark = CouiTheme.isDark
         val couiInputShape = remember { CouiShape(24.dp, 2.3f) }
         val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
-        val miuixInputBg = if (!isDark && MiuixTheme.colorScheme.surfaceContainer == MiuixTheme.colorScheme.surface) {
+        // 壁纸模式下输入胶囊与侧栏共用同一个透明度，可调到全透明
+        val inputBaseBg = if (!isDark && MiuixTheme.colorScheme.surfaceContainer == MiuixTheme.colorScheme.surface) {
             Color(0xFFF5F6F8)
         } else {
             MiuixTheme.colorScheme.surfaceContainer
+        }
+        val miuixInputBg = if (LocalChatBackgroundActive.current) {
+            inputBaseBg.copy(alpha = 1f - LocalSidebarAlpha.current)
+        } else {
+            inputBaseBg
         }
         Box(
             modifier = Modifier

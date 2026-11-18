@@ -60,6 +60,7 @@ import com.itos.coui.topappbar.TopAppBar as CouiTopAppBar
 import com.itos.coui.topappbar.TopAppBarButtonGroup
 import io.github.mangi.eta.R
 import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.customization.pageBackgroundColor
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.TtsProvider
@@ -218,8 +219,9 @@ internal fun AgentAppShell(
                                 },
                                 dark = dark,
                                 colors = CouiTopAppBarDefaults.colors(
+                                    // 顶栏与侧栏共用「侧边栏透明度」：壁纸模式下可一路调到全透明
                                     backgroundColor = if (LocalChatBackgroundActive.current) {
-                                        MiuixTheme.colorScheme.surface.copy(alpha = 0.72f)
+                                        MiuixTheme.colorScheme.surface.copy(alpha = 1f - LocalSidebarAlpha.current)
                                     } else {
                                         MiuixTheme.colorScheme.surface
                                     },
