@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,13 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContactSupport
 import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,21 +19,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.agent.tool.AgentQuestionBus
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 会话内提问卡 / 工具审批卡。
+ * 会话内提问卡（ask_user）/ 工具审批卡。
  *
- * 挂起期间模型在等这张卡的答案；单选点选项即提交，多选勾选后确认提交，
- * 没有选项或需要补充时用自由输入。审批卡的「拒绝」是 destructive。
+ * 挂起期间模型在等这张卡的答案：单选点选项即提交，多选勾选后确认提交，
+ * 没有选项或需要补充时用自由输入，也可以跳过。审批卡的「拒绝」以
+ * USER_REJECTED 回给模型。
  */
 @Composable
 internal fun AgentQuestionCard(
     id: String,
-    kind: io.github.mangi.eta.agent.tool.AgentQuestionBus.Kind,
+    kind: AgentQuestionBus.Kind,
     title: String,
     question: String,
     options: List<String>,
@@ -49,9 +50,11 @@ internal fun AgentQuestionCard(
     onSubmit: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isApproval = kind == io.github.mangi.eta.agent.tool.AgentQuestionBus.Kind.TOOL_APPROVAL
+    val isApproval = kind == AgentQuestionBus.Kind.TOOL_APPROVAL
     var selected by remember(id) { mutableStateOf(setOf<String>()) }
     var freeText by remember(id) { mutableStateOf("") }
+    val accent = MiuixTheme.colorScheme.primary
+    val danger = Color(0xFFC0392B)
 
     Column(
         modifier = modifier
@@ -62,7 +65,7 @@ internal fun AgentQuestionCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .background(MiuixTheme.colorScheme.surfaceContainerHigh)
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -71,11 +74,11 @@ internal fun AgentQuestionCard(
                     imageVector = if (isApproval) Icons.Rounded.Security else Icons.Rounded.ContactSupport,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
-                    tint = if (isApproval) Color(0xFFC0392B) else MaterialTheme.colorScheme.primary,
+                    tint = if (isApproval) danger else accent,
                 )
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MiuixTheme.textStyles.title2,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -84,108 +87,114 @@ internal fun AgentQuestionCard(
             }
             Text(
                 text = question,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = MiuixTheme.textStyles.body1,
+                color = MiuixTheme.colorScheme.onSurface,
             )
             if (isApproval && !toolArgsSummary.isNullOrBlank()) {
                 Text(
                     text = toolArgsSummary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (options.isEmpty() || isApproval) {
-                OutlinedTextField(
-                    value = freeText,
-                    onValueChange = { freeText = it },
-                    placeholder = {
-                        Text(
-                            text = if (isApproval) "补充给模型的话（可选）" else "也可以自由输入…",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    },
-                    singleLine = false,
-                    maxLines = 3,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            // 选项行：单选点选即提交；多选勾选后点「提交」。
             if (options.isNotEmpty() && !isApproval) {
                 options.forEach { option ->
                     val checked = option in selected
-                    OutlinedButton(
-                        onClick = {
-                            selected = if (multiSelect) {
-                                if (checked) selected - option else selected + option
-                            } else {
-                                // 单选点选项即提交，减少一次点击
-                                onSubmit(option)
-                                return@OutlinedButton
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (checked) accent.copy(alpha = 0.14f) else MiuixTheme.colorScheme.surface,
+                            )
+                            .clickable {
+                                if (multiSelect) {
+                                    selected = if (checked) selected - option else selected + option
+                                } else {
+                                    onSubmit(option)
+                                }
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                        ),
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             text = if (multiSelect && checked) "✓ $option" else option,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
+                            style = MiuixTheme.textStyles.body1,
+                            color = if (checked) accent else MiuixTheme.colorScheme.onSurface,
                         )
                     }
                 }
             }
+            TextField(
+                value = freeText,
+                onValueChange = { freeText = it },
+                label = if (isApproval) "补充给模型的话（可选）" else "也可以自由输入…",
+                singleLine = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
             ) {
-                if (isApproval) {
-                    OutlinedButton(
-                        onClick = { onSubmit("拒绝") },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFC0392B),
-                        ),
+                QuestionCardButton(
+                    text = if (isApproval) "拒绝" else "跳过",
+                    container = MiuixTheme.colorScheme.surface,
+                    content = if (isApproval) danger else MiuixTheme.colorScheme.onSurface,
+                ) {
+                    onSubmit("__SKIPPED__")
+                }
+                when {
+                    isApproval -> QuestionCardButton(
+                        text = "允许执行",
+                        container = accent,
+                        content = MiuixTheme.colorScheme.onPrimary,
                     ) {
-                        Text("拒绝")
+                        val extra = freeText.trim()
+                        onSubmit(if (extra.isBlank()) "允许执行" else "允许执行；$extra")
                     }
-                    Button(
-                        onClick = {
-                            val extra = freeText.trim()
-                            onSubmit(if (extra.isBlank()) "允许执行" else "允许执行；$extra")
-                        },
+                    multiSelect && options.isNotEmpty() -> QuestionCardButton(
+                        text = "提交",
+                        container = accent,
+                        content = MiuixTheme.colorScheme.onPrimary,
+                        enabled = selected.isNotEmpty() || freeText.isNotBlank(),
                     ) {
-                        Text("允许执行")
+                        onSubmit(buildSelectedAnswer(selected, freeText))
                     }
-                } else {
-                    if (options.isNotEmpty() && multiSelect) {
-                        OutlinedButton(
-                            onClick = { onSubmit("__SKIPPED__") },
-                        ) {
-                            Text("跳过")
-                        }
-                        Button(
-                            onClick = { onSubmit(buildSelectedAnswer(selected, freeText)) },
-                            enabled = selected.isNotEmpty() || freeText.isNotBlank(),
-                        ) {
-                            Text("提交")
-                        }
-                    } else {
-                        OutlinedButton(onClick = { onSubmit("__SKIPPED__") }) {
-                            Text("跳过")
-                        }
-                        Button(
-                            onClick = { onSubmit(freeText.trim()) },
-                            enabled = freeText.isNotBlank(),
-                        ) {
-                            Text("发送")
-                        }
+                    else -> QuestionCardButton(
+                        text = "发送",
+                        container = accent,
+                        content = MiuixTheme.colorScheme.onPrimary,
+                        enabled = freeText.isNotBlank(),
+                    ) {
+                        onSubmit(freeText.trim())
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun QuestionCardButton(
+    text: String,
+    container: Color,
+    content: Color,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = text,
+        style = MiuixTheme.textStyles.body1,
+        color = if (enabled) content else content.copy(alpha = 0.4f),
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (enabled) container else container.copy(alpha = 0.5f))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
 
 private fun buildSelectedAnswer(selected: Set<String>, freeText: String): String {

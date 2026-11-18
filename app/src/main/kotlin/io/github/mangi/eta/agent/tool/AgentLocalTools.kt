@@ -218,7 +218,7 @@ internal class AgentLocalTools(
     private data class ApprovalDecision(val approved: Boolean, val message: String)
 
     /** ask_user：发布提问卡并挂起等待用户应答。 */
-    private fun askUser(args: JSONObject): String {
+    private fun askUser(args: JSONObject): AgentModelClient.ToolResult {
         val question = args.optString("question").trim()
         if (question.isBlank()) {
             return textResult(errorResult("INVALID_ARGS", "ask_user 缺少 question 参数"))
@@ -245,14 +245,16 @@ internal class AgentLocalTools(
                 JSONObject()
                     .put("ok", true)
                     .put("answered", false)
-                    .put("note", "用户跳过了这个问题；请基于已有信息自行决定，或换一种方式继续"),
+                    .put("note", "用户跳过了这个问题；请基于已有信息自行决定，或换一种方式继续")
+                    .toString(),
             )
         }
         return textResult(
             JSONObject()
                 .put("ok", true)
                 .put("answered", true)
-                .put("answer", answer),
+                .put("answer", answer)
+                .toString(),
         )
     }
 
@@ -1870,9 +1872,9 @@ internal class AgentLocalTools(
         val isSystemApp: Boolean = false
     )
 
-    private const val SKIPPED_ANSWER = "__SKIPPED__"
-
     private companion object {
+        private const val SKIPPED_ANSWER = "__SKIPPED__"
+
         val DEVICE_DIRECT_TOOL_NAMES = io.github.mangi.eta.agent.model.AgentPhoneToolCatalog.direct + setOf(
             "set_alarm",
             "set_timer",
