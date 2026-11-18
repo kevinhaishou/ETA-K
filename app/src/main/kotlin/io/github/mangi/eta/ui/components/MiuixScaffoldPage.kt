@@ -12,11 +12,14 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.customization.pageBackgroundColor
+import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.ui.layout.WidePageContent
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -46,9 +49,23 @@ fun MiuixScaffoldPage(
     val backdrop = rememberTopBarBackdrop()
     val topBarColor = topBarContainerColor(backdrop)
 
+    // 与 CouiScaffoldPage 保持一致：页面自绘壁纸并铺一层实底。
+    // 只依赖外层 ChatBackground 时，壁纸模式下容器透明会把下层残留的旧页透出来（重影）。
+    val pageWallpaper = rememberWallpaperBitmap()
+    val pageWallpaperDim = remember(pageWallpaper) { CustomizationStore.wallpaperDim() }
+    val pageWallpaperScale = remember(pageWallpaper) { CustomizationStore.wallpaperScale() }
+    val pageBaseColor = MiuixTheme.colorScheme.surface
+
     Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = pageBackgroundColor(MiuixTheme.colorScheme.surface),
+        modifier = modifier
+            .fillMaxSize()
+            .drawWithContent {
+                drawRect(pageBaseColor)
+                pageWallpaper?.let { drawWallpaperBitmap(it, pageWallpaperScale) }
+                if (pageWallpaperDim > 0f) drawRect(Color.Black, alpha = pageWallpaperDim)
+                drawContent()
+            },
+        containerColor = Color.Transparent,
         topBar = {
             TopBarBackdrop(backdrop) {
                 // 页面自带主视觉（如角色详情）时用紧凑标题，避免大标题与主视觉重复。

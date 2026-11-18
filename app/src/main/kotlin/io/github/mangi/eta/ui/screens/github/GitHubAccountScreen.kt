@@ -1,10 +1,7 @@
 package io.github.mangi.eta.ui.screens.github
 
 import android.widget.Toast
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -44,13 +41,6 @@ internal fun GitHubAccountScreen(onBack: () -> Unit) {
 
     LaunchedEffect(Unit) { GitHubAccountManager.syncIfConfigured() }
 
-    // 壁纸模式下 Scaffold 的容器色是 Transparent（pageBackgroundColor），
-    // 而导航切换时旧页仍留在下层绘制，不加实底会透出上一层设置页。
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MiuixTheme.colorScheme.surface),
-    ) {
     MiuixScaffoldPage(title = "GitHub 账号", onBack = onBack) {
         item(key = "intro") {
             Text(
@@ -157,7 +147,6 @@ internal fun GitHubAccountScreen(onBack: () -> Unit) {
                 )
             }
         }
-    }
     }
 }
 
