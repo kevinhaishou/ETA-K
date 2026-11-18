@@ -65,6 +65,23 @@ internal fun CloneVoiceSection() {
         statusIsError = isError
     }
 
+    // 原文是 zipvoice 的硬性输入，但可以不用手填：录完/导完自动转写，
+    // 用户只需核对。已填过的不覆盖；识别不可用则回退到手动填写。
+    fun autoFillReferenceText() {
+        if (referenceText.isNotBlank()) return
+        scope.launch {
+            report("正在自动识别参考原文…")
+            val text = runCatching { CloneVoiceStore.autoTranscribe(context) }.getOrNull()
+            if (text != null) {
+                referenceText = text
+                CloneVoiceStore.saveReferenceText(context, text)
+                report("已自动识别原文：$text（请核对后合成）")
+            } else {
+                report("参考音频就绪（自动识别不可用，请手动填写原文）")
+            }
+        }
+    }
+
     val pickModel = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri: Uri? ->
@@ -104,6 +121,7 @@ internal fun CloneVoiceSection() {
                 referenceSeconds = seconds
                 revision++
                 report("参考音频已导入，约 $seconds 秒")
+                autoFillReferenceText()
             } catch (error: Exception) {
                 val reason = if (error is io.github.mangi.eta.agent.voice.SpeechFailure) {
                     error.userMessage
@@ -170,6 +188,7 @@ internal fun CloneVoiceSection() {
                                 referenceSeconds = seconds
                                 revision++
                                 report("已录制 $seconds 秒参考音频")
+                                autoFillReferenceText()
                             } else if (bytes.isNotEmpty()) {
                                 report("录音太短，至少说两秒", isError = true)
                             }

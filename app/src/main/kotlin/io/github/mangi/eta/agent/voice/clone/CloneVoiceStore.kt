@@ -3,8 +3,11 @@ package io.github.mangi.eta.agent.voice.clone
 import android.content.Context
 import android.net.Uri
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.withContext
+import io.github.mangi.eta.agent.voice.local.LocalSpeechEngine
 
 /**
  * 语音克隆的模型目录与参考音频存放。
@@ -54,7 +57,9 @@ internal object CloneVoiceStore {
      * 返回采样点数与秒数，供界面显示。
      */
     suspend fun importReference(context: Context, uri: Uri): Pair<Int, Int> = withContext(Dispatchers.IO) {
-        val samples = ReferenceAudioDecoder.decode(context, uri)
+        // 先截断再落盘：合成耗时随参考音频长度线性增长，超过 [MAX_REFERENCE_SECONDS]
+        // 的部分只会拖慢每次合成，对音色没有帮助。
+        val samples = ReferenceAudioDecoder.decode(context, uri).let(::truncateToLimit)
         writeReference(context, samples)
         samples.size to (samples.size / SAMPLE_RATE)
     }
@@ -65,7 +70,7 @@ internal object CloneVoiceStore {
                 val lo = pcm16[index * 2].toInt() and 0xFF
                 val hi = pcm16[index * 2 + 1].toInt()
                 ((hi shl 8) or lo).toShort().toInt() / 32768f
-            }
+            }.let(::truncateToLimit)
             writeReference(context, floats)
             floats.size to (floats.size / SAMPLE_RATE)
         }
@@ -142,4 +147,52 @@ internal object CloneVoiceStore {
     }
 
     const val SAMPLE_RATE = 16_000
+
+    /**
+     * 参考音频上限（秒）。zipvoice 每次合成把「参考音频 + 目标文本」整体送入 decoder，
+     * 参考越长每次合成都越慢（实测线性）；zero-shot 提取音色 10 秒足够。
+     * 截断在写入前做，识别原文也用同一份，保证音频和原文始终对应。
+     */
+    const val MAX_REFERENCE_SECONDS = 10
+
+    private fun truncateToLimit(samples: FloatArray): FloatArray {
+        val limit = MAX_REFERENCE_SECONDS * SAMPLE_RATE
+        return if (samples.size > limit) samples.copyOf(limit) else samples
+    }
+
+    /**
+     * 用已装的本机离线识别模型转写参考音频，免去手动输入原文。
+     * 失败（未装模型、识别为空等）返回 null，调用方回退到手动填写。
+     */
+    suspend fun autoTranscribe(context: Context): String? {
+        val samples = loadReference(context)
+        if (samples.isEmpty()) return null
+        val pcm = ByteArray(samples.size * 2)
+        for (index in samples.indices) {
+            val value = (samples[index].coerceIn(-1f, 1f) * 32767f).toInt()
+            pcm[index * 2] = (value and 0xFF).toByte()
+            pcm[index * 2 + 1] = ((value shr 8) and 0xFF).toByte()
+        }
+        val frames = CoroutineScope(Dispatchers.IO).produce {
+            var offset = 0
+            while (offset < pcm.size) {
+                val end = minOf(offset + 3_200, pcm.size)
+                send(pcm.copyOfRange(offset, end))
+                offset = end
+            }
+        }
+        return try {
+            LocalSpeechEngine.recognize(
+                context,
+                frames,
+                begin = {},
+                onPartial = {},
+                onEndpoint = {},
+                endpointSilenceMs = 0,
+            ).trim().takeIf { it.isNotBlank() }
+        } catch (error: Exception) {
+            android.util.Log.w("EtaVoiceClone", "auto transcribe failed: ${error.message}")
+            null
+        }
+    }
 }
