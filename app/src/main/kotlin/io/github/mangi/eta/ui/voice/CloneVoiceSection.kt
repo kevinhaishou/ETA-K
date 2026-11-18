@@ -184,7 +184,7 @@ internal fun CloneVoiceSection() {
         SpeechGroupCard(title = "参考与试听") {
             SpeechFieldColumn {
                 SpeechField(
-                    label = "参考音频里说的话（可选，能明显提升像不像）",
+                    label = "参考音频里说的话（必填，必须是这段音频的原文）",
                     value = referenceText,
                     singleLine = false,
                     onChange = {

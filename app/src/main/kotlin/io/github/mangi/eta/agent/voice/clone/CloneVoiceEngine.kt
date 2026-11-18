@@ -38,6 +38,14 @@ internal class CloneVoiceEngine private constructor(
         if (reference.isEmpty()) {
             throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "请先导入或录制一段参考音频")
         }
+        // zipvoice 是 zero-shot 克隆，参考音频的原文是必需输入。
+        // 缺了它 native 不会报错，只会产出空音频，所以必须在这里拦住。
+        if (referenceText.isBlank()) {
+            throw SpeechFailure(
+                SpeechErrorCode.CONFIGURATION,
+                "请先填写「参考音频里说的话」—— 它必须是这段音频的原文，否则合成的音色会失真甚至没有声音",
+            )
+        }
         val config = GenerationConfig(
             silenceScale = 0.2f,
             speed = speed,
