@@ -67,6 +67,7 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         AgentMemoryRepository.init(this)
         ProviderRepository.init(this)
         McpServerRepository.init(this)
+        io.github.mangi.eta.agent.github.GitHubAccountManager.init(this)
         XposedServiceHelper.registerListener(this)
         applicationScope.launch {
             delay(4_000)

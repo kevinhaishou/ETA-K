@@ -921,6 +921,11 @@ fun AgentAppRoot(
                         onBack = ::popRoute,
                     )
                 }
+                entry<AppRoute.GitHubAccount>(swipeDismiss = swipeDismiss) {
+                    io.github.mangi.eta.ui.screens.github.GitHubAccountScreen(
+                        onBack = ::popRoute,
+                    )
+                }
                 entry<AppRoute.McpServerDetail>(swipeDismiss = swipeDismiss) { route ->
                     McpServerDetailScreen(
                         serverId = route.serverId,
