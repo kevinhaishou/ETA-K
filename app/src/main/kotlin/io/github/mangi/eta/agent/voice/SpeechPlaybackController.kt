@@ -82,25 +82,105 @@ internal class SpeechPlaybackController(
                     }
                     val reference = CloneVoiceStore.loadReference(context)
                     val referenceText = CloneVoiceStore.referenceText(context)
-                    val engine = CloneVoiceEngineCache.acquire(context, CloneVoiceStore.modelDir(context))
+                    // 加载 180MB 模型要几秒，放主线程会直接 ANR；缓存命中时这里几乎不耗时。
+                    val engine = withContext(Dispatchers.IO) {
+                        CloneVoiceEngineCache.acquire(context, CloneVoiceStore.modelDir(context))
+                    }
+                    // 采样率在模型加载后固定，先取出来，避免合成进行中再从 native 读。
+                    val sampleRate = engine.sampleRate
+                    // 第一段要算 20 秒左右才出声，先把「第 1/N 段」亮出来，别让面板一直转圈。
+                    publish(
+                        messageId,
+                        0,
+                        segments.size,
+                        pausedFlow.value,
+                        segments.firstOrNull()?.text?.take(120).orEmpty(),
+                    )
                     try {
-                        var index = 0
-                        while (index < segments.size) {
+                        // 合成是 CPU 密集（实测 RTF≈5），播放是实时的。串行做等于每段都干等，
+                        // 所以拆成「后台合成往队列塞 / 前台按序播放」：第一段出声后，
+                        // 后面的段落一边播一边算，段与段之间不再有静默空洞。
+                        var cursor = 0
+                        while (cursor < segments.size) {
                             if (session != generation) return@launch
-                            if (pausedFlow.value) pausedFlow.first { !it }
-                            if (session != generation) return@launch
-                            publish(messageId, index, segments.size, pausedFlow.value)
-                            val samples = withContext(Dispatchers.Default) {
-                                engine.synthesize(
-                                    text = segments[index].text,
-                                    reference = reference,
-                                    referenceRate = CloneVoiceStore.SAMPLE_RATE,
-                                    referenceText = referenceText,
-                                )
+                            // 先固定本轮起点：producer 是独立协程，直接读 cursor 会与消费端的跳段写入竞态。
+                            val start = cursor
+                            val queue = Channel<Pair<Int, FloatArray>>(capacity = CLONE_PREFETCH)
+                            val producer = launch(Dispatchers.Default) {
+                                try {
+                                    var index = start
+                                    while (index < segments.size) {
+                                        if (session != generation) break
+                                        val samples = engine.synthesize(
+                                            text = segments[index].text,
+                                            reference = reference,
+                                            referenceRate = CloneVoiceStore.SAMPLE_RATE,
+                                            referenceText = referenceText,
+                                        )
+                                        // 空波形说明这一段彻底失败，停下比继续算更合适。
+                                        if (samples.isEmpty()) break
+                                        queue.send(index to samples)
+                                        index++
+                                    }
+                                } catch (error: CancellationException) {
+                                    throw error
+                                } catch (error: Throwable) {
+                                    // 用 close(error) 传出去，消费端的 for 循环会原样抛出，
+                                    // 不用额外共享变量，也天然带 happens-before。
+                                    queue.close(error)
+                                } finally {
+                                    queue.close()
+                                }
                             }
-                            if (samples.isEmpty()) break
-                            CloneVoicePlayback.play(samples, engine.sampleRate)
-                            index++
+                            // 跳段时停掉当前段并重建队列，从目标段落继续。
+                            var jumped = false
+                            try {
+                                for ((index, samples) in queue) {
+                                    if (session != generation) break
+                                    if (pausedFlow.value) pausedFlow.first { !it }
+                                    if (session != generation) break
+                                    val requested = segmentRequest.value
+                                    if (requested != null) {
+                                        segmentRequest.value = null
+                                        if (requested in segments.indices && requested != index) {
+                                            cursor = requested
+                                            jumped = true
+                                            break
+                                        }
+                                    }
+                                    publish(
+                                        messageId,
+                                        index,
+                                        segments.size,
+                                        pausedFlow.value,
+                                        segments[index].text.take(120),
+                                    )
+                                    CloneVoicePlayback.play(
+                                        samples,
+                                        sampleRate,
+                                        shouldPause = { pausedFlow.value },
+                                        shouldStop = {
+                                            session != generation || segmentRequest.value != null
+                                        },
+                                    )
+                                    if (session != generation) break
+                                    // 跳段时 shouldStop 已经掐掉当前播放，这里立刻接管，
+                                    // 否则会继续阻塞在下次 receive 上，等下一段算完才响应。
+                                    val pending = segmentRequest.value
+                                    if (pending != null && pending in segments.indices && pending != index + 1) {
+                                        segmentRequest.value = null
+                                        cursor = pending
+                                        jumped = true
+                                        break
+                                    }
+                                    cursor = index + 1
+                                }
+                            } finally {
+                                producer.cancel()
+                                queue.close()
+                            }
+                            if (session != generation) return@launch
+                            if (!jumped) break
                         }
                     } finally {
                         // 只归还借用权：实例留在缓存里，连读多条消息不再重复加载模型。
@@ -298,6 +378,9 @@ private sealed interface SpeechQueueItem {
 }
 
 private const val PREFETCH_CHUNKS = 2
+
+/** 克隆朗读的合成队列深度：1 段正在播 + 1 段算好待播，再多只是白占内存。 */
+private const val CLONE_PREFETCH = 1
 
 internal interface SpeechAudioOutput : Closeable {
     fun write(bytes: ByteArray)

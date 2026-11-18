@@ -214,6 +214,8 @@ internal fun CloneVoiceSection() {
                                     CloneVoiceStore.modelDir(context),
                                 )
                                 try {
+                                    // 采样率在加载后固定，先取出来，别在合成之后再读 native。
+                                    val sampleRate = engine.sampleRate
                                     report("正在合成…")
                                     val audio = engine.synthesize(
                                         text = text,
@@ -221,7 +223,7 @@ internal fun CloneVoiceSection() {
                                         referenceRate = CloneVoiceStore.SAMPLE_RATE,
                                         referenceText = referenceText,
                                     )
-                                    audio to engine.sampleRate
+                                    audio to sampleRate
                                 } finally {
                                     // 只归还借用权，实例留在缓存里，下次试听省掉约 7 秒加载。
                                     CloneVoiceEngineCache.release()
