@@ -60,10 +60,15 @@ internal class CloneVoiceEngine private constructor(
             val tokens = requireFile(directory, "tokens.txt")
             val encoder = firstFile(directory, listOf("encoder", "text_encoder"))
             val decoder = firstFile(directory, listOf("decoder"))
-            // zipvoice distill 包里没有独立 vocoder，缺省交给运行时按空串处理。
+            // vocoder 是 sherpa 的硬性必填项（Validate 里 vocoder 为空直接判非法）。
+            // distill 包不自带，需要额外放 vocos_24khz.onnx，所以两种命名都要认。
             val vocoder = directory.listFiles()?.firstOrNull {
-                it.isFile && it.name.contains("vocoder", ignoreCase = true)
-            }
+                it.isFile && (it.name.contains("vocoder", ignoreCase = true) ||
+                    it.name.contains("vocos", ignoreCase = true))
+            } ?: throw SpeechFailure(
+                SpeechErrorCode.CONFIGURATION,
+                "模型缺少 vocoder（需要一个 vocos_24khz.onnx）",
+            )
             // dataDir 要的是包含 espeak-ng-data 的父目录，传子目录会直接被判为非法配置。
             val dataDir = directory.takeIf { File(it, "espeak-ng-data").isDirectory }
                 ?.absolutePath.orEmpty()
@@ -75,7 +80,7 @@ internal class CloneVoiceEngine private constructor(
                         tokens = tokens.absolutePath,
                         encoder = encoder.absolutePath,
                         decoder = decoder.absolutePath,
-                        vocoder = vocoder?.absolutePath.orEmpty(),
+                        vocoder = vocoder.absolutePath,
                         dataDir = dataDir,
                         lexicon = lexicon,
                     ),

@@ -32,8 +32,9 @@ internal object CloneVoiceStore {
         val hasTokens = names.any { it.contains("tokens") }
         val hasEncoder = names.any { it.contains("encoder") }
         val hasDecoder = names.any { it.contains("decoder") }
-        // vocoder 可选：distill 包把声码器并进了 decoder。
-        return hasTokens && hasEncoder && hasDecoder
+        // vocoder 必填：distill 包要额外放 vocos_24khz.onnx。
+        val hasVocoder = names.any { it.contains("vocoder") || it.contains("vocos") }
+        return hasTokens && hasEncoder && hasDecoder && hasVocoder
     }
 
     fun hasReference(context: Context): Boolean = referenceFile(context).length() > 0
