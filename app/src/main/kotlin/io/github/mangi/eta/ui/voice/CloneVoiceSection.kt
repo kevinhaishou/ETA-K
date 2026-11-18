@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.agent.voice.clone.CloneVoiceEngine
+import io.github.mangi.eta.agent.voice.clone.CloneVoiceEngineCache
 import io.github.mangi.eta.agent.voice.clone.CloneVoicePlayback
 import io.github.mangi.eta.agent.voice.clone.CloneVoiceStore
 import kotlinx.coroutines.Dispatchers
@@ -209,7 +209,11 @@ internal fun CloneVoiceSection() {
                                 if (reference.isEmpty()) {
                                     throw IllegalStateException("还没有参考音频")
                                 }
-                                CloneVoiceEngine.open(context, CloneVoiceStore.modelDir(context)).use { engine ->
+                                val engine = CloneVoiceEngineCache.acquire(
+                                    context,
+                                    CloneVoiceStore.modelDir(context),
+                                )
+                                try {
                                     report("正在合成…")
                                     val audio = engine.synthesize(
                                         text = text,
@@ -218,6 +222,9 @@ internal fun CloneVoiceSection() {
                                         referenceText = referenceText,
                                     )
                                     audio to engine.sampleRate
+                                } finally {
+                                    // 只归还借用权，实例留在缓存里，下次试听省掉约 7 秒加载。
+                                    CloneVoiceEngineCache.release()
                                 }
                             }
                             report("合成完成，时长约 ${samples.first.size / samples.second} 秒")

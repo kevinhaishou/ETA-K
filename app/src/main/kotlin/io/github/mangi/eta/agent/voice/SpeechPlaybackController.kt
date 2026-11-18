@@ -1,7 +1,7 @@
 package io.github.mangi.eta.agent.voice
 
 import android.content.Context
-import io.github.mangi.eta.agent.voice.clone.CloneVoiceEngine
+import io.github.mangi.eta.agent.voice.clone.CloneVoiceEngineCache
 import io.github.mangi.eta.agent.voice.clone.CloneVoicePlayback
 import io.github.mangi.eta.agent.voice.clone.CloneVoiceStore
 import io.github.mangi.eta.core.AndroidAgentLogger
@@ -82,7 +82,7 @@ internal class SpeechPlaybackController(
                     }
                     val reference = CloneVoiceStore.loadReference(context)
                     val referenceText = CloneVoiceStore.referenceText(context)
-                    val engine = CloneVoiceEngine.open(context, CloneVoiceStore.modelDir(context))
+                    val engine = CloneVoiceEngineCache.acquire(context, CloneVoiceStore.modelDir(context))
                     try {
                         var index = 0
                         while (index < segments.size) {
@@ -103,7 +103,8 @@ internal class SpeechPlaybackController(
                             index++
                         }
                     } finally {
-                        engine.close()
+                        // 只归还借用权：实例留在缓存里，连读多条消息不再重复加载模型。
+                        CloneVoiceEngineCache.release()
                     }
                     return@launch
                 }
