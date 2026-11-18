@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
 import io.github.mangi.eta.ui.app.LocalBlurEnabled
 import io.github.mangi.eta.ui.app.LocalTopBarBlurStyle
@@ -36,7 +37,11 @@ internal fun TopBarBackdrop(
     content: @Composable () -> Unit,
 ) {
     val surfaceColor = MiuixTheme.colorScheme.surface
+    // 壁纸模式下顶栏必须完全透明：内容层是透明的，采不到可模糊的背景，
+    // backdrop 会为空并回退成不透明 surface，把壁纸顶部整条盖住。
+    val wallpaperActive = LocalChatBackgroundActive.current
     val modifier = when {
+        wallpaperActive -> Modifier
         backdrop == null -> Modifier.background(surfaceColor)
         LocalTopBarBlurStyle.current == AppearanceTopBarBlurStyle.PROGRESSIVE -> {
             Modifier.progressiveTextureBlur(
