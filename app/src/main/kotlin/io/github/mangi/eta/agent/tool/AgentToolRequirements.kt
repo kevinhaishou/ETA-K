@@ -43,6 +43,8 @@ internal object AgentToolRequirements {
             "character_memory_get", "character_memory_write",
             "skills_list", "skills_read", "skills_read_resource", "skills_list_curated",
             "skills_inspect_github", "skills_install_from_github",
+            // 会话内提问卡：不需要 root、GUI 或任何系统权限，纯 UI 交互
+            "ask_user",
         )
         register(
             RootRequirement.PARTIAL,
