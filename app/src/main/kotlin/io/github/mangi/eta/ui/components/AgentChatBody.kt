@@ -836,6 +836,22 @@ internal fun AgentConversationMessages(
                     }
                 }
             }
+            item(key = "agent_question_cards") {
+                val pendingQuestions by io.github.mangi.eta.agent.tool.AgentQuestionBus.pending.collectAsState()
+                pendingQuestions.forEach { question ->
+                    AgentQuestionCard(
+                        id = question.id,
+                        kind = question.kind,
+                        title = question.title,
+                        question = question.question,
+                        options = question.options,
+                        multiSelect = question.multiSelect,
+                        toolName = question.toolName,
+                        toolArgsSummary = question.toolArgsSummary,
+                        onSubmit = { answer -> io.github.mangi.eta.agent.tool.AgentQuestionBus.submit(question.id, answer) },
+                    )
+                }
+            }
             item(key = ChatBottomSentinelKey) {
                 Spacer(
                     modifier = Modifier
