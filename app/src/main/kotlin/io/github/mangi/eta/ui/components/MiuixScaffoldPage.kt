@@ -20,6 +20,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.customization.CustomizationStore
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.pageBackgroundColor
 import io.github.mangi.eta.ui.layout.WidePageContent
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -47,25 +49,31 @@ fun MiuixScaffoldPage(
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
-    val topBarColor = topBarContainerColor(backdrop)
+    // 壁纸模式下顶栏完全透明，让壁纸一直铺到状态栏，不出现深色横条。
+    val topBarColor = if (LocalChatBackgroundActive.current) Color.Transparent else topBarContainerColor(backdrop)
 
-    // 与 CouiScaffoldPage 保持一致：页面自绘壁纸并铺一层实底。
-    // 只依赖外层 ChatBackground 时，壁纸模式下容器透明会把下层残留的旧页透出来（重影）。
+    // 壁纸模式下由页面自绘壁纸：外层 ChatBackground 的壁纸会被导航保留绘制的旧页盖住，
+    // 页面自己画一层才既能看到壁纸、又能盖住旧页。
+    // 没有壁纸时仍用不透明 surface 兜底，避免透明容器透出下层残留页面。
     val pageWallpaper = rememberWallpaperBitmap()
     val pageWallpaperDim = remember(pageWallpaper) { CustomizationStore.wallpaperDim() }
     val pageWallpaperScale = remember(pageWallpaper) { CustomizationStore.wallpaperScale() }
     val pageBaseColor = MiuixTheme.colorScheme.surface
+    val wallpaperActive = pageWallpaper != null
 
     Scaffold(
         modifier = modifier
             .fillMaxSize()
             .drawWithContent {
-                drawRect(pageBaseColor)
-                pageWallpaper?.let { drawWallpaperBitmap(it, pageWallpaperScale) }
-                if (pageWallpaperDim > 0f) drawRect(Color.Black, alpha = pageWallpaperDim)
+                // 不画不透明实底：实底会在状态栏与壁纸之间切出一道黑边。
+                // 壁纸铺满整页，压暗层只作用于壁纸本身。
+                pageWallpaper?.let { bitmap ->
+                    drawWallpaperBitmap(bitmap, pageWallpaperScale)
+                    if (pageWallpaperDim > 0f) drawRect(Color.Black, alpha = pageWallpaperDim)
+                }
                 drawContent()
             },
-        containerColor = Color.Transparent,
+        containerColor = if (wallpaperActive) Color.Transparent else pageBackgroundColor(pageBaseColor),
         topBar = {
             TopBarBackdrop(backdrop) {
                 // 页面自带主视觉（如角色详情）时用紧凑标题，避免大标题与主视觉重复。
