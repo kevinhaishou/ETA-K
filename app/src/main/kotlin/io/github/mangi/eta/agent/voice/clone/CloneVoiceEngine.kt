@@ -64,7 +64,11 @@ internal class CloneVoiceEngine private constructor(
             val vocoder = directory.listFiles()?.firstOrNull {
                 it.isFile && it.name.contains("vocoder", ignoreCase = true)
             }
-            val dataDir = File(directory, "espeak-ng-data").takeIf { it.isDirectory }?.absolutePath.orEmpty()
+            // dataDir 要的是包含 espeak-ng-data 的父目录，传子目录会直接被判为非法配置。
+            val dataDir = directory.takeIf { File(it, "espeak-ng-data").isDirectory }
+                ?.absolutePath.orEmpty()
+            // lexicon 是中文分词的必需项，包里自带 lexicon.txt，之前漏传导致 native 初始化失败。
+            val lexicon = File(directory, "lexicon.txt").takeIf { it.isFile }?.absolutePath.orEmpty()
             val config = OfflineTtsConfig(
                 model = OfflineTtsModelConfig(
                     zipvoice = OfflineTtsZipVoiceModelConfig(
@@ -73,6 +77,7 @@ internal class CloneVoiceEngine private constructor(
                         decoder = decoder.absolutePath,
                         vocoder = vocoder?.absolutePath.orEmpty(),
                         dataDir = dataDir,
+                        lexicon = lexicon,
                     ),
                     numThreads = 2,
                     debug = false,
