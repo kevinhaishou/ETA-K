@@ -67,6 +67,7 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                     SpeechConnectionSection(store, synthesis = true)
                     if (settings.tts == TtsProvider.ANDROID) {
                         SystemTtsSection(store)
+                        CloneVoiceSection()
                     } else {
                         SpeechVoiceSection(store)
                     }
@@ -117,6 +118,7 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                         } else {
                             SpeechVoiceSection(store)
                         }
+                        if (settings.tts == TtsProvider.ANDROID) CloneVoiceSection()
                     }
                     item(key = "preview") {
                         SpeechPreviewSection(store)
