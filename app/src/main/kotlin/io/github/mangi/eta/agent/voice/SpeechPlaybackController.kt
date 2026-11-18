@@ -1,6 +1,9 @@
 package io.github.mangi.eta.agent.voice
 
 import android.content.Context
+import io.github.mangi.eta.agent.voice.clone.CloneVoiceEngine
+import io.github.mangi.eta.agent.voice.clone.CloneVoicePlayback
+import io.github.mangi.eta.agent.voice.clone.CloneVoiceStore
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.model.SpeechCredentials
 import io.github.mangi.eta.data.model.SpeechSettings
@@ -69,6 +72,41 @@ internal class SpeechPlaybackController(
                 val rawSecrets = credentials ?: SpeechSettingsRepository.credentials(context)
                 val (config, secrets) = SpeechSettingsRepository.resolveDeepSeekFallback(rawConfig, rawSecrets)
                 android.util.Log.w("EtaSystemTts", "branch enter tts=" + config.tts)
+                if (config.tts == TtsProvider.CLONE) {
+                    val readableText = withContext(Dispatchers.Default) { SpeechText.readable(text) }
+                    if (readableText.isBlank()) {
+                        throw SpeechFailure(SpeechErrorCode.NO_SPEECH, "这条消息没有可朗读的正文")
+                    }
+                    val segments = withContext(Dispatchers.Default) {
+                        SpeechText.segments(readableText.take(4000))
+                    }
+                    val reference = CloneVoiceStore.loadReference(context)
+                    val referenceText = CloneVoiceStore.referenceText(context)
+                    val engine = CloneVoiceEngine.open(context, CloneVoiceStore.modelDir(context))
+                    try {
+                        var index = 0
+                        while (index < segments.size) {
+                            if (session != generation) return@launch
+                            if (pausedFlow.value) pausedFlow.first { !it }
+                            if (session != generation) return@launch
+                            publish(messageId, index, segments.size, pausedFlow.value)
+                            val samples = withContext(Dispatchers.Default) {
+                                engine.synthesize(
+                                    text = segments[index].text,
+                                    reference = reference,
+                                    referenceRate = CloneVoiceStore.SAMPLE_RATE,
+                                    referenceText = referenceText,
+                                )
+                            }
+                            if (samples.isEmpty()) break
+                            CloneVoicePlayback.play(samples, engine.sampleRate)
+                            index++
+                        }
+                    } finally {
+                        engine.close()
+                    }
+                    return@launch
+                }
                 if (config.tts == TtsProvider.ANDROID) {
                     val readableText = withContext(Dispatchers.Default) { SpeechText.readable(text) }
                     if (readableText.isBlank()) {

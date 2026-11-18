@@ -13,7 +13,7 @@ enum class AsrProvider { SYSTEM, OFFLINE, QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, 
 }
 
 @Serializable
-enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, DEEPSEEK, ANDROID }
+enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, DEEPSEEK, ANDROID, CLONE }
 
 @Serializable
 enum class SpeechRegion { BEIJING, SINGAPORE }

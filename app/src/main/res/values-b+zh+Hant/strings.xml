@@ -1422,4 +1422,5 @@
   <string name="appearance_sidebar_alpha">側邊欄透明度</string>
   <string name="appearance_sidebar_alpha_summary">開啟會話側欄時背景的可見程度</string>
   <string name="speech_tts_android">系統離線語音（本機引擎）</string>
+  <string name="speech_tts_clone">語音複製（本機）</string>
 </resources>

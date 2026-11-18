@@ -1526,4 +1526,5 @@
   <string name="appearance_sidebar_alpha">侧边栏透明度</string>
   <string name="appearance_sidebar_alpha_summary">打开会话侧栏时背景的可见程度</string>
   <string name="speech_tts_android">系统离线语音（本机引擎）</string>
+  <string name="speech_tts_clone">语音克隆（本机）</string>
 </resources>

@@ -97,5 +97,6 @@ internal object SpeechVoicePresets {
         TtsProvider.DEEPSEEK -> deepseek
         TtsProvider.NONE -> emptyList()
         TtsProvider.ANDROID -> emptyList()
+        TtsProvider.CLONE -> emptyList()
     }
 }

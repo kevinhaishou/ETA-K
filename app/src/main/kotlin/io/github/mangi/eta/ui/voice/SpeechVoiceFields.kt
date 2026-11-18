@@ -22,6 +22,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
     val voice = when (settings.tts) {
         TtsProvider.NONE -> return
         TtsProvider.ANDROID -> return
+        TtsProvider.CLONE -> return
         TtsProvider.QWEN -> settings.qwenVoice
         TtsProvider.DOUBAO -> settings.doubaoVoice
         TtsProvider.GEMINI -> settings.geminiTts.voice
@@ -38,6 +39,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
             when (settings.tts) {
                 TtsProvider.NONE -> settings
                 TtsProvider.ANDROID -> settings
+                TtsProvider.CLONE -> settings
                 TtsProvider.QWEN -> settings.copy(qwenVoice = it)
                 TtsProvider.DOUBAO -> settings.copy(doubaoVoice = it)
                 TtsProvider.GEMINI -> settings.copy(geminiTts = settings.geminiTts.copy(voice = it))
@@ -102,6 +104,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
             stringResource(
                 when (settings.tts) {
                     TtsProvider.ANDROID -> R.string.speech_tts_android
+                    TtsProvider.CLONE -> R.string.speech_tts_clone
                     TtsProvider.QWEN -> R.string.speech_qwen_voice_note
                     TtsProvider.DOUBAO -> R.string.speech_doubao_voice_note
                     TtsProvider.GEMINI -> R.string.speech_gemini_voice_note
