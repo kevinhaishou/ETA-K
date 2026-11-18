@@ -50,6 +50,8 @@ internal fun CloneVoiceSection() {
     var referenceSeconds by remember { mutableIntStateOf(0) }
     var referenceText by remember { mutableStateOf("") }
     var text by remember { mutableStateOf("这是一段用你的音色合成的测试语音。") }
+    var recording by remember { mutableStateOf(false) }
+    var recorder by remember { mutableStateOf<io.github.mangi.eta.agent.voice.SpeechRecorder?>(null) }
 
     @Suppress("UNUSED_EXPRESSION")
     revision
@@ -121,8 +123,48 @@ internal fun CloneVoiceSection() {
                     pickModel.launch(null)
                 }
                 Spacer(Modifier.height(8.dp))
-                CloneAction("导入参考音频", enabled = !busy) {
+                CloneAction("导入参考音频", enabled = !busy && !recording) {
                     pickReference.launch(arrayOf("audio/*"))
+                }
+                Spacer(Modifier.height(8.dp))
+                CloneAction(
+                    if (recording) "停止录音（已录 ${referenceSeconds}s）" else "录制参考音频",
+                    enabled = !busy,
+                ) {
+                    if (recording) {
+                        recorder?.finish()
+                        return@CloneAction
+                    }
+                    val capture = io.github.mangi.eta.agent.voice.SpeechRecorder()
+                    recorder = capture
+                    recording = true
+                    referenceSeconds = 0
+                    report("正在录音，说几句话后点「停止录音」")
+                    scope.launch {
+                        val buffer = java.io.ByteArrayOutputStream()
+                        val collector = launch(Dispatchers.IO) {
+                            for (chunk in capture.frames) buffer.write(chunk)
+                        }
+                        try {
+                            capture.record(onReady = {}, onLevel = {})
+                        } catch (error: Exception) {
+                            report("录音失败：" + (error.message ?: "未知原因"), isError = true)
+                        } finally {
+                            runCatching { capture.finish() }
+                            collector.join()
+                            val bytes = buffer.toByteArray()
+                            if (bytes.size >= 32_000) {
+                                val (_, seconds) = CloneVoiceStore.saveRecordedReference(context, bytes)
+                                referenceSeconds = seconds
+                                revision++
+                                report("已录制 $seconds 秒参考音频")
+                            } else if (bytes.isNotEmpty()) {
+                                report("录音太短，至少说两秒", isError = true)
+                            }
+                            recording = false
+                            recorder = null
+                        }
+                    }
                 }
             }
         }
