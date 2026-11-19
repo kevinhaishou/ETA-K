@@ -552,6 +552,32 @@ private fun ProviderListItem(
                         color = colors.summary,
                         modifier = Modifier.padding(top = 2.dp),
                     )
+                    // 与 MIUIX 分支一致：右侧箭头会吞掉触摸，编辑/删除放到内容区。
+                    Row(
+                        modifier = Modifier.padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        CouiText(
+                            text = "编辑",
+                            kind = CouiTextKind.GroupFooter,
+                            color = colors.accent,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClick = onOpen)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                        if (onDelete != null) {
+                            CouiText(
+                                text = "删除",
+                                kind = CouiTextKind.GroupFooter,
+                                color = StatusError,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable(onClick = onDelete)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
                 },
                 trailing = {
                     Row(
@@ -630,18 +656,32 @@ private fun ProviderListItem(
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                // 长按删除会被右侧箭头/勾选消费触摸事件，这里给一个明确的可见入口。
-                if (onDelete != null) {
+                // 右侧箭头/勾选会消费触摸事件，条目主体的点击与长按都到不了这里，
+                // 因此「编辑」「删除」都给出内容区内的显式入口。
+                Row(
+                    modifier = Modifier.padding(top = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     Text(
-                        text = "删除此供应商",
+                        text = "编辑",
                         style = MiuixTheme.textStyles.footnote1,
-                        color = StatusError,
+                        color = MiuixTheme.colorScheme.primary,
                         modifier = Modifier
-                            .padding(top = 6.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onDelete)
+                            .clickable(onClick = onOpen)
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     )
+                    if (onDelete != null) {
+                        Text(
+                            text = "删除",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = StatusError,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClick = onDelete)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
                 }
             }
         }
