@@ -871,7 +871,8 @@ private fun PaneSearchCapsule(
         }
     } else {
         val pillShape = CircleShape
-        val bgColor = miuixColors.surfaceContainer
+        // 与侧栏容器共用「可见程度」：不能固定成实色，否则面板透明后仍是一块深色
+        val bgColor = miuixColors.surfaceContainer.copy(alpha = LocalSidebarAlpha.current)
         val borderColor = if (isFocused) {
             accentColor.copy(alpha = 0.55f)
         } else {
@@ -945,7 +946,7 @@ private fun PaneDockCircleButton(
                 }
             }
         } else {
-            val bgColor = miuixColors.surfaceContainer
+            val bgColor = miuixColors.surfaceContainer.copy(alpha = LocalSidebarAlpha.current)
             val borderColor = miuixColors.outline.copy(alpha = if (miuixDark) 0.36f else 0.24f)
             Box(
                 modifier = Modifier

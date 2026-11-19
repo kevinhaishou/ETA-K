@@ -82,6 +82,7 @@ import com.itos.coui.shape.CouiShape
 import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.Text as CouiText
 import com.itos.coui.theme.CouiTheme
+import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
@@ -581,10 +582,12 @@ private fun ConversationHistoryRow(
     val miuixColors = MiuixTheme.colorScheme
     val miuixDark = miuixColors.surface.luminance() < 0.5f
 
+    // 选中行底色也跟随「侧边栏可见程度」：否则面板透明后，选中会话仍是一块实心深色。
+    val rowAlpha = LocalSidebarAlpha.current
     val rowBackground = when {
         !selected -> Color.Transparent
-        isCoui -> if (couiDark) Color(0xFF262932) else Color.White
-        else -> miuixColors.tertiaryContainer.copy(alpha = if (miuixDark) 0.72f else 0.88f)
+        isCoui -> (if (couiDark) Color(0xFF262932) else Color.White).copy(alpha = rowAlpha)
+        else -> miuixColors.tertiaryContainer.copy(alpha = (if (miuixDark) 0.72f else 0.88f) * rowAlpha)
     }
     val rowModifier = if (isCoui) {
         val source = remember { MutableInteractionSource() }
