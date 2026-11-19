@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -57,6 +58,8 @@ import com.itos.coui.layout.Group
 import com.itos.coui.scroll.rememberCouiOverscrollEffect
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.data.repository.AgentMemoryReadResult
+import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffold
@@ -74,14 +77,19 @@ import io.github.mangi.eta.ui.markdown.MarkdownTone
 import io.github.mangi.eta.ui.model.AgentMemoryAction
 import io.github.mangi.eta.ui.model.AgentMemoryUiState
 import java.text.NumberFormat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -143,6 +151,7 @@ internal fun AgentMemoryScreen(
                         exit = fadeOut() + shrinkVertically(),
                     ) {
                         MemorySettingsGroup(state = state, onAction = onAction)
+                    MemoryRecallTester()
                     }
                     MemoryDocumentCard(
                         state = state,
@@ -200,6 +209,7 @@ internal fun AgentMemoryScreen(
                         exit = fadeOut() + shrinkVertically(),
                     ) {
                         MemorySettingsGroup(state = state, onAction = onAction)
+                    MemoryRecallTester()
                     }
                     MemoryDocumentCard(
                         state = state,
@@ -288,6 +298,97 @@ internal fun AgentMemoryScreen(
 }
 
 @Composable
+/**
+ * 召回测试：输入关键词，直接调用与 memory_get 相同的检索（打分 + 过期标注），
+ * 让用户直观看到「这条查询能召回哪些记忆、新旧程度如何」，发现记错/记旧。
+ */
+@Composable
+private fun MemoryRecallTester(modifier: Modifier = Modifier) {
+    val scope = rememberCoroutineScope()
+    var query by rememberSaveable { mutableStateOf("") }
+    var running by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<AgentMemoryReadResult?>(null) }
+
+    fun run() {
+        val q = query.trim()
+        if (q.isEmpty() || running) return
+        running = true
+        scope.launch(Dispatchers.IO) {
+            val r = runCatching { AgentMemoryRepository.read(query = q, maxChars = 4_000) }
+                .getOrNull()
+            withContext(Dispatchers.Main) {
+                result = r
+                running = false
+            }
+        }
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        SmallTitle("召回测试")
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp),
+        ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = "输入关键词，测试能召回哪些记忆",
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = when {
+                        running -> "检索中…"
+                        result == null -> "与 memory_get 相同的打分检索；过期条目会带 ⚠️ 标注"
+                        else -> "命中 ${result!!.matchedLines} 行" +
+                            (result!!.startLine?.let { "，从第 $it 行起" } ?: "")
+                    },
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                if (result != null && result!!.content.isNotBlank()) {
+                    Text(
+                        text = result!!.content,
+                        style = MiuixTheme.textStyles.body2.copy(
+                            fontFamily = io.github.mangi.eta.ui.theme.EtaMonospace,
+                            fontSize = 12.sp,
+                        ),
+                        color = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                            .padding(10.dp),
+                    )
+                }
+                Text(
+                    text = if (running) "…" else "测试",
+                    style = MiuixTheme.textStyles.body1,
+                    color = if (query.isNotBlank() && !running) {
+                        MiuixTheme.colorScheme.onPrimary
+                    } else {
+                        MiuixTheme.colorScheme.onPrimary.copy(alpha = 0.4f)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            MiuixTheme.colorScheme.primary.copy(
+                                alpha = if (query.isNotBlank() && !running) 1f else 0.5f,
+                            ),
+                        )
+                        .clickable(enabled = query.isNotBlank() && !running) { run() }
+                        .padding(vertical = 10.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+        }
+    }
+}
+
 private fun MemorySettingsGroup(
     state: AgentMemoryUiState,
     onAction: (AgentMemoryAction) -> Unit,
