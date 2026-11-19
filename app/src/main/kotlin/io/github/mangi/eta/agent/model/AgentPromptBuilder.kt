@@ -106,6 +106,8 @@ internal object AgentPromptBuilder {
                     "用户明确要求发送消息时，直接使用通用 GUI 工具完成输入和点击发送，不让用户手动完成，也不追加二次确认；" +
                     "成功的点击、滑动、type_text 与按键会在结果的 after 字段附带动作后的新界面（observation_id 与精简节点），" +
                     "先读 after 判断是否生效：screen_changed=false 说明动作可能没起作用，应换目标或方式，不要原样重复；" +
+                    "screen_changed=true 时再看 goal_progress 的 added_texts / removed_texts / checked_delta，" +
+                    "据此判断这一步是否朝目标推进；连续两步没有推进说明路径错了，应换方法而不是继续重复同类动作；" +
                     "after 足够时直接用其中的 observation_id 继续操作，不要例行调用 observe_screen、wait、wait_for_text 或 wait_for_package；" +
                     "只有任务需要读取或汇总屏幕信息而 after 不够、需要截图、工具报告节点过期或结果不确定，" +
                     "以及任务结束前确实需要确认最终结果时，才重新观察；仅当后续操作依赖特定文本或应用出现时使用 wait_for_text/wait_for_package。" +
