@@ -929,7 +929,7 @@ private fun SettingsPageContent(
                 item(key = "section_notification_trigger") {
                     SmallTitle("自动化")
                     SettingsGroupCard {
-                        io.github.mangi.eta.ui.settings.NotificationTriggerSection()
+                        NotificationTriggerSection()
                     }
                 }
 
@@ -1564,3 +1564,250 @@ private fun SystemizerInstallResult.toToastMessage(context: Context): String =
             ?.let { "$message：$it" }
             ?: message
     }
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.agent.device.NotificationTriggerRule
+import io.github.mangi.eta.agent.device.NotificationTriggerStore
+import io.github.mangi.eta.ui.components.MiuixDialogActions
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.window.WindowDialog
+
+/**
+ * 通知触发自动化管理：收到匹配规则的通知时，把「通知摘要 + 动作指令」提交给 agent。
+ *
+ * 规则保存在 SharedPreferences（JSON 数组），条目预期个位数，不引入数据库。
+ */
+@Composable
+internal fun NotificationTriggerSection() {
+    val context = LocalContext.current
+    var rules by remember { mutableStateOf(NotificationTriggerStore.load(context)) }
+    var showList by remember { mutableStateOf(false) }
+    var showEditor by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<NotificationTriggerRule?>(null) }
+
+    fun update(next: List<NotificationTriggerRule>) {
+        NotificationTriggerStore.save(context, next)
+        rules = next
+    }
+
+    SettingsGroupCard {
+        ArrowPreference(
+            title = "通知触发自动化",
+            summary = if (rules.isEmpty()) {
+                "未配置规则；命中通知时自动提交动作指令"
+            } else {
+                "${rules.count { it.enabled }} 条规则启用"
+            },
+            startAction = {
+                SettingsIcon(icon = Icons.Rounded.Notifications, tint = SettingsIconColors.Blue)
+            },
+            onClick = { showList = true },
+        )
+    }
+
+    if (showList) {
+        WindowDialog(
+            show = true,
+            title = "通知触发规则",
+            summary = if (rules.isEmpty()) {
+                "还没有规则。点「添加规则」创建：来源包名与关键词都命中时，通知会转成动作指令交给 agent。"
+            } else {
+                "共 ${rules.size} 条规则；开关控制是否生效"
+            },
+            onDismissRequest = { showList = false },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                rules.forEach { rule ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = rule.name,
+                                    style = MiuixTheme.textStyles.body1,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Switch(
+                                    checked = rule.enabled,
+                                    onCheckedChange = { enabled ->
+                                        update(rules.map {
+                                            if (it.id == rule.id) it.copy(enabled = enabled) else it
+                                        })
+                                    },
+                                )
+                            }
+                            Text(
+                                text = buildString {
+                                    append("包名：")
+                                    append(rule.packageName.ifBlank { "任意" })
+                                    if (rule.titleKeyword.isNotBlank()) {
+                                        append(" · 标题含「")
+                                        append(rule.titleKeyword)
+                                        append("」")
+                                    }
+                                    if (rule.textKeyword.isNotBlank()) {
+                                        append(" · 内容含「")
+                                        append(rule.textKeyword)
+                                        append("」")
+                                    }
+                                },
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                            Text(
+                                text = "动作：${rule.actionPrompt}",
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                            TextButton(
+                                text = "删除",
+                                onClick = { pendingDelete = rule },
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                    }
+                }
+                if (rules.isEmpty()) {
+                    Text(
+                        text = "还没有规则",
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+                TextButton(
+                    text = "添加规则",
+                    onClick = {
+                        showList = false
+                        showEditor = true
+                    },
+                )
+            }
+            MiuixDialogActions(
+                confirmText = "关闭",
+                onCancel = { showList = false },
+                onConfirm = { showList = false },
+            )
+        }
+    }
+
+    if (showEditor) {
+        RuleEditorDialog(
+            onDismiss = { showEditor = false },
+            onSaved = { rule ->
+                update(rules + rule)
+                showEditor = false
+            },
+        )
+    }
+
+    pendingDelete?.let { rule ->
+        WindowDialog(
+            show = true,
+            title = "删除规则「${rule.name}」？",
+            summary = "删除后，匹配该规则的通知将不再触发自动化。",
+            onDismissRequest = { pendingDelete = null },
+        ) {
+            MiuixDialogActions(
+                confirmText = "删除",
+                destructive = true,
+                onCancel = { pendingDelete = null },
+                onConfirm = {
+                    update(rules.filterNot { it.id == rule.id })
+                    pendingDelete = null
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RuleEditorDialog(onDismiss: () -> Unit, onSaved: (NotificationTriggerRule) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var packageName by remember { mutableStateOf("") }
+    var titleKeyword by remember { mutableStateOf("") }
+    var textKeyword by remember { mutableStateOf("") }
+    var actionPrompt by remember { mutableStateOf("") }
+
+    WindowDialog(
+        show = true,
+        title = "添加通知触发规则",
+        summary = "三个匹配条件是「且」关系：全部命中才触发。触发时通知的包名、标题、内容会附在指令前交给 agent。",
+        onDismissRequest = onDismiss,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextField(
+                value = name,
+                onValueChange = { name = it },
+                label = "规则名称",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextField(
+                value = packageName,
+                onValueChange = { packageName = it },
+                label = "来源包名（留空 = 任意）",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextField(
+                value = titleKeyword,
+                onValueChange = { titleKeyword = it },
+                label = "标题关键词（留空 = 不限）",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextField(
+                value = textKeyword,
+                onValueChange = { textKeyword = it },
+                label = "内容关键词（留空 = 不限）",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextField(
+                value = actionPrompt,
+                onValueChange = { actionPrompt = it },
+                label = "动作指令（交给 agent 的 prompt）",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        MiuixDialogActions(
+            confirmText = "保存",
+            confirmEnabled = name.isNotBlank() && actionPrompt.isNotBlank(),
+            onCancel = onDismiss,
+            onConfirm = {
+                onSaved(
+                    NotificationTriggerRule(
+                        id = java.util.UUID.randomUUID().toString(),
+                        name = name.trim(),
+                        packageName = packageName.trim(),
+                        titleKeyword = titleKeyword.trim(),
+                        textKeyword = textKeyword.trim(),
+                        actionPrompt = actionPrompt.trim(),
+                    ),
+                )
+            },
+        )
+    }
+}
