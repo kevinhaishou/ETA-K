@@ -324,18 +324,23 @@ private fun MemoryRecallTester(modifier: Modifier = Modifier) {
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        SmallTitle("召回测试")
+        // 不用 SmallTitle：COUI 皮肤下它与 Card 的分组外边距不匹配，会把标题压在卡片下沿。
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp),
+                .padding(top = 8.dp, bottom = 12.dp),
         ) {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "召回测试",
+                    style = MiuixTheme.textStyles.title2,
+                    color = MiuixTheme.colorScheme.onSurface,
+                )
                 TextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = "输入关键词，测试能召回哪些记忆",
+                    label = "关键词",
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -365,12 +370,13 @@ private fun MemoryRecallTester(modifier: Modifier = Modifier) {
                     )
                 }
                 Text(
-                    text = if (running) "…" else "测试",
+                    text = if (running) "检索中…" else "测试",
                     style = MiuixTheme.textStyles.body1,
+                    // 明确用白色：该主题的 onPrimary 在蓝底上偏暗，对比度不够。
                     color = if (query.isNotBlank() && !running) {
-                        MiuixTheme.colorScheme.onPrimary
+                        androidx.compose.ui.graphics.Color.White
                     } else {
-                        MiuixTheme.colorScheme.onPrimary.copy(alpha = 0.4f)
+                        androidx.compose.ui.graphics.Color.White.copy(alpha = 0.55f)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
