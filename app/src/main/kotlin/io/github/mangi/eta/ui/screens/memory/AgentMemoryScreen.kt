@@ -152,8 +152,10 @@ internal fun AgentMemoryScreen(
                         exit = fadeOut() + shrinkVertically(),
                     ) {
                         MemorySettingsGroup(state = state, onAction = onAction)
-                    MemoryRecallTester()
                     }
+                    // AnimatedVisibility 的内容插槽是叠放语义，放进来会与上面的分组重叠，
+                    // 必须作为 Column 的兄弟节点排在它下面。
+                    MemoryRecallTester()
                     MemoryDocumentCard(
                         state = state,
                         mode = currentMode,
@@ -210,8 +212,10 @@ internal fun AgentMemoryScreen(
                         exit = fadeOut() + shrinkVertically(),
                     ) {
                         MemorySettingsGroup(state = state, onAction = onAction)
-                    MemoryRecallTester()
                     }
+                    // AnimatedVisibility 的内容插槽是叠放语义，放进来会与上面的分组重叠，
+                    // 必须作为 Column 的兄弟节点排在它下面。
+                    MemoryRecallTester()
                     MemoryDocumentCard(
                         state = state,
                         mode = currentMode,
