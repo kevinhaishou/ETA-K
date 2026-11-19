@@ -142,10 +142,25 @@ fun MiuixScaffold(
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
-    val topBarColor = topBarContainerColor(backdrop)
+    // 与 MiuixScaffoldPage 保持一致：壁纸模式下顶栏透明、页面自绘壁纸，
+    // 否则这类自定义内容页在壁纸下是整块不透明底。
+    val topBarColor = if (LocalChatBackgroundActive.current) Color.Transparent else topBarContainerColor(backdrop)
+    val pageWallpaper = rememberWallpaperBitmap()
+    val pageWallpaperDim = remember(pageWallpaper) { CustomizationStore.wallpaperDim() }
+    val pageWallpaperScale = remember(pageWallpaper) { CustomizationStore.wallpaperScale() }
+    val pageBaseColor = MiuixTheme.colorScheme.surface
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .drawWithContent {
+                pageWallpaper?.let { bitmap ->
+                    drawWallpaperBitmap(bitmap, pageWallpaperScale)
+                    if (pageWallpaperDim > 0f) drawRect(Color.Black, alpha = pageWallpaperDim)
+                }
+                drawContent()
+            },
+        containerColor = if (pageWallpaper != null) Color.Transparent else pageBackgroundColor(pageBaseColor),
         topBar = {
             TopBarBackdrop(backdrop) {
                 AdaptiveTopAppBar(
