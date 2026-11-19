@@ -99,6 +99,7 @@ import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.Text
 import com.itos.coui.text.rememberCouiTextStyle
 import com.itos.coui.theme.CouiTheme
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.app.LocalBlurEnabled
 
@@ -403,7 +404,12 @@ internal fun CouiSearchBarBox(
     placeholder: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    backgroundColor: Color = CouiPageDefaults.themeColors().background,
+    // 壁纸模式下不要全宽铺不透明底色，否则搜索框/标签条会在壁纸下压出一条黑带
+    backgroundColor: Color = if (LocalChatBackgroundActive.current) {
+        Color.Transparent
+    } else {
+        CouiPageDefaults.themeColors().background
+    },
     onSearch: () -> Unit = {},
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -455,7 +461,12 @@ internal fun <T : Any> CouiChipTabs(
     onSelectedKeyChange: (T) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    backgroundColor: Color = CouiPageDefaults.themeColors().background,
+    // 壁纸模式下不要全宽铺不透明底色，否则搜索框/标签条会在壁纸下压出一条黑带
+    backgroundColor: Color = if (LocalChatBackgroundActive.current) {
+        Color.Transparent
+    } else {
+        CouiPageDefaults.themeColors().background
+    },
 ) {
     val dark = CouiTheme.isDark
     val colors = CouiPageDefaults.themeColors(dark)
