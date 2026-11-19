@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -297,7 +298,6 @@ internal fun AgentMemoryScreen(
     }
 }
 
-@Composable
 /**
  * 召回测试：输入关键词，直接调用与 memory_get 相同的检索（打分 + 过期标注），
  * 让用户直观看到「这条查询能召回哪些记忆、新旧程度如何」，发现记错/记旧。
@@ -353,7 +353,7 @@ private fun MemoryRecallTester(modifier: Modifier = Modifier) {
                     Text(
                         text = result!!.content,
                         style = MiuixTheme.textStyles.body2.copy(
-                            fontFamily = io.github.mangi.eta.ui.theme.EtaMonospace,
+                            fontFamily = io.github.mangi.eta.ui.components.EtaMonospace,
                             fontSize = 12.sp,
                         ),
                         color = MiuixTheme.colorScheme.onSurface,
@@ -389,6 +389,7 @@ private fun MemoryRecallTester(modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
 private fun MemorySettingsGroup(
     state: AgentMemoryUiState,
     onAction: (AgentMemoryAction) -> Unit,
