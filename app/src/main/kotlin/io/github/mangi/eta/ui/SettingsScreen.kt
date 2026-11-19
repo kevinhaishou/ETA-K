@@ -853,6 +853,13 @@ private fun SettingsPageContent(
                     }
                 }
 
+                item(key = "section_notification_trigger") {
+                    SmallTitle("自动化")
+                    SettingsGroupCard {
+                        NotificationTriggerSection()
+                    }
+                }
+
                 item(key = "section_context_extensions") {
                     SmallTitle(stringResource(R.string.settings_context_extensions))
                     SettingsGroupCard {
@@ -934,13 +941,6 @@ private fun SettingsPageContent(
                             },
                             onClick = { onNavigate(AppRoute.Characters) },
                         )
-                    }
-                }
-
-                item(key = "section_notification_trigger") {
-                    SmallTitle("自动化")
-                    SettingsGroupCard {
-                        NotificationTriggerSection()
                     }
                 }
 

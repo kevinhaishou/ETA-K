@@ -6,6 +6,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -224,6 +225,8 @@ internal fun ModelProviderListScreen(
                 }
 
                 CouiPageBottomSpacer()
+                // 最底部条目的按钮常被系统导航栏/手势区吃掉点击，补一段安全间距。
+                Spacer(Modifier.height(48.dp))
             }
         }
 
