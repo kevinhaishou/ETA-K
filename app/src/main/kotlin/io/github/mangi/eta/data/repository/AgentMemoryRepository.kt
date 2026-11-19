@@ -270,8 +270,11 @@ internal class AgentMemoryStore(
         val output = StringBuilder()
         var lastIncluded: Int? = null
         var renderedCount = 0
+        val today = java.time.LocalDate.now()
         for (index in included) {
-            val rendered = "${index + 1}: ${lines[index]}"
+            // 行内日期距今超过阈值时明确标注，让模型自己权衡这条记忆还可不可信。
+            val stale = staleNote(lines[index], today)?.let { " ⚠️ $it" }.orEmpty()
+            val rendered = "${index + 1}: ${lines[index]}$stale"
             val gap = when {
                 output.isEmpty() -> ""
                 lastIncluded != null && index > lastIncluded + 1 -> "\n…\n"
@@ -344,6 +347,20 @@ internal class AgentMemoryStore(
         return score
     }
 
+    /** 提取行内首个 YYYY-MM-DD 日期；没有返回 null。记忆条目写作时应带记录日期。 */
+    private fun lineDate(line: String): java.time.LocalDate? =
+        DATE_PATTERN.find(line)?.let { match ->
+            runCatching { java.time.LocalDate.parse(match.value) }.getOrNull()
+        }
+
+    /** 距今超过 [STALE_THRESHOLD_DAYS] 天的条目返回提示文本，供模型自行权衡可信度。 */
+    private fun staleNote(line: String, today: java.time.LocalDate): String? {
+        val date = lineDate(line) ?: return null
+        val days = java.time.temporal.ChronoUnit.DAYS.between(date, today)
+        if (days <= STALE_THRESHOLD_DAYS) return null
+        return "记录于 $date（${days} 天前），可能已过期"
+    }
+
     private fun snapshotOf(
         content: String,
         bytes: ByteArray = content.toByteArray(Charsets.UTF_8),
@@ -381,6 +398,9 @@ internal class AgentMemoryStore(
         private const val SCORE_MAX_OCCURRENCES = 3
         private const val SCORE_ALL_TOKENS = 20
         private const val SCORE_STRUCTURED_LINE = 10
+        /** 行内日期距今超过这个天数就标「可能已过期」。 */
+        private const val STALE_THRESHOLD_DAYS = 30L
+        private val DATE_PATTERN = Regex("\\d{4}-\\d{2}-\\d{2}")
         /** 渲染一行时 "行号: " 前缀与换行的额外开销，用于预算估算。 */
         private const val LINE_RENDER_OVERHEAD = 8
     }
