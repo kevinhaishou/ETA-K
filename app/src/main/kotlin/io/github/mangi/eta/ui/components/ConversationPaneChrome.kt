@@ -270,9 +270,10 @@ internal fun ConversationPaneTopBar(
                     modifier = modifier
                         .fillMaxWidth()
                         .background(
+                            // 顶栏渐隐同样跟随可见程度，避免壁纸下压出一条深色带
                             Brush.verticalGradient(
-                                0.0f to containerColor,
-                                0.8f to containerColor.copy(alpha = 0.94f),
+                                0.0f to containerColor.copy(alpha = LocalSidebarAlpha.current),
+                                0.8f to containerColor.copy(alpha = 0.94f * LocalSidebarAlpha.current),
                                 1.0f to Color.Transparent,
                             ),
                         ),
@@ -451,12 +452,15 @@ internal fun ConversationPaneBottomDock(
     val activeCouiBackdrop = if (isCoui && view.display != null) couiBackdrop else null
     val couiDockBackdrop = rememberCouiBackdrop(parent = activeCouiBackdrop)
 
-    val bottomScrimBrush = remember(containerColor) {
+    // 底部渐隐遮罩同样跟随「侧边栏可见程度」：末端原本是完全不透明的 containerColor，
+    // 壁纸下会在搜索框后方压出一整条深色横带。
+    val scrimAlpha = LocalSidebarAlpha.current
+    val bottomScrimBrush = remember(containerColor, scrimAlpha) {
         Brush.verticalGradient(
             0.0f to Color.Transparent,
-            0.25f to containerColor.copy(alpha = 0.72f),
-            0.55f to containerColor.copy(alpha = 0.94f),
-            1.0f to containerColor,
+            0.25f to containerColor.copy(alpha = 0.72f * scrimAlpha),
+            0.55f to containerColor.copy(alpha = 0.94f * scrimAlpha),
+            1.0f to containerColor.copy(alpha = scrimAlpha),
         )
     }
 
