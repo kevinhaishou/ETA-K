@@ -214,7 +214,7 @@ internal fun conversationPaneCardColor(): Color {
     }
     // 与面板容器共用「侧边栏透明度」：否则面板透明了、里面的卡片还是实心色块。
     val paneAlpha = LocalSidebarAlpha.current
-    return if (paneAlpha < 1f) base.copy(alpha = 1f - paneAlpha) else base
+    return if (paneAlpha < 1f) base.copy(alpha = paneAlpha) else base
 }
 
 @Composable

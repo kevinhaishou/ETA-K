@@ -221,7 +221,7 @@ internal fun AgentAppShell(
                                 colors = CouiTopAppBarDefaults.colors(
                                     // 顶栏与侧栏共用「侧边栏透明度」：壁纸模式下可一路调到全透明
                                     backgroundColor = if (LocalChatBackgroundActive.current) {
-                                        MiuixTheme.colorScheme.surface.copy(alpha = 1f - LocalSidebarAlpha.current)
+                                        MiuixTheme.colorScheme.surface.copy(alpha = LocalSidebarAlpha.current)
                                     } else {
                                         MiuixTheme.colorScheme.surface
                                     },

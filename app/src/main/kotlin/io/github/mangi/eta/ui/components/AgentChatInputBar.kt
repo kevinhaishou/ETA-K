@@ -318,7 +318,7 @@ internal fun AgentChatInputBar(
             MiuixTheme.colorScheme.surfaceContainer
         }
         val miuixInputBg = if (LocalChatBackgroundActive.current) {
-            inputBaseBg.copy(alpha = 1f - LocalSidebarAlpha.current)
+            inputBaseBg.copy(alpha = LocalSidebarAlpha.current)
         } else {
             inputBaseBg
         }

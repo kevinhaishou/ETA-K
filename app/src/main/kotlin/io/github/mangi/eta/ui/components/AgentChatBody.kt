@@ -1095,7 +1095,7 @@ private fun AgentChatBottomBar(
     val surface = MiuixTheme.colorScheme.surface
     // 壁纸模式下底部渐隐也跟随「侧边栏透明度」，否则整块实心把壁纸盖住。
     val wallpaperActive = LocalChatBackgroundActive.current
-    val barAlpha = if (wallpaperActive) 1f - LocalSidebarAlpha.current else 1f
+    val barAlpha = if (wallpaperActive) LocalSidebarAlpha.current else 1f
     Box(
         modifier = Modifier
             .fillMaxWidth()
