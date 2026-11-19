@@ -371,7 +371,11 @@ private fun PaneNewChatButton(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(if (dark) Color(0xFF252830) else Color.White, CircleShape)
+                        .background(
+                            (if (dark) Color(0xFF252830) else Color.White)
+                                .copy(alpha = LocalSidebarAlpha.current),
+                            CircleShape,
+                        )
                         .border(0.5.dp, if (dark) Color(0x1EFFFFFF) else Color(0x12000000), CircleShape)
                         .couiButtonFeedback(dark, source, enabled = true)
                         .clickable(
@@ -922,11 +926,11 @@ private fun PaneDockCircleButton(
     } else {
         miuixColors.onSurface
     }
-    val badgeBorderColor = if (isCoui) {
+    val badgeBorderColor = (if (isCoui) {
         if (couiDark) Color(0xFF23252A) else Color.White
     } else {
         miuixColors.surfaceContainer
-    }
+    }).copy(alpha = LocalSidebarAlpha.current)
 
     val buttonSize = if (isCoui) 40.dp else ConversationPanelMetrics.DockButtonSize
     Box(modifier = Modifier.size(buttonSize)) {
