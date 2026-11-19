@@ -926,6 +926,13 @@ private fun SettingsPageContent(
                     }
                 }
 
+                item(key = "section_notification_trigger") {
+                    SmallTitle("自动化")
+                    SettingsGroupCard {
+                        io.github.mangi.eta.ui.settings.NotificationTriggerSection()
+                    }
+                }
+
                 item(key = "section_tools") {
                     SmallTitle(stringResource(R.string.ui_tool_a72ef1))
                     SettingsGroupCard {

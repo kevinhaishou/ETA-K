@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import io.github.mangi.eta.agent.voice.EtaAssistantOverlayService
 import io.github.mangi.eta.data.repository.NotificationHistoryRepository
 
 class AgentNotificationHistoryService : NotificationListenerService() {
@@ -12,6 +13,25 @@ class AgentNotificationHistoryService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         record(sbn)
+        // 通知触发自动化：命中规则的记录转成动作 prompt 提交给 agent 浮层。
+        // 放在 record 之后，保证历史里有这条通知可查。
+        val context = this
+        NotificationTriggerStore.match(context, sbn).forEach { rule ->
+            val extras = sbn.notification.extras
+            val title = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString().orEmpty()
+            val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString().orEmpty()
+            val prompt = buildString {
+                append("收到通知自动化触发。来源应用：")
+                append(sbn.packageName)
+                append("，通知标题「")
+                append(title.ifBlank { "（无标题）" })
+                append("」，内容「")
+                append(text.ifBlank { "（无内容）" })
+                append("」。请执行以下动作：")
+                append(rule.actionPrompt)
+            }
+            EtaAssistantOverlayService.runAutomation(context, rule.name, prompt)
+        }
     }
 
     override fun onListenerConnected() {

@@ -188,6 +188,13 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         when (intent?.action) {
             AssistantSpeechForeground.ACTION_STOP -> { speechInput.cancel(); playback.stop() }
             ACTION_SHOW -> showEntry(intent.getStringExtra(EXTRA_SCREEN_CONTEXT_ID))
+            ACTION_RUN_AUTOMATION -> {
+                val prompt = intent.getStringExtra(EXTRA_AUTOMATION_PROMPT)?.trim().orEmpty()
+                if (prompt.isNotBlank()) {
+                    showEntry(null)
+                    submitPrompt(prompt)
+                }
+            }
             ACTION_HANDOFF_READY -> finishHandoff()
             else -> Unit
         }
@@ -925,6 +932,23 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 Thread.currentThread().interrupt()
                 false
             }
+        }
+
+        const val ACTION_RUN_AUTOMATION = "io.github.mangi.eta.agent.voice.RUN_AUTOMATION"
+        const val EXTRA_AUTOMATION_PROMPT = "io.github.mangi.eta.agent.voice.extra.AUTOMATION_PROMPT"
+        const val EXTRA_AUTOMATION_SOURCE = "io.github.mangi.eta.agent.voice.extra.AUTOMATION_SOURCE"
+
+        /**
+         * 通知触发自动化：从后台启动浮层并提交 prompt。
+         * 需要悬浮窗 appops allow，否则浮层弹不出来（Activity 会静默 finish）。
+         */
+        fun runAutomation(context: Context, source: String, prompt: String) {
+            context.startService(
+                Intent(context, EtaAssistantOverlayService::class.java)
+                    .setAction(ACTION_RUN_AUTOMATION)
+                    .putExtra(EXTRA_AUTOMATION_PROMPT, prompt)
+                    .putExtra(EXTRA_AUTOMATION_SOURCE, source),
+            )
         }
 
         fun show(context: Context, screenContextId: String?) {
