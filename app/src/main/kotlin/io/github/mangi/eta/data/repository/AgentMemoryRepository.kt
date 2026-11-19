@@ -228,20 +228,44 @@ internal class AgentMemoryStore(
         )
     }
 
+    /**
+     * 关键词检索：先按相关度给每行打分，预算不足时优先保住强匹配行，最终仍按行号顺序渲染。
+     *
+     * 原来的两处短板都在这里补掉：
+     * 1. 只做单串 contains，换个说法（记忆写「偏好深色」、问「上次那个深色主题」）就搜不到 —— 现在按词打分；
+     * 2. 命中行按行号顺序吃预算，前排弱匹配会把后面的强匹配挤出输出 —— 现在按分数抢占预算。
+     */
     private fun search(
         snapshot: AgentMemorySnapshot,
         query: String,
         maxChars: Int,
     ): AgentMemoryReadResult {
         val lines = snapshot.content.memoryLines()
-        val matched = lines.indices.filter { index ->
-            lines[index].contains(query, ignoreCase = true)
+        val tokens = searchTokens(query)
+        val scored = ArrayList<Pair<Int, Int>>()
+        for (index in lines.indices) {
+            val score = lineScore(lines[index], query, tokens)
+            if (score > 0) scored.add(index to score)
         }
-        val included = linkedSetOf<Int>()
-        matched.forEach { index ->
+        // 相关度优先（同分保持行号顺序），下面按这个顺序争抢字符预算。
+        scored.sortWith(compareByDescending<Pair<Int, Int>> { it.second }.thenBy { it.first })
+        val included = sortedSetOf<Int>()
+        var budget = maxChars
+        for ((index, _) in scored) {
+            var gained = 0
+            var added = 0
             for (candidate in (index - SEARCH_CONTEXT_LINES)..(index + SEARCH_CONTEXT_LINES)) {
-                if (candidate in lines.indices) included += candidate
+                if (candidate in lines.indices && candidate !in included) {
+                    gained += lines[candidate].length + LINE_RENDER_OVERHEAD
+                    added++
+                }
             }
+            // 第一条命中无论如何保留，避免首行超长时直接返回空结果。
+            if (added > 0 && included.isNotEmpty() && gained > budget) break
+            for (candidate in (index - SEARCH_CONTEXT_LINES)..(index + SEARCH_CONTEXT_LINES)) {
+                if (candidate in lines.indices) included.add(candidate)
+            }
+            budget = (budget - gained).coerceAtLeast(0)
         }
         val output = StringBuilder()
         var lastIncluded: Int? = null
@@ -265,8 +289,59 @@ internal class AgentMemoryStore(
             startLine = included.firstOrNull()?.plus(1),
             endLine = lastIncluded?.plus(1),
             hasMore = renderedCount < included.size,
-            matchedLines = matched.size,
+            matchedLines = scored.size,
         )
+    }
+
+    /** 把查询拆成检索词：空格/常见中英标点分词；中文无空格时整串仍作为一个词。 */
+    private fun searchTokens(query: String): List<String> {
+        val parts = query
+            .split(' ', '\t', '\n', '，', '、', ',', '。', '；', ';', '：', ':')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        return when {
+            parts.isEmpty() -> listOf(query.trim())
+            parts.size == 1 -> parts
+            else -> parts.distinct()
+        }
+    }
+
+    /**
+     * 单行相关度打分。纯本地加权，不依赖模型、embedding 或网络：
+     * 整串命中 > 命中词数量 > 同词重复出现 > 命中全部词 > 结构化条目（标题/列表项）轻微加权。
+     */
+    private fun lineScore(line: String, query: String, tokens: List<String>): Int {
+        if (line.isBlank()) return 0
+        val haystack = line.lowercase()
+        var score = 0
+        if (haystack.contains(query.lowercase())) score += SCORE_EXACT_PHRASE
+        var hits = 0
+        for (token in tokens) {
+            val needle = token.lowercase()
+            if (needle.isEmpty()) continue
+            if (!haystack.contains(needle)) continue
+            hits++
+            score += SCORE_TOKEN_HIT
+            var occurrences = 0
+            var from = 0
+            while (occurrences <= SCORE_MAX_OCCURRENCES) {
+                val at = haystack.indexOf(needle, from)
+                if (at < 0) break
+                occurrences++
+                from = at + needle.length
+            }
+            if (occurrences > 1) {
+                score += (occurrences - 1).coerceAtMost(SCORE_MAX_OCCURRENCES) * SCORE_REPEAT_BONUS
+            }
+        }
+        if (hits == 0 && score == 0) return 0
+        if (tokens.size > 1 && hits == tokens.size) score += SCORE_ALL_TOKENS
+        // 记忆里的标题行与列表项通常是一条完整事实，命中时比正文行更值得返回。
+        val first = line.trimStart().firstOrNull()
+        if (first == '#' || first == '-' || first == '*' || first?.isDigit() == true) {
+            score += SCORE_STRUCTURED_LINE
+        }
+        return score
     }
 
     private fun snapshotOf(
@@ -299,6 +374,15 @@ internal class AgentMemoryStore(
         private const val FILE_NAME = "MEMORY.md"
         private const val DEFAULT_START_LINE = 1
         private const val SEARCH_CONTEXT_LINES = 1
+        // 检索打分权重：整串命中优先，其次命中词数与重复出现，结构化条目轻微加权。
+        private const val SCORE_EXACT_PHRASE = 100
+        private const val SCORE_TOKEN_HIT = 25
+        private const val SCORE_REPEAT_BONUS = 3
+        private const val SCORE_MAX_OCCURRENCES = 3
+        private const val SCORE_ALL_TOKENS = 20
+        private const val SCORE_STRUCTURED_LINE = 10
+        /** 渲染一行时 "行号: " 前缀与换行的额外开销，用于预算估算。 */
+        private const val LINE_RENDER_OVERHEAD = 8
     }
 }
 
