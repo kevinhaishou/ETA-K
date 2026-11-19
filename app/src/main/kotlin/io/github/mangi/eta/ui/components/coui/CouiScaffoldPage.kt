@@ -73,6 +73,7 @@ import com.itos.coui.topappbar.TopAppBarButton
 import com.itos.coui.topappbar.TopAppBarButtonGroup
 import io.github.mangi.eta.R
 import io.github.mangi.eta.customization.CustomizationStore
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.ui.components.drawWallpaperBitmap
 import io.github.mangi.eta.ui.components.rememberWallpaperBitmap
 import io.github.mangi.eta.ui.layout.WidePageContent
@@ -269,7 +270,12 @@ internal fun CouiScaffoldPage(
     }
     val localDensity = LocalDensity.current
     val imePadding = if (LocalWindowInfo.current.isWindowFocused) Modifier.imePadding() else Modifier
-    val barColors = CouiTopAppBarDefaults.colors(titleColor = colors.title, dark = dark)
+    // 壁纸模式下顶栏不给不透明底色，否则状态栏与大标题区域是一条实心黑带
+    val barColors = CouiTopAppBarDefaults.colors(
+        titleColor = colors.title,
+        dark = dark,
+        backgroundColor = if (LocalChatBackgroundActive.current) Color.Transparent else colors.background,
+    )
     val navigation: @Composable () -> Unit = {
         CouiBackButton(onClick = onBack, dark = dark, colors = colors)
     }
@@ -376,7 +382,12 @@ internal fun CouiLazyScaffoldPage(
     val overscroll = rememberCouiOverscrollEffect()
     val localDensity = LocalDensity.current
     val imePadding = if (LocalWindowInfo.current.isWindowFocused) Modifier.imePadding() else Modifier
-    val barColors = CouiTopAppBarDefaults.colors(titleColor = colors.title, dark = dark)
+    // 壁纸模式下顶栏不给不透明底色，否则状态栏与大标题区域是一条实心黑带
+    val barColors = CouiTopAppBarDefaults.colors(
+        titleColor = colors.title,
+        dark = dark,
+        backgroundColor = if (LocalChatBackgroundActive.current) Color.Transparent else colors.background,
+    )
     val navigation: @Composable () -> Unit = {
         CouiBackButton(onClick = onBack, dark = dark, colors = colors)
     }
@@ -488,7 +499,12 @@ internal fun CouiScaffold(
         CouiTopAppBarDefaults.exitUntilCollapsedScrollBehavior(canScroll = canScroll)
     }
     val localDensity = LocalDensity.current
-    val barColors = CouiTopAppBarDefaults.colors(titleColor = colors.title, dark = dark)
+    // 壁纸模式下顶栏不给不透明底色，否则状态栏与大标题区域是一条实心黑带
+    val barColors = CouiTopAppBarDefaults.colors(
+        titleColor = colors.title,
+        dark = dark,
+        backgroundColor = if (LocalChatBackgroundActive.current) Color.Transparent else colors.background,
+    )
     val navigation: @Composable () -> Unit = {
         CouiBackButton(onClick = onBack, dark = dark, colors = colors)
     }
@@ -497,11 +513,25 @@ internal fun CouiScaffold(
             actions()
         }
     }
+    // 与 CouiScaffoldPage 保持一致：壁纸模式下自绘壁纸并把容器设为透明，
+    // 否则这类自定义内容页（记忆等）整页是 colors.background 的实心深色。
+    val scaffoldWallpaper = rememberWallpaperBitmap()
+    val scaffoldWallpaperDim = remember(scaffoldWallpaper) { CustomizationStore.wallpaperDim() }
+    val scaffoldWallpaperScale = remember(scaffoldWallpaper) { CustomizationStore.wallpaperScale() }
+    val scaffoldBaseColor = colors.background
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
+            .drawWithContent {
+                scaffoldWallpaper?.let { bitmap ->
+                    drawWallpaperBitmap(bitmap, scaffoldWallpaperScale)
+                    if (scaffoldWallpaperDim > 0f) drawRect(Color.Black, alpha = scaffoldWallpaperDim)
+                }
+                drawContent()
+            }
             .then(if (behavior != null) Modifier.nestedScroll(behavior.nestedScrollConnection) else Modifier),
-        containerColor = colors.background,
+        containerColor = if (scaffoldWallpaper != null) Color.Transparent else scaffoldBaseColor,
         floatingActionButton = floatingAction,
         topBar = {
             if (useCompact) {
