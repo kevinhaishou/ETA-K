@@ -1020,10 +1020,13 @@ private fun CouiPaneFloatingSurface(
             null
         }
     }
+    // 壁纸模式下不走 API34 系统模糊材质：那条路径的底色由系统材质决定，
+    // 不受「侧边栏可见程度」控制，会把壁纸盖成一块实心。改用下面的 alpha 可控绘制。
     if (Build.VERSION.SDK_INT >= 34 &&
         couiBackdrop != null &&
         renderer != null &&
-        view.display != null
+        view.display != null &&
+        !LocalChatBackgroundActive.current
     ) {
         ProvideCouiBackdrop(couiBackdrop) {
             CouiApi34FloatingSurface(
@@ -1041,7 +1044,9 @@ private fun CouiPaneFloatingSurface(
             )
         }
     } else {
-        val fallbackBg = if (dark) Color(0xFF252830) else Color.White
+        // 侧栏内的浮层胶囊同样跟随「可见程度」，否则壁纸下始终是一块实心底色
+        val fallbackBg = (if (dark) Color(0xFF252830) else Color.White)
+            .copy(alpha = LocalSidebarAlpha.current)
         val borderColor = when {
             focused -> accentColor.copy(alpha = 0.65f)
             dark -> Color(0x1EFFFFFF)
