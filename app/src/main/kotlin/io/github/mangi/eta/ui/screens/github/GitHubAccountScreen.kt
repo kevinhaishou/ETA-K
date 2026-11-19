@@ -19,8 +19,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.github.GitHubAccountManager
 import io.github.mangi.eta.agent.github.GitHubAccountState
+import io.github.mangi.eta.ui.components.EtaPreferenceGroupItem
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
@@ -154,12 +154,9 @@ internal fun GitHubAccountScreen(onBack: () -> Unit) {
 private fun PreferenceCard(title: String, content: @Composable () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SmallTitle(title)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .padding(bottom = 12.dp),
-        ) {
+        // 用项目自带的 EtaPreferenceGroupItem：COUI / Miuix 两套皮肤都适配，
+        // 且跟随主题色；之前直接用 miuix Card 的固定底色，在壁纸下是一块实心深色。
+        EtaPreferenceGroupItem(isFirst = true, isLast = true) {
             Column { content() }
         }
     }
