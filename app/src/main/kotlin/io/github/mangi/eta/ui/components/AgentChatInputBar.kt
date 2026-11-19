@@ -345,7 +345,10 @@ internal fun AgentChatInputBar(
                                 )
                                 .clip(couiInputShape)
                                 .background(
-                                    if (couiDark) Color(0xFF1C1E22) else Color(0xFFF6F7F9),
+                                    // COUI 分支同样跟随「侧边栏可见程度」，
+                                    // 否则壁纸下这块输入胶囊始终是实心深色
+                                    (if (couiDark) Color(0xFF1C1E22) else Color(0xFFF6F7F9))
+                                        .copy(alpha = if (LocalChatBackgroundActive.current) LocalSidebarAlpha.current else 1f),
                                     couiInputShape,
                                 )
                                 .border(
