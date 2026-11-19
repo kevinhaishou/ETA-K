@@ -358,6 +358,10 @@ private fun UserMessageBubble(
     val visiblePrompt = remember(message.content) {
         AgentFileReferencePromptCodec.parse(message.content)
     }
+    // 气泡上限跟随屏宽（约 75%）：固定 316dp 在宽屏/折叠屏上会过早折行
+    val maxBubbleWidth = with(androidx.compose.ui.platform.LocalConfiguration.current) {
+        (screenWidthDp * 0.75f).dp
+    }
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     val uiStyle = LocalUiStyle.current
     val overlayBubbleColor = when {
@@ -467,7 +471,7 @@ private fun UserMessageBubble(
                     if (hasTextBubble) {
                         Column(
                             modifier = Modifier
-                                .widthIn(max = 316.dp)
+                                .widthIn(max = maxBubbleWidth)
                                 .clip(UserBubbleShape)
                                 .background(couiBubbleBg, UserBubbleShape)
                                 .then(
@@ -582,7 +586,7 @@ private fun UserMessageBubble(
                         }
                         Column(
                             modifier = Modifier
-                                .widthIn(max = 316.dp)
+                                .widthIn(max = maxBubbleWidth)
                                 .clip(bubbleShape)
                                 .background(
                                     color = if (assistantOverlay) {
