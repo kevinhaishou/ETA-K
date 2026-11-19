@@ -327,15 +327,8 @@ private fun MemoryRecallTester(modifier: Modifier = Modifier) {
         }
     }
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        // 不用 SmallTitle：COUI 皮肤下它与 Card 的分组外边距不匹配，会把标题压在卡片下沿。
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .padding(top = 8.dp, bottom = 12.dp),
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val content: @Composable () -> Unit = {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "召回测试",
                     style = MiuixTheme.textStyles.title2,
@@ -392,9 +385,22 @@ private fun MemoryRecallTester(modifier: Modifier = Modifier) {
                         )
                         .clickable(enabled = query.isNotBlank() && !running) { run() }
                         .padding(vertical = 10.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
-            }
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        // COUI 用 Group：与上方「启用记忆」分组同源，自动跟随壁纸玻璃效果；
+        // MIUIX 用 Card。用 miuix Card 在 COUI 皮肤下会是一块不透明深色。
+        when (LocalUiStyle.current) {
+            AppearanceUiStyle.COUI -> Group { content() }
+            AppearanceUiStyle.MIUIX -> Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .padding(top = 8.dp, bottom = 12.dp),
+            ) { content() }
         }
     }
 }
