@@ -131,6 +131,7 @@ import com.itos.coui.theme.CouiTheme
 import com.itos.coui.topappbar.CouiTopAppBarButtonDefaults
 import com.itos.coui.topappbar.TopAppBarSurface
 import io.github.mangi.eta.R
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalBlurEnabled
