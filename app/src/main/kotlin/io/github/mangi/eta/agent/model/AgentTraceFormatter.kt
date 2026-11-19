@@ -246,7 +246,35 @@ internal class AgentTraceFormatter {
     fun isSuccessResult(result: AgentModelClient.ToolResult): Boolean =
         parseResultJson(result)?.optBoolean("ok", true) ?: true
 
+    /**
+     * 工具结果一行摘要。GUI 动作会追加「界面增量」（goal_progress），
+     * 让工作过程里直接看得出这一步有没有朝目标推进，而不是只显示"已点击"。
+     */
     fun summarizeResult(
+        toolName: String,
+        result: AgentModelClient.ToolResult,
+    ): String {
+        val base = summarizeResultBody(toolName, result)
+        val suffix = goalProgressSuffix(parseResultJson(result))
+        return if (suffix == null) base else "$base · $suffix"
+    }
+
+    /** after.goal_progress 提炼成「界面 +2 文本 -1 文本」，无变化时明确说没有新增。 */
+    private fun goalProgressSuffix(json: JSONObject?): String? {
+        val progress = json?.optJSONObject("after")?.optJSONObject("goal_progress") ?: return null
+        val added = progress.optInt("added_count", 0)
+        val removed = progress.optInt("removed_count", 0)
+        val checked = progress.optInt("checked_delta", 0)
+        if (added == 0 && removed == 0 && checked == 0) return "界面无新增"
+        val parts = buildList {
+            if (added > 0) add("+$added 文本")
+            if (removed > 0) add("-$removed 文本")
+            if (checked != 0) add((if (checked > 0) "+" else "") + "$checked 勾选")
+        }
+        return "界面 " + parts.joinToString(" ")
+    }
+
+    private fun summarizeResultBody(
         toolName: String,
         result: AgentModelClient.ToolResult,
     ): String {
