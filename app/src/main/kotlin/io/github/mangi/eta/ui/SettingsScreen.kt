@@ -12,8 +12,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccessibilityNew
@@ -99,16 +102,19 @@ import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
 import io.github.mangi.eta.ui.components.LanguagePreference
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.components.StatusError
 import io.github.mangi.eta.ui.components.StatusSuccess
 import io.github.mangi.eta.ui.components.StatusWarning
 import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import io.github.mangi.eta.ui.components.coui.CouiIconDivider
+import io.github.mangi.eta.ui.components.coui.CouiNoticeDialog
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
 import io.github.mangi.eta.ui.components.coui.CouiPreference
 import io.github.mangi.eta.ui.components.coui.CouiScaffoldPage
 import io.github.mangi.eta.ui.components.coui.CouiSettingsIcon
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
+import io.github.mangi.eta.ui.components.coui.CouiTextField
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -1612,7 +1618,63 @@ internal fun NotificationTriggerSection() {
     )
 
     if (showList) {
-        WindowDialog(
+        if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+            CouiNoticeDialog(
+                visible = true,
+                title = "通知触发规则",
+                message = if (rules.isEmpty()) {
+                    "还没有规则。点「添加规则」创建：来源包名与关键词都命中时，通知会转成动作指令交给 agent。"
+                } else {
+                    "共 ${rules.size} 条规则；开关控制是否生效"
+                },
+                confirmText = "关闭",
+                onDismissRequest = { showList = false },
+            ) {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    rules.forEach { rule ->
+                        CouiSwitchPreference(
+                            title = rule.name,
+                            summary = ruleConditionText(rule) + "\n动作：" + rule.actionPrompt,
+                            checked = rule.enabled,
+                            onCheckedChange = { enabled ->
+                                update(
+                                    rules.map {
+                                        if (it.id == rule.id) it.copy(enabled = enabled) else it
+                                    },
+                                )
+                            },
+                        )
+                        CouiPreference(
+                            title = "删除「${rule.name}」",
+                            titleColor = StatusError,
+                            onClick = { pendingDelete = rule },
+                        )
+                    }
+                    if (rules.isEmpty()) {
+                        CouiText(
+                            text = "还没有规则",
+                            kind = CouiTextKind.GroupFooter,
+                            color = CouiPageDefaults.themeColors().summary,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                        )
+                    }
+                    CouiPreference(
+                        title = "添加规则",
+                        summary = "包名、标题、内容三个条件全部命中才触发",
+                        onClick = {
+                            showList = false
+                            showEditor = true
+                        },
+                    )
+                }
+            }
+        } else {
+            WindowDialog(
             show = true,
             title = "通知触发规则",
             summary = if (rules.isEmpty()) {
@@ -1695,6 +1757,7 @@ internal fun NotificationTriggerSection() {
                 onConfirm = { showList = false },
             )
         }
+        }
     }
 
     if (showEditor) {
@@ -1708,22 +1771,53 @@ internal fun NotificationTriggerSection() {
     }
 
     pendingDelete?.let { rule ->
-        WindowDialog(
-            show = true,
-            title = "删除规则「${rule.name}」？",
-            summary = "删除后，匹配该规则的通知将不再触发自动化。",
-            onDismissRequest = { pendingDelete = null },
-        ) {
-            MiuixDialogActions(
+        if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+            CouiConfirmDialog(
+                visible = true,
+                title = "删除规则「${rule.name}」？",
+                message = "删除后，匹配该规则的通知将不再触发自动化。",
                 confirmText = "删除",
                 destructive = true,
-                onCancel = { pendingDelete = null },
                 onConfirm = {
                     update(rules.filterNot { it.id == rule.id })
                     pendingDelete = null
                 },
+                onDismissRequest = { pendingDelete = null },
             )
+        } else {
+            WindowDialog(
+                show = true,
+                title = "删除规则「${rule.name}」？",
+                summary = "删除后，匹配该规则的通知将不再触发自动化。",
+                onDismissRequest = { pendingDelete = null },
+            ) {
+                MiuixDialogActions(
+                    confirmText = "删除",
+                    destructive = true,
+                    onCancel = { pendingDelete = null },
+                    onConfirm = {
+                        update(rules.filterNot { it.id == rule.id })
+                        pendingDelete = null
+                    },
+                )
+            }
         }
+    }
+}
+
+/** 把规则的三个匹配条件拼成一行可读描述。 */
+private fun ruleConditionText(rule: NotificationTriggerRule): String = buildString {
+    append("包名：")
+    append(rule.packageName.ifBlank { "任意" })
+    if (rule.titleKeyword.isNotBlank()) {
+        append(" · 标题含「")
+        append(rule.titleKeyword)
+        append("」")
+    }
+    if (rule.textKeyword.isNotBlank()) {
+        append(" · 内容含「")
+        append(rule.textKeyword)
+        append("」")
     }
 }
 
@@ -1734,6 +1828,65 @@ private fun RuleEditorDialog(onDismiss: () -> Unit, onSaved: (NotificationTrigge
     var titleKeyword by remember { mutableStateOf("") }
     var textKeyword by remember { mutableStateOf("") }
     var actionPrompt by remember { mutableStateOf("") }
+
+    if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+        CouiConfirmDialog(
+            visible = true,
+            title = "添加通知触发规则",
+            message = "三个匹配条件是「且」关系：全部命中才触发。触发时通知的包名、标题、内容会附在指令前交给 agent。",
+            confirmText = "保存",
+            confirmEnabled = name.isNotBlank() && actionPrompt.isNotBlank(),
+            onConfirm = {
+                onSaved(
+                    NotificationTriggerRule(
+                        id = java.util.UUID.randomUUID().toString(),
+                        name = name.trim(),
+                        packageName = packageName.trim(),
+                        titleKeyword = titleKeyword.trim(),
+                        textKeyword = textKeyword.trim(),
+                        actionPrompt = actionPrompt.trim(),
+                    ),
+                )
+            },
+            onDismissRequest = onDismiss,
+        ) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                CouiTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = "规则名称",
+                )
+                CouiTextField(
+                    value = packageName,
+                    onValueChange = { packageName = it },
+                    label = "来源包名（留空 = 任意）",
+                )
+                CouiTextField(
+                    value = titleKeyword,
+                    onValueChange = { titleKeyword = it },
+                    label = "标题关键词（留空 = 不限）",
+                )
+                CouiTextField(
+                    value = textKeyword,
+                    onValueChange = { textKeyword = it },
+                    label = "内容关键词（留空 = 不限）",
+                )
+                CouiTextField(
+                    value = actionPrompt,
+                    onValueChange = { actionPrompt = it },
+                    label = "动作指令（交给 agent 的 prompt）",
+                    singleLine = false,
+                    minLines = 3,
+                )
+            }
+        }
+        return
+    }
 
     WindowDialog(
         show = true,
