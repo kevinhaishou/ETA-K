@@ -192,6 +192,7 @@ internal fun ModelProviderListScreen(
                             ProviderListItem(
                                 provider = provider,
                                 isSelected = provider.id == selectedProviderId,
+                                isLastItem = index == filteredProviders.lastIndex,
                                 canMoveUp = canMoveUp,
                                 canMoveDown = canMoveDown,
                                 onMoveUp = if (canMoveUp) {
@@ -328,6 +329,7 @@ internal fun ModelProviderListScreen(
                                 ProviderListItem(
                                     provider = provider,
                                     isSelected = provider.id == selectedProviderId,
+                                    isLastItem = index == filteredProviders.lastIndex,
                                     canMoveUp = canMoveUp,
                                     canMoveDown = canMoveDown,
                                     onMoveUp = if (canMoveUp) {
@@ -461,6 +463,7 @@ internal fun ModelProviderListScreen(
 private fun ProviderListItem(
     provider: ProviderSetting,
     isSelected: Boolean,
+    isLastItem: Boolean = false,
     canMoveUp: Boolean = false,
     canMoveDown: Boolean = false,
     onMoveUp: (() -> Unit)? = null,
@@ -469,6 +472,9 @@ private fun ProviderListItem(
     onDelete: (() -> Unit)?,
     onSelect: () -> Unit,
 ) {
+    // 最后一条内部留出安全区：Scaffold 的 verticalScroll 容不下外层 Spacer 时，
+    // 这条底部按钮会落进系统手势区，点击被系统吞掉。
+    val lastItemPadding = if (isLastItem) Modifier.padding(bottom = 72.dp) else Modifier
     // 竖排上下箭头：与选择控件并排，紧凑且不破坏既有布局。
     @Composable
     fun MoveArrows(titleColor: Color) {
@@ -520,7 +526,8 @@ private fun ProviderListItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .combinedClickable(onClick = onOpen, onLongClick = onDelete)
-                    .graphicsLayer { alpha = opacity },
+                    .graphicsLayer { alpha = opacity }
+                    .then(lastItemPadding),
                 icon = { ProviderIcon(provider) },
                 title = {
                     Row(
@@ -616,7 +623,8 @@ private fun ProviderListItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .combinedClickable(onClick = onOpen, onLongClick = onDelete)
-                    .graphicsLayer { alpha = opacity },
+                    .graphicsLayer { alpha = opacity }
+                    .then(lastItemPadding),
                 startAction = { ProviderIcon(provider) },
                 endActions = {
                     if (onMoveUp != null || onMoveDown != null) {
