@@ -688,7 +688,7 @@ private fun parsePlaceholderRatio(ratio: String?): Float = when (ratio?.trim()) 
  * 与聊天图片预览解耦，便于本组件独立演进。
  */
 @Composable
-private fun rememberGeneratedImageBitmap(source: String, maxDimensionPx: Int): ImageBitmap? {
+internal fun rememberGeneratedImageBitmap(source: String, maxDimensionPx: Int): ImageBitmap? {
     val path = remember(source) { source.removePrefix("file://") }
     return remember(path, maxDimensionPx) {
         runCatching {

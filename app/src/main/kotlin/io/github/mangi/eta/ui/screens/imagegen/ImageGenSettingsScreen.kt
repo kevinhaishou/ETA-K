@@ -73,8 +73,7 @@ import io.github.mangi.eta.ui.components.coui.CouiScaffoldPage
 import io.github.mangi.eta.ui.components.coui.CouiSettingsIcon
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
 import io.github.mangi.eta.ui.components.coui.CouiTextField
-import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
-import io.github.mangi.eta.ui.components.rememberChatImageBitmap
+import io.github.mangi.eta.ui.components.rememberGeneratedImageBitmap
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
@@ -84,7 +83,6 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -953,7 +951,7 @@ private fun ImageGenFeedbackBlock(
             }
         }
         if (previewRecord != null) {
-            val bitmap = rememberChatImageBitmap(previewRecord.filePath, maxDimensionPx = 800)
+            val bitmap = rememberGeneratedImageBitmap(previewRecord.filePath, maxDimensionPx = 800)
             val previewCardBg = if (isCoui) {
                 CouiPageDefaults.themeColors(CouiTheme.isDark).card
             } else {

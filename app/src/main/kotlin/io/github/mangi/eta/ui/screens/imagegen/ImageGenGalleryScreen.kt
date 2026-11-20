@@ -58,7 +58,7 @@ import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
 import io.github.mangi.eta.ui.components.coui.CouiIcon
 import io.github.mangi.eta.ui.components.coui.CouiLazyScaffoldPage
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
-import io.github.mangi.eta.ui.components.rememberChatImageBitmap
+import io.github.mangi.eta.ui.components.rememberGeneratedImageBitmap
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -334,7 +334,7 @@ private fun GalleryImageTile(
     onDelete: () -> Unit,
 ) {
     val previewer = LocalChatImagePreviewer.current
-    val bitmap = rememberChatImageBitmap(record.filePath, maxDimensionPx = 560)
+    val bitmap = rememberGeneratedImageBitmap(record.filePath, maxDimensionPx = 560)
     val dateLabel = remember(record.createdAt) {
         SimpleDateFormat("MM/dd HH:mm", Locale.getDefault()).format(Date(record.createdAt))
     }
