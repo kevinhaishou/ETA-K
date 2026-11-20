@@ -81,7 +81,8 @@ internal abstract class EtaDatabase : RoomDatabase() {
                     })
                     // 绝不静默清库：对话、供应商与记忆都在同一个 db 里，一次误清等于全丢。
                     // 缺少对应迁移时宁可启动报错，也不要让用户以为是"数据丢了"。
-                    .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
+                    // 绝不自动清库：库里是全部对话、供应商与记忆，一次误清等于全丢。
+                    // 缺迁移时让 Room 直接抛异常（可崩溃、可在日志里看到），绝不静默重建。
                     .build()
                     .also { instance = it }
             }
