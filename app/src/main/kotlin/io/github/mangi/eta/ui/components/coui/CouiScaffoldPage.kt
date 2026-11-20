@@ -343,11 +343,20 @@ internal fun CouiScaffoldPage(
                 modifier = Modifier
                     .fillMaxSize()
                     .couiVerticalScroll(scrollState, overscrollEffect = overscrollEffect)
-                    .padding(contentPadding)
                     .padding(horizontal = sidePadding)
-                    .consumeWindowInsets(innerPadding)
-                    .padding(bottom = CouiPageDefaults.groupSpacing),
-                content = content,
+                    .consumeWindowInsets(innerPadding),
+                content = {
+                    // contentPadding 必须放在滚动内容内部：加在 couiVerticalScroll 之后
+                    // 会缩小滚动视口本身，底部内容永远滚不到（列表末尾约一屏高的条目
+                    // 全部无法点击）。现在用内层 Spacer 撑进滚动内容。
+                    Spacer(Modifier.height(contentPadding.calculateTopPadding()))
+                    Column(content = content)
+                    Spacer(
+                        Modifier.height(
+                            contentPadding.calculateBottomPadding() + CouiPageDefaults.groupSpacing,
+                        ),
+                    )
+                },
             )
         }
         overlay()

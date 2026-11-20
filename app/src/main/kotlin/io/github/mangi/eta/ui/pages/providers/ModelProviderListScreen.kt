@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.mandatorySystemGestures
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -472,9 +475,15 @@ private fun ProviderListItem(
     onDelete: (() -> Unit)?,
     onSelect: () -> Unit,
 ) {
-    // 最后一条内部留出安全区：Scaffold 的 verticalScroll 容不下外层 Spacer 时，
-    // 这条底部按钮会落进系统手势区，点击被系统吞掉。
-    val lastItemPadding = if (isLastItem) Modifier.padding(bottom = 72.dp) else Modifier
+    // 本机 navigationBars inset 高度为 0（手势导航），真正吃触摸的是
+    // mandatorySystemGestures（实测底部 130px）。这里按真实 inset 避让，
+    // 再叠加 16dp 余量；否则最后一条的按钮会落进手势区被系统抢走。
+    val gestureBottom = WindowInsets.mandatorySystemGestures.getBottom(LocalDensity.current)
+    val lastItemPadding = if (isLastItem) {
+        Modifier.padding(bottom = with(LocalDensity.current) { gestureBottom.toDp() } + 16.dp)
+    } else {
+        Modifier
+    }
     // 竖排上下箭头：与选择控件并排，紧凑且不破坏既有布局。
     @Composable
     fun MoveArrows(titleColor: Color) {
