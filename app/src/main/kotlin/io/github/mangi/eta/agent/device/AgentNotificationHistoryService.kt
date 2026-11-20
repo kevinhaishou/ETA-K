@@ -30,6 +30,16 @@ class AgentNotificationHistoryService : NotificationListenerService() {
                 append("」。请执行以下动作：")
                 append(rule.actionPrompt)
             }
+            NotificationTriggerLogStore.append(
+                context,
+                NotificationTriggerLogEntry(
+                    at = System.currentTimeMillis(),
+                    ruleName = rule.name,
+                    packageName = sbn.packageName,
+                    title = title,
+                    text = text,
+                ),
+            )
             EtaAssistantOverlayService.runAutomation(context, rule.name, prompt)
         }
     }
