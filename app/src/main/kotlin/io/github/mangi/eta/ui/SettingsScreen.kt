@@ -1599,20 +1599,17 @@ internal fun NotificationTriggerSection() {
         rules = next
     }
 
-    SettingsGroupCard {
-        ArrowPreference(
-            title = "通知触发自动化",
-            summary = if (rules.isEmpty()) {
-                "未配置规则；命中通知时自动提交动作指令"
-            } else {
-                "${rules.count { it.enabled }} 条规则启用"
-            },
-            startAction = {
-                SettingsIcon(icon = Icons.Rounded.Notifications, tint = SettingsIconColors.Blue)
-            },
-            onClick = { showList = true },
-        )
-    }
+    // 外层已经是 Group（COUI 玻璃容器）；再套一层 miuix Card 会变成不透明黑色块。
+    CouiPreference(
+        title = "通知触发自动化",
+        summary = if (rules.isEmpty()) {
+            "未配置规则；命中通知时自动提交动作指令"
+        } else {
+            "${rules.count { it.enabled }} 条规则启用"
+        },
+        icon = { CouiSettingsIcon(Icons.Rounded.Notifications, SettingsIconColors.Blue) },
+        onClick = { showList = true },
+    )
 
     if (showList) {
         WindowDialog(

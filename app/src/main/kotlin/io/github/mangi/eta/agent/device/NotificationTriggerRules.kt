@@ -66,12 +66,52 @@ internal object NotificationTriggerStore {
 
     fun load(context: Context): List<NotificationTriggerRule> = runCatching {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val raw = prefs.getString(KEY_RULES, null) ?: return emptyList()
+        val raw = prefs.getString(KEY_RULES, null)
+            // 首次进入且从未写过：预置几条常见规则（默认关闭），用户按需开启即可。
+            ?: return builtInRules()
         val array = JSONArray(raw)
         (0 until array.length()).mapNotNull { index ->
             runCatching { NotificationTriggerRule.fromJson(array.getJSONObject(index)) }.getOrNull()
         }
     }.getOrDefault(emptyList())
+
+    /**
+     * 内置规则模板：默认全部关闭，避免未经用户同意就执行动作。
+     * 只在从未保存过任何规则时返回，用户一旦保存就完全以存储内容为准。
+     */
+    fun builtInRules(): List<NotificationTriggerRule> = listOf(
+        NotificationTriggerRule(
+            id = "builtin-wechat-summary",
+            name = "微信消息摘要",
+            packageName = "com.tencent.mm",
+            actionPrompt = "看一眼这条通知说的是什么，用一句话概括，不要回复对方。",
+            enabled = false,
+        ),
+        NotificationTriggerRule(
+            id = "builtin-sms-code",
+            name = "验证码读出",
+            packageName = "",
+            textKeyword = "验证码",
+            actionPrompt = "读出通知里的验证码，只输出数字，不要做其他操作。",
+            enabled = false,
+        ),
+        NotificationTriggerRule(
+            id = "builtin-missed-call",
+            name = "未接来电提醒",
+            packageName = "com.android.phone",
+            titleKeyword = "未接",
+            actionPrompt = "告诉我谁来过电话，以及通知里的时间。",
+            enabled = false,
+        ),
+        NotificationTriggerRule(
+            id = "builtin-express",
+            name = "快递到达提醒",
+            packageName = "",
+            textKeyword = "取件",
+            actionPrompt = "提炼通知里的取件码和驿站位置，简洁地告诉我。",
+            enabled = false,
+        ),
+    )
 
     fun save(context: Context, rules: List<NotificationTriggerRule>) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
