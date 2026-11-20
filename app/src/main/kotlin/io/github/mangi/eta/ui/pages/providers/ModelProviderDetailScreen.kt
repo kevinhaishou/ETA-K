@@ -94,7 +94,11 @@ internal fun ModelProviderDetailScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val providers by ProviderRepository.providersFlow().collectAsState(initial = emptyList())
+    // null 表示数据流尚未发出首帧。若直接以 emptyList() 起手，进入详情页的
+    // 第一帧会把已有供应商误判成「不存在」并闪一下错误页。
+    val providersSnapshot by ProviderRepository.providersFlow().collectAsState(initial = null)
+    val providersLoaded = providersSnapshot != null
+    val providers = providersSnapshot.orEmpty()
     var createdId by remember { mutableStateOf<String?>(null) }
     val effectiveId = providerId ?: createdId
     val provider = remember(providers, effectiveId) {
@@ -123,6 +127,15 @@ internal fun ModelProviderDetailScreen(
 
     LaunchedEffect(Unit) {
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
+    }
+
+    if (provider == null && draft == null && !providersLoaded) {
+        // 数据还没回来，先渲染空页面等待，不能急着报「不存在」
+        CouiScaffoldPage(
+            title = stringResource(R.string.route_provider_details),
+            onBack = onBack,
+        ) { }
+        return
     }
 
     if (provider == null && draft == null) {
