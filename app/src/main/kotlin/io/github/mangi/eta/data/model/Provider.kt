@@ -132,11 +132,16 @@ data class GeminiProviderSetting(
     override val customBody: List<CustomBody> = emptyList(),
     override val createdAt: Long = System.currentTimeMillis(),
     override val hostedWebSearchEnabled: Boolean = false,
+    /** 端点模式与 Vertex 参数目前只作为生图等下游配置的承载，对话链路仍走 AI Studio。 */
+    val endpointMode: String = GeminiEndpointMode.AI_STUDIO,
+    val vertexProject: String = "",
+    val vertexLocation: String = DEFAULT_VERTEX_LOCATION,
 ) : ProviderSetting {
     override val authMode: String get() = ProviderAuthModes.API_KEY
 
     companion object {
         const val DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+        const val DEFAULT_VERTEX_BASE_URL = "https://aiplatform.googleapis.com"
         const val DEFAULT_VERTEX_LOCATION = "global"
     }
 }
