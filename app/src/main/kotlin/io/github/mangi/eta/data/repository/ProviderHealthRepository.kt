@@ -1,7 +1,14 @@
 package io.github.mangi.eta.data.repository
 
+import io.github.mangi.eta.agent.model.AgentModelFailure
+import io.github.mangi.eta.agent.runtime.AgentRunController
+import io.github.mangi.eta.agent.model.ProviderClientFactory
+import io.github.mangi.eta.agent.model.ProviderRequest
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.ProviderSetting
+import kotlinx.coroutines.CancellationException
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -63,26 +70,53 @@ internal object ProviderHealthRepository {
         }
     }
 
-    private suspend fun probe(provider: ProviderSetting): ProviderHealth =
-        RemoteModelFetcher.fetch(provider).fold(
-            onSuccess = { models ->
-                ProviderHealth(
-                    state = ProviderHealthState.Reachable,
-                    modelCount = models.size,
-                    checkedAt = System.currentTimeMillis(),
-                    models = models,
-                )
-            },
-            onFailure = { throwable ->
-                val reason = throwable.message?.takeIf { it.isNotBlank() }
-                    ?: throwable.javaClass.simpleName
-                ProviderHealth(
-                    state = ProviderHealthState.Unreachable,
-                    detail = reason.take(60),
-                    checkedAt = System.currentTimeMillis(),
-                )
-            },
-        )
+    private suspend fun probe(provider: ProviderSetting): ProviderHealth {
+        val checkedAt = System.currentTimeMillis()
+        // 第一步：拉模型目录，先确认地址与目录鉴权可达，并拿到一个真实模型名。
+        val models = RemoteModelFetcher.fetch(provider).getOrElse { throwable ->
+            return ProviderHealth(
+                state = ProviderHealthState.Unreachable,
+                detail = reason(throwable),
+                checkedAt = checkedAt,
+            )
+        }
+        if (models.isEmpty()) {
+            return ProviderHealth(
+                state = ProviderHealthState.Unreachable,
+                detail = "模型列表为空",
+                checkedAt = checkedAt,
+            )
+        }
+        // 第二步：真实对话探测。models 接口不需要 key 或权限较宽的供应商很多，
+        // 拉到列表不等于能对话，这里发一条极小的消息验证真实可用性。
+        val config = RuntimeConfigRepository.buildRuntimeConfig(provider, models.first())
+        return try {
+            val client = ProviderClientFactory.getClient(config)
+            val messages = JSONArray()
+                .put(JSONObject().put("role", "user").put("content", "ping"))
+            client.complete(ProviderRequest(config, messages, JSONArray()), AgentRunController())
+            ProviderHealth(
+                state = ProviderHealthState.Reachable,
+                modelCount = models.size,
+                checkedAt = checkedAt,
+                models = models,
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (throwable: Throwable) {
+            ProviderHealth(
+                state = ProviderHealthState.Unreachable,
+                detail = reason(throwable),
+                checkedAt = checkedAt,
+            )
+        }
+    }
+
+    /** 失败原因优先取 AgentModelFailure 的友好文案，其余退化为异常消息或类名。 */
+    private fun reason(throwable: Throwable): String =
+        (throwable as? AgentModelFailure)?.message?.takeIf { it.isNotBlank() }
+            ?: throwable.message?.takeIf { it.isNotBlank() }
+            ?: throwable.javaClass.simpleName
 
     fun clear() {
         job?.cancel()
