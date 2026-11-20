@@ -61,6 +61,9 @@ import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.screens.scheduled.ScheduledTaskDetailScreen
+import io.github.mangi.eta.ui.screens.scheduled.ScheduledTaskEditorScreen
+import io.github.mangi.eta.ui.screens.scheduled.ScheduledTasksScreen
 import io.github.mangi.eta.ui.screens.imagegen.ImageGenGalleryScreen
 import io.github.mangi.eta.ui.screens.imagegen.ImageGenSettingsScreen
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
@@ -587,6 +590,32 @@ fun AgentAppRoot(
                 }
                 entry<AppRoute.WebToolsSettings>(swipeDismiss = swipeDismiss) {
                     WebToolsSettingsScreen(onBack = ::popRoute)
+                }
+                entry<AppRoute.ScheduledTasks>(swipeDismiss = swipeDismiss) {
+                    ScheduledTasksScreen(
+                        onNavigate = { route -> pushRoute(route) },
+                        onBack = ::popRoute,
+                    )
+                }
+                entry<AppRoute.ScheduledTaskDetail>(swipeDismiss = swipeDismiss) { route ->
+                    ScheduledTaskDetailScreen(
+                        taskId = route.taskId,
+                        onNavigate = { target -> pushRoute(target) },
+                        // 运行时间线挂载需要 AgentAppState 配套，本次先留空实现
+                        onOpenRun = { _, _, _ -> },
+                        onBack = ::popRoute,
+                    )
+                }
+                entry<AppRoute.ScheduledTaskEditor>(swipeDismiss = swipeDismiss) { route ->
+                    ScheduledTaskEditorScreen(
+                        taskId = route.taskId,
+                        presetId = route.presetId,
+                        onSaved = { id ->
+                            popRoute()
+                            pushRoute(AppRoute.ScheduledTaskDetail(id))
+                        },
+                        onBack = ::popRoute,
+                    )
                 }
                 entry<AppRoute.ImageGenSettings>(swipeDismiss = swipeDismiss) {
                     ImageGenSettingsScreen(

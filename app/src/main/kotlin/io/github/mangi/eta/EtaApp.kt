@@ -17,6 +17,7 @@ import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.data.repository.AppearanceSettingsRepository
 import io.github.mangi.eta.data.repository.McpServerRepository
+import io.github.mangi.eta.data.repository.ScheduledTaskRepository
 import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.ui.app.PredictiveBackController
@@ -68,6 +69,20 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         ProviderRepository.init(this)
         McpServerRepository.init(this)
         io.github.mangi.eta.agent.github.GitHubAccountManager.init(this)
+        ScheduledTaskRepository.init(this)
+        applicationScope.launch {
+            runCatching {
+                ScheduledTaskRepository.reconcileAfterRestartOrClockChange(
+                    recomputeAllSchedules = false,
+                    rescheduleAlarm = true,
+                    context = this@EtaApp,
+                )
+            }.onFailure { throwable ->
+                AndroidAgentLogger.warn(
+                    "Scheduled task reconcile failed: type=${throwable.safeLogType()}"
+                )
+            }
+        }
         XposedServiceHelper.registerListener(this)
         applicationScope.launch {
             delay(4_000)

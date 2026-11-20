@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SettingsVoice
 import androidx.compose.material.icons.rounded.Smartphone
@@ -597,6 +598,17 @@ private fun SettingsPageContent(
                     )
                     CouiIconDivider()
                     CouiPreference(
+                        title = stringResource(R.string.route_scheduled_tasks),
+                        icon = {
+                            CouiSettingsIcon(
+                                Icons.Rounded.Schedule,
+                                SettingsIconColors.Blue,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.ScheduledTasks) },
+                    )
+                    CouiIconDivider()
+                    CouiPreference(
                         title = stringResource(R.string.image_gen_settings_title),
                         value = if (imageGenSettings.enabled) {
                             imageGenSettings.backend.shortName()
@@ -1085,6 +1097,11 @@ private fun SettingsPageContent(
                                 )
                             },
                             onClick = { onNavigate(AppRoute.GitHubAccount) },
+                        )
+                        ArrowPreference(
+                            title = stringResource(R.string.route_scheduled_tasks),
+                            startAction = { SettingsIcon(Icons.Rounded.Schedule) },
+                            onClick = { onNavigate(AppRoute.ScheduledTasks) },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.image_gen_settings_title),
