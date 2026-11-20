@@ -1,6 +1,17 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.Dialog
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
@@ -13,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * Miuix 玻璃组件兼容层。
@@ -37,13 +47,24 @@ internal fun GlassDialog(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!show) return
-    WindowDialog(
-        show = true,
-        title = title.orEmpty(),
-        summary = summary.orEmpty(),
-        onDismissRequest = onDismissRequest,
-    ) { scope ->
-        with(scope) { content() }
+    Dialog(onDismissRequest = onDismissRequest) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF1C1C1E))
+                .padding(20.dp),
+        ) {
+            if (!title.isNullOrBlank()) {
+                Text(text = title)
+                Spacer(Modifier.height(8.dp))
+            }
+            if (!summary.isNullOrBlank()) {
+                Text(text = summary)
+                Spacer(Modifier.height(12.dp))
+            }
+            content()
+        }
     }
 }
 
@@ -57,12 +78,20 @@ internal fun GlassBottomSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!show) return
-    WindowDialog(
-        show = true,
-        title = title.orEmpty(),
-        onDismissRequest = onDismissRequest,
-    ) { scope ->
-        with(scope) { content() }
+    Dialog(onDismissRequest = onDismissRequest) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF1C1C1E))
+                .padding(16.dp),
+        ) {
+            if (!title.isNullOrBlank()) {
+                Text(text = title)
+                Spacer(Modifier.height(8.dp))
+            }
+            content()
+        }
     }
 }
 
