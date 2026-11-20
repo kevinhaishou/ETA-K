@@ -1058,7 +1058,6 @@ private fun SettingsPageContent(
                             startAction = {
                                 SettingsIcon(
                                     icon = Icons.Rounded.Code,
-                                    tint = SettingsIconColors.Blue,
                                 )
                             },
                             onClick = { onNavigate(AppRoute.GitHubAccount) },
@@ -1264,7 +1263,6 @@ private fun SettingsPageContent(
                             startAction = {
                                 SettingsIcon(
                                     icon = Icons.Rounded.Description,
-                                    tint = SettingsIconColors.Blue,
                                 )
                             },
                             onClick = { onNavigate(AppRoute.CustomSystemPrompt) },
