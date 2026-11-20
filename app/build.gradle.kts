@@ -93,10 +93,11 @@ android {
             // 没有发布证书时回退 debug 签名：release 编译（R8 + 资源压缩）依旧可用，
             // 且与已安装的 debug 包同签名，可直接覆盖升级
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
-            // 暂不启用 R8 裁剪：release 变体里 Room 的 EtaDatabase_Impl 在 R8 输出中缺失，
-            // 启动即 ClassNotFoundException。先用未裁剪的 release（非 debuggable）保证可用与流畅。
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // 开启 R8 代码裁剪与资源压缩：未裁剪的 release 单 dex 段就有 67MB，
+            // 且缺失内联/去虚拟化带来的运行期收益。Room 反射加载 EtaDatabase_Impl
+            // 的保留规则已在 proguard-rules.pro 中显式声明。
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -117,6 +118,8 @@ android {
 
     androidResources {
         localeFilters += listOf("en", "b+zh+Hans", "b+zh+Hant")
+        // 只打包声明的语言，资源裁剪才有对象可裁
+        generateLocaleConfig = false
     }
 
     packaging {
