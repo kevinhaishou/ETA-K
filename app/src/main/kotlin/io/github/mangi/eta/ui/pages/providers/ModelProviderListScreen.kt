@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.pages.providers
 
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -16,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.foundation.layout.Column
@@ -31,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -91,6 +94,13 @@ internal fun ModelProviderListScreen(
     val providers by ProviderRepository.providersFlow().collectAsState(initial = emptyList())
     val selectedProviderId by RuntimeConfigRepository.selectedProviderIdFlow().collectAsState(initial = null)
     val providerHealth by ProviderHealthRepository.health.collectAsState()
+    val context = LocalContext.current
+    // 只补「本地一个模型都没有」的供应商：已有模型的配置可能被手工调过，批量覆盖等于破坏。
+    val missingModelProviders = providers.filter { provider ->
+        provider.models.isEmpty() && providerHealth[provider.id]?.let {
+            it.state == ProviderHealthState.Reachable && it.models.isNotEmpty()
+        } == true
+    }
     var searchQuery by remember { mutableStateOf("") }
     var providerToDelete by remember { mutableStateOf<ProviderSetting?>(null) }
     var showSortDialog by remember { mutableStateOf(false) }
@@ -175,6 +185,26 @@ internal fun ModelProviderListScreen(
                         icon = { CouiSettingsIcon(Icons.Rounded.Wifi, tint = colors.accent) },
                         onClick = { ProviderHealthRepository.testAll(providers) },
                     )
+                    if (missingModelProviders.isNotEmpty()) {
+                        CouiIconDivider()
+                        CouiPreference(
+                            title = "补全缺失的模型",
+                            summary = "${missingModelProviders.size} 个可连接的供应商还没有模型，点击写入（不动已有模型）",
+                            icon = {
+                                CouiSettingsIcon(Icons.Rounded.CloudDownload, tint = colors.accent)
+                            },
+                            onClick = {
+                                scope.launch {
+                                    val done = syncMissingModels(missingModelProviders, providerHealth)
+                                    Toast.makeText(
+                                        context,
+                                        "已补全 $done 个供应商的模型",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            },
+                        )
+                    }
                 }
 
                 ProviderSection(
@@ -324,6 +354,22 @@ internal fun ModelProviderListScreen(
                             summary = providerHealthSummary(providerHealth),
                             onClick = { ProviderHealthRepository.testAll(providers) },
                         )
+                        if (missingModelProviders.isNotEmpty()) {
+                            ArrowPreference(
+                                title = "补全缺失的模型",
+                                summary = "${missingModelProviders.size} 个可连接的供应商还没有模型，点击写入（不动已有模型）",
+                                onClick = {
+                                    scope.launch {
+                                        val done = syncMissingModels(missingModelProviders, providerHealth)
+                                        Toast.makeText(
+                                            context,
+                                            "已补全 $done 个供应商的模型",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
 
@@ -766,4 +812,19 @@ private fun providerHealthSummary(health: Map<String, ProviderHealth>): String {
     val reachable = health.values.count { it.state == ProviderHealthState.Reachable }
     val failed = health.values.count { it.state == ProviderHealthState.Unreachable }
     return "可用 $reachable 个 · 连接失败 $failed 个"
+}
+
+/** 把探测到的远端模型写入「本地没有模型」的供应商；返回成功条数。 */
+private suspend fun syncMissingModels(
+    targets: List<ProviderSetting>,
+    health: Map<String, ProviderHealth>,
+): Int {
+    var done = 0
+    targets.forEach { provider ->
+        val models = health[provider.id]?.models.orEmpty()
+        if (models.isEmpty()) return@forEach
+        runCatching { ProviderRepository.replaceModels(provider.id, models) }
+            .onSuccess { done++ }
+    }
+    return done
 }
