@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PowerSettingsNew
@@ -84,6 +85,8 @@ import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionClient
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
+import io.github.mangi.eta.agent.device.NotificationTriggerLogEntry
+import io.github.mangi.eta.agent.device.NotificationTriggerLogStore
 import io.github.mangi.eta.agent.device.NotificationTriggerRule
 import io.github.mangi.eta.agent.device.NotificationTriggerStore
 import io.github.mangi.eta.config.PowerAssistantTarget
@@ -1599,6 +1602,8 @@ internal fun NotificationTriggerSection() {
     var showList by remember { mutableStateOf(false) }
     var showEditor by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<NotificationTriggerRule?>(null) }
+    var triggerLog by remember { mutableStateOf(NotificationTriggerLogStore.load(context)) }
+    var showTriggerLog by remember { mutableStateOf(false) }
 
     fun update(next: List<NotificationTriggerRule>) {
         NotificationTriggerStore.save(context, next)
@@ -1615,6 +1620,19 @@ internal fun NotificationTriggerSection() {
         },
         icon = { CouiSettingsIcon(Icons.Rounded.Notifications, SettingsIconColors.Blue) },
         onClick = { showList = true },
+    )
+    CouiPreference(
+        title = "触发记录",
+        summary = if (triggerLog.isEmpty()) {
+            "还没有触发过；命中规则时这里会留下记录"
+        } else {
+            "最近 ${triggerLog.size} 条触发记录"
+        },
+        icon = { CouiSettingsIcon(Icons.Rounded.History, SettingsIconColors.Orange) },
+        onClick = {
+            triggerLog = NotificationTriggerLogStore.load(context)
+            showTriggerLog = true
+        },
     )
 
     if (showList) {
@@ -1770,6 +1788,86 @@ internal fun NotificationTriggerSection() {
         )
     }
 
+    if (showTriggerLog) {
+        val logSummary = if (triggerLog.isEmpty()) {
+            "还没有触发记录。规则命中并提交动作时，会在这里留下时间、来源与通知摘要。"
+        } else {
+            "共 ${triggerLog.size} 条；只记录触发事实，执行结果请看对应会话。"
+        }
+        if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+            CouiNoticeDialog(
+                visible = true,
+                title = "触发记录",
+                message = logSummary,
+                confirmText = "关闭",
+                onDismissRequest = { showTriggerLog = false },
+            ) {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    triggerLog.forEach { entry ->
+                        CouiPreference(
+                            title = entry.ruleName.ifBlank { "（未命名规则）" },
+                            summary = triggerLogSummary(entry),
+                        )
+                    }
+                    if (triggerLog.isNotEmpty()) {
+                        CouiPreference(
+                            title = "清空记录",
+                            titleColor = StatusError,
+                            onClick = {
+                                NotificationTriggerLogStore.clear(context)
+                                triggerLog = emptyList()
+                            },
+                        )
+                    }
+                }
+            }
+        } else {
+            WindowDialog(
+                show = true,
+                title = "触发记录",
+                summary = logSummary,
+                onDismissRequest = { showTriggerLog = false },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    triggerLog.take(20).forEach { entry ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = entry.ruleName.ifBlank { "（未命名规则）" },
+                                    style = MiuixTheme.textStyles.body1,
+                                )
+                                Text(
+                                    text = triggerLogSummary(entry),
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
+                        }
+                    }
+                    if (triggerLog.isNotEmpty()) {
+                        TextButton(
+                            text = "清空记录",
+                            onClick = {
+                                NotificationTriggerLogStore.clear(context)
+                                triggerLog = emptyList()
+                            },
+                        )
+                    }
+                }
+                MiuixDialogActions(
+                    confirmText = "关闭",
+                    onCancel = { showTriggerLog = false },
+                    onConfirm = { showTriggerLog = false },
+                )
+            }
+        }
+    }
+
     pendingDelete?.let { rule ->
         if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
             CouiConfirmDialog(
@@ -1803,6 +1901,16 @@ internal fun NotificationTriggerSection() {
             }
         }
     }
+}
+
+/** 触发记录的单行摘要：时间 · 来源 · 标题/正文摘要。 */
+private fun triggerLogSummary(entry: NotificationTriggerLogEntry): String {
+    val stamp = java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
+        .format(java.util.Date(entry.at))
+    val brief = listOf(entry.title, entry.text).filter { it.isNotBlank() }.joinToString(" ")
+    return listOf(stamp, entry.packageName, brief.take(40))
+        .filter { it.isNotBlank() }
+        .joinToString(" · ")
 }
 
 /** 把规则的三个匹配条件拼成一行可读描述。 */
