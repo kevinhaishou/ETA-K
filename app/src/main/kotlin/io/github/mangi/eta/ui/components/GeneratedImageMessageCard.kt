@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -310,9 +312,6 @@ private fun GeneratedImagesGalleryCard(
             groupKey = messageId,
             sourceBoundsProvider = { page -> imageBounds[page] },
             sourceCornerRadius = 16.dp,
-            onEditImage = onEditImage?.let { editCb ->
-                { path -> editCb(toAttachableUri(path)) }
-            },
         )
     }
 
@@ -512,7 +511,7 @@ private fun GeneratedImageTile(
     onBoundsChanged: (Rect) -> Unit,
     onClick: () -> Unit,
 ) {
-    val bitmap = rememberChatImageBitmap(source = filePath, maxDimensionPx = 1600)
+    val bitmap = rememberGeneratedImageBitmap(source = filePath, maxDimensionPx = 1600)
     val fileMissing = remember(filePath, bitmap) { bitmap == null && !File(filePath.removePrefix("file://")).isFile }
     val cornerShape = RoundedCornerShape(16.dp)
 
@@ -682,4 +681,28 @@ private fun parsePlaceholderRatio(ratio: String?): Float = when (ratio?.trim()) 
     "3:2" -> 3f / 2f
     "2:3" -> 2f / 3f
     else -> 1f
+}
+
+/**
+ * 生成图片的最小解码器：按最大边采样后解码，避免整张大图进内存。
+ * 与聊天图片预览解耦，便于本组件独立演进。
+ */
+@Composable
+private fun rememberGeneratedImageBitmap(source: String, maxDimensionPx: Int): ImageBitmap? {
+    val path = remember(source) { source.removePrefix("file://") }
+    return remember(path, maxDimensionPx) {
+        runCatching {
+            val file = File(path)
+            if (!file.isFile) return@runCatching null
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeFile(file.absolutePath, bounds)
+            val maxSide = maxOf(bounds.outWidth, bounds.outHeight)
+            if (maxSide <= 0) return@runCatching null
+            var sample = 1
+            while (maxSide / sample > maxDimensionPx) sample *= 2
+            val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+            android.graphics.BitmapFactory.decodeFile(file.absolutePath, opts)
+                ?.asImageBitmap()
+        }.getOrNull()
+    }
 }

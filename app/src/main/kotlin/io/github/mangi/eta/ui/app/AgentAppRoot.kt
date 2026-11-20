@@ -61,6 +61,8 @@ import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.screens.imagegen.ImageGenGalleryScreen
+import io.github.mangi.eta.ui.screens.imagegen.ImageGenSettingsScreen
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
 import io.github.mangi.eta.ui.CustomSystemPromptScreen
 import io.github.mangi.eta.ui.IncomingShareRequest

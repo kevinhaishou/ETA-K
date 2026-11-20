@@ -58,7 +58,6 @@ import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
 import io.github.mangi.eta.ui.components.coui.CouiIcon
 import io.github.mangi.eta.ui.components.coui.CouiLazyScaffoldPage
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
-import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
 import io.github.mangi.eta.ui.components.rememberChatImageBitmap
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -69,7 +68,7 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.glass.GlassDialog
+import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -141,11 +140,10 @@ internal fun ImageGenGalleryScreen(
                 onConfirm = clearAll,
             )
         } else {
-            GlassDialog(
+            WindowDialog(
                 show = true,
                 title = "清空已生成图片",
                 summary = "将删除本地缓存的 ${records.size} 张图片（约 ${formatImageStorageSize(totalBytes)}），已保存到系统相册的图片不受影响。",
-                backdrop = currentGlassOverlayBackdrop(),
                 onDismissRequest = { confirmClearAll = false },
             ) {
                 MiuixDialogActions(
@@ -171,11 +169,10 @@ internal fun ImageGenGalleryScreen(
                 onConfirm = { deleteSingle(target) },
             )
         } else {
-            GlassDialog(
+            WindowDialog(
                 show = true,
                 title = "删除这张图片",
                 summary = "删除后将无法在聊天历史中再次加载这张本地原图。",
-                backdrop = currentGlassOverlayBackdrop(),
                 onDismissRequest = { pendingDelete = null },
             ) {
                 MiuixDialogActions(
