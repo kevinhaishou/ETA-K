@@ -1530,6 +1530,5 @@
   <string name="speech_tts_android">系统离线语音（本机引擎）</string>
   <string name="speech_tts_clone">语音克隆（本机）</string>
   <string name="settings_keep_screen_on">运行期间保持屏幕常亮</string>
-  <string name="settings_keep_screen_on">运行期间保持屏幕常亮</string>
   <string name="settings_keep_screen_on_summary">Agent 执行任务期间防止屏幕自动熄灭</string>
 </resources>

@@ -1426,6 +1426,5 @@
   <string name="speech_tts_android">系統離線語音（本機引擎）</string>
   <string name="speech_tts_clone">語音複製（本機）</string>
   <string name="settings_keep_screen_on">執行期間保持螢幕恆亮</string>
-  <string name="settings_keep_screen_on">執行期間保持螢幕恆亮</string>
   <string name="settings_keep_screen_on_summary">Agent 執行任務期間防止螢幕自動熄滅</string>
 </resources>
