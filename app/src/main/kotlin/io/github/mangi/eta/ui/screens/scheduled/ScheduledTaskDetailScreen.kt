@@ -54,6 +54,9 @@ import io.github.mangi.eta.data.model.ScheduledTaskRunStatus
 import io.github.mangi.eta.data.model.enabledModel
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.ScheduledTaskRepository
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
+import io.github.mangi.eta.ui.components.GlassDialog
+import io.github.mangi.eta.ui.components.MiuixIconsGlassAlias
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
@@ -67,7 +70,6 @@ import io.github.mangi.eta.ui.components.coui.CouiPreference
 import io.github.mangi.eta.ui.components.coui.CouiSectionTitle
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
 import io.github.mangi.eta.ui.components.coui.CouiTopAppBarIconButton
-import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -78,7 +80,6 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.glass.GlassDialog
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.Edit
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -332,7 +333,7 @@ internal fun ScheduledTaskDetailScreen(
                 actions = {
                     if (currentTask != null) {
                         MiuixTopBarActionButton(
-                            icon = MiuixIcons.Glass.Edit,
+                            icon = MiuixIconsGlassAlias.Edit,
                             contentDescription = "编辑定时任务",
                             onClick = { onNavigate(AppRoute.ScheduledTaskEditor(taskId = taskId)) },
                         )

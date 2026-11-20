@@ -188,6 +188,10 @@ class MainActivity : ComponentActivity() {
             private set
 
         const val ACTION_OPEN_TERMINAL = "io.github.mangi.eta.action.OPEN_TERMINAL"
+        const val ACTION_OPEN_SCHEDULED_TASK_DETAIL =
+            "io.github.kevinhaishou.etak.action.OPEN_SCHEDULED_TASK_DETAIL"
+        const val EXTRA_SCHEDULED_TASK_ID =
+            "io.github.kevinhaishou.etak.extra.SCHEDULED_TASK_ID"
         /** 运行浮层的结果卡片回到本体：App 发起的 run 带会话 ID，直接打开该会话。 */
         const val ACTION_OPEN_CONVERSATION_ID = "io.github.mangi.eta.action.OPEN_CONVERSATION_ID"
         const val EXTRA_CONVERSATION_ID = "io.github.mangi.eta.extra.CONVERSATION_ID"

@@ -210,19 +210,6 @@ internal abstract class EtaDatabase : RoomDatabase() {
             )
         }
 
-        private fun createTextChunkCleanup(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-            mapOf("runtime_results" to "run_id", "runtime_archive_runs" to "archive_run_id",
-                "runtime_inflight_runs" to "run_id", "conversation_context_checkpoints" to "conversation_id",
-                "conversation_messages" to "id", "conversations" to "id",
-                "mcp_servers" to "id")
-                .plus(if (database.version >= 21 || database.query(
-                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'roleplay_characters'"
-                ).use { it.moveToFirst() }) mapOf("roleplay_characters" to "id", "roleplay_user_persona" to "id") else emptyMap())
-                .forEach { (table, key) ->
-                    database.execSQL("CREATE TRIGGER IF NOT EXISTS ${table}_text_cleanup AFTER DELETE ON $table " +
-                        "BEGIN DELETE FROM agent_text_chunks WHERE owner_table = '$table' AND owner_id = OLD.$key; END")
-                }
-        }
 
         private fun createTextChunkCleanup(database: androidx.sqlite.db.SupportSQLiteDatabase) {
             mapOf("runtime_results" to "run_id", "runtime_archive_runs" to "archive_run_id",

@@ -64,6 +64,7 @@ import io.github.mangi.eta.data.model.ScheduledTask
 import io.github.mangi.eta.data.model.ScheduledTaskPreset
 import io.github.mangi.eta.data.model.ScheduledTaskPresets
 import io.github.mangi.eta.data.repository.ScheduledTaskRepository
+import io.github.mangi.eta.ui.components.MiuixIconsGlassAlias
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.EtaPreferenceGroupItem
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
@@ -203,7 +204,7 @@ internal fun ScheduledTasksScreen(
                 onBack = onBack,
                 actions = {
                     MiuixTopBarActionButton(
-                        icon = MiuixIcons.Glass.Add,
+                        icon = MiuixIconsGlassAlias.Add,
                         contentDescription = createLabel,
                         onClick = { onNavigate(AppRoute.ScheduledTaskEditor()) },
                     )

@@ -66,6 +66,10 @@ import io.github.mangi.eta.data.model.enabledModel
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.data.repository.ScheduledTaskRepository
+import io.github.mangi.eta.ui.components.MiuixIconsGlassAlias
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
+import io.github.mangi.eta.ui.components.GlassBottomSheet
+import io.github.mangi.eta.ui.components.GlassDropdownPreference
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.MiuixTopBarActionButton
@@ -80,7 +84,6 @@ import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
 import io.github.mangi.eta.ui.components.coui.CouiTextField
 import io.github.mangi.eta.ui.components.coui.CouiTopAppBarTextButton
 import io.github.mangi.eta.ui.components.coui.rememberCouiDialogMaterial
-import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -90,8 +93,6 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.glass.GlassBottomSheet
-import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.Ok
 import top.yukonga.miuix.kmp.preference.ArrowPreference
@@ -628,7 +629,7 @@ internal fun ScheduledTaskEditorScreen(
                 modifier = Modifier.imePadding(),
                 actions = {
                     MiuixTopBarActionButton(
-                        icon = MiuixIcons.Glass.Ok,
+                        icon = MiuixIconsGlassAlias.Ok,
                         contentDescription = stringResource(R.string.action_save),
                         enabled = canSave,
                         onClick = onSaveClick,
