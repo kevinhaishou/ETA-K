@@ -1,5 +1,6 @@
 package io.github.mangi.eta.data.repository
 
+import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.ProviderSetting
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,8 @@ internal data class ProviderHealth(
     val modelCount: Int = 0,
     val detail: String? = null,
     val checkedAt: Long = 0L,
+    /** 探测到的远端模型，供「补全缺失模型」复用，避免二次请求。 */
+    val models: List<Model> = emptyList(),
 )
 
 /**
@@ -67,6 +70,7 @@ internal object ProviderHealthRepository {
                     state = ProviderHealthState.Reachable,
                     modelCount = models.size,
                     checkedAt = System.currentTimeMillis(),
+                    models = models,
                 )
             },
             onFailure = { throwable ->
