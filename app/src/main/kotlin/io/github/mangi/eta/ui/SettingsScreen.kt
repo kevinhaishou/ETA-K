@@ -477,6 +477,10 @@ private fun SettingsPageContent(
                     )
                 }
 
+                Group(title = "自动化") {
+                    NotificationTriggerSection()
+                }
+
                 Group(title = stringResource(R.string.ui_tool_a72ef1)) {
                     CouiPreference(
                         title = stringResource(R.string.settings_tools_list),
