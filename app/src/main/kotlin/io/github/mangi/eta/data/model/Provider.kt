@@ -15,6 +15,17 @@ internal object OpenAiEndpointMode {
     const val RESPONSES = "responses"
 }
 
+/** Gemini 端点模式。Vertex AI 通道本次未接入，仅保留取值以兼容生图配置结构。 */
+internal object GeminiEndpointMode {
+    const val AI_STUDIO = "ai_studio"
+    const val VERTEX_AI = "vertex_ai"
+
+    fun normalize(value: String?): String = when (value?.trim()?.lowercase()) {
+        VERTEX_AI -> VERTEX_AI
+        else -> AI_STUDIO
+    }
+}
+
 internal object ProviderAuthModes {
     const val API_KEY = "api_key"
     const val OPENAI_CHATGPT = "openai_chatgpt"
@@ -126,6 +137,7 @@ data class GeminiProviderSetting(
 
     companion object {
         const val DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+        const val DEFAULT_VERTEX_LOCATION = "global"
     }
 }
 
