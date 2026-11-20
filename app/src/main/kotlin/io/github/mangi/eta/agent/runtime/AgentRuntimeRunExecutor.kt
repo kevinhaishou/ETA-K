@@ -11,6 +11,8 @@ import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.model.AgentModelExecutionException
 import io.github.mangi.eta.agent.model.AgentModelFailure
 import io.github.mangi.eta.agent.imagegen.ImageGenToolCatalog
+import io.github.mangi.eta.agent.scheduler.ScheduledTaskToolCatalog
+import io.github.mangi.eta.agent.scheduler.ScheduledTaskToolExecutor
 import io.github.mangi.eta.agent.imagegen.ImageGenToolExecutor
 import io.github.mangi.eta.agent.model.AgentHttpClient
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
@@ -319,9 +321,25 @@ internal class AgentRuntimeRunExecutor(
                 includeHistoryTool = historyTool != null,
                 includeCharacterMemoryTools = characterMemoryTools != null && memoryEnabled,
                 includeImageGenTool = imageGenEnabled,
+                // 只有常规对话允许创建/管理定时任务；定时任务自身执行时不再挂载，避免递归
+                includeScheduledManageTool = request.operation == AgentRuntimeWire.OP_CHAT &&
+                    Prefs.isToolEnabled(ScheduledTaskToolCatalog.TOOL_MANAGE),
             )
+            val scheduledTaskToolExecutor = ScheduledTaskToolExecutor(appContext)
             val runToolExecutor = AgentModelClient.ToolExecutor { call ->
-                if (call.name in ImageGenToolCatalog.names) {
+                if (call.name in ScheduledTaskToolCatalog.manageNames) {
+                    if (!Prefs.isToolEnabled(call.name)) {
+                        AgentModelClient.ToolResult(
+                            JSONObject()
+                                .put("ok", false)
+                                .put("code", "TOOL_DISABLED")
+                                .put("message", "工具 ${call.name} 已在工具列表中关闭，本次未执行")
+                                .toString(),
+                        )
+                    } else {
+                        scheduledTaskToolExecutor.executeManage(call)
+                    }
+                } else if (call.name in ImageGenToolCatalog.names) {
                     if (!Prefs.isToolEnabled(call.name)) {
                         AgentModelClient.ToolResult(
                             JSONObject()
@@ -554,11 +572,13 @@ internal class AgentRuntimeRunExecutor(
             includeHistoryTool: Boolean,
             includeCharacterMemoryTools: Boolean,
             includeImageGenTool: Boolean = false,
+            includeScheduledManageTool: Boolean = false,
             isToolEnabled: (String) -> Boolean = Prefs::isToolEnabled,
         ): JSONArray = JSONArray(mcpTools.toString()).also { tools ->
             if (subagentAllowed) AgentSubagentToolCatalog.appendSchemas(tools)
             if (includeHistoryTool) tools.put(AgentConversationToolCatalog.schema())
             if (includeImageGenTool) ImageGenToolCatalog.appendTo(tools)
+            if (includeScheduledManageTool) ScheduledTaskToolCatalog.appendManageTool(tools)
             if (includeCharacterMemoryTools) {
                 val temp = JSONArray().also(CharacterMemoryTools::appendSchemas)
                 for (index in 0 until temp.length()) {

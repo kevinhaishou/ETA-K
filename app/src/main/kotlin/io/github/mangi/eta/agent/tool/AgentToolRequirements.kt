@@ -47,6 +47,10 @@ internal object AgentToolRequirements {
             "ask_user",
             // 生图不需要 root/GUI，属于纯网络能力
             "generate_image",
+            // 定时任务管理同样不依赖本地系统权限
+            "scheduled_tasks",
+            "scheduled_task_update_memo",
+            "scheduled_task_report",
         )
         register(
             RootRequirement.PARTIAL,
