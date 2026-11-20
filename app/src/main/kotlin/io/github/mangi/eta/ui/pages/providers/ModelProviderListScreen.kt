@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.TravelExplore
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -52,12 +53,16 @@ import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.model.typeLabel
+import io.github.mangi.eta.data.repository.ProviderHealth
+import io.github.mangi.eta.data.repository.ProviderHealthRepository
+import io.github.mangi.eta.data.repository.ProviderHealthState
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.StatusError
+import io.github.mangi.eta.ui.components.StatusSuccess
 import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
 import io.github.mangi.eta.ui.components.coui.CouiIconDivider
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
@@ -85,6 +90,7 @@ internal fun ModelProviderListScreen(
     val scope = rememberCoroutineScope()
     val providers by ProviderRepository.providersFlow().collectAsState(initial = emptyList())
     val selectedProviderId by RuntimeConfigRepository.selectedProviderIdFlow().collectAsState(initial = null)
+    val providerHealth by ProviderHealthRepository.health.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var providerToDelete by remember { mutableStateOf<ProviderSetting?>(null) }
     var showSortDialog by remember { mutableStateOf(false) }
@@ -162,6 +168,13 @@ internal fun ModelProviderListScreen(
                         },
                         onClick = { showSortDialog = true },
                     )
+                    CouiIconDivider()
+                    CouiPreference(
+                        title = "检测全部供应商",
+                        summary = providerHealthSummary(providerHealth),
+                        icon = { CouiSettingsIcon(Icons.Rounded.Wifi, tint = colors.accent) },
+                        onClick = { ProviderHealthRepository.testAll(providers) },
+                    )
                 }
 
                 ProviderSection(
@@ -194,6 +207,7 @@ internal fun ModelProviderListScreen(
                             val canMoveDown = reorderEnabled && index < filteredProviders.lastIndex
                             ProviderListItem(
                                 provider = provider,
+                                health = providerHealth[provider.id],
                                 isSelected = provider.id == selectedProviderId,
                                 isLastItem = index == filteredProviders.lastIndex,
                                 canMoveUp = canMoveUp,
@@ -305,6 +319,11 @@ internal fun ModelProviderListScreen(
                             summary = "自动按名称或创建时间排列，或在列表项上用箭头手动微调",
                             onClick = { showSortDialog = true },
                         )
+                        ArrowPreference(
+                            title = "检测全部供应商",
+                            summary = providerHealthSummary(providerHealth),
+                            onClick = { ProviderHealthRepository.testAll(providers) },
+                        )
                     }
                 }
 
@@ -331,6 +350,7 @@ internal fun ModelProviderListScreen(
                                 val canMoveDown = reorderEnabled && index < filteredProviders.lastIndex
                                 ProviderListItem(
                                     provider = provider,
+                                    health = providerHealth[provider.id],
                                     isSelected = provider.id == selectedProviderId,
                                     isLastItem = index == filteredProviders.lastIndex,
                                     canMoveUp = canMoveUp,
@@ -465,6 +485,7 @@ internal fun ModelProviderListScreen(
 @Composable
 private fun ProviderListItem(
     provider: ProviderSetting,
+    health: ProviderHealth? = null,
     isSelected: Boolean,
     isLastItem: Boolean = false,
     canMoveUp: Boolean = false,
@@ -575,6 +596,14 @@ private fun ProviderListItem(
                         color = colors.summary,
                         modifier = Modifier.padding(top = 2.dp),
                     )
+                    providerHealthLabel(health)?.let { (label, reachable) ->
+                        CouiText(
+                            text = label,
+                            kind = CouiTextKind.GroupFooter,
+                            color = if (reachable) StatusSuccess else StatusError,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
                     // 与 MIUIX 分支一致：右侧箭头会吞掉触摸，编辑/删除放到内容区。
                     Row(
                         modifier = Modifier.padding(top = 4.dp),
@@ -680,6 +709,14 @@ private fun ProviderListItem(
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(top = 4.dp),
                 )
+                providerHealthLabel(health)?.let { (label, reachable) ->
+                    Text(
+                        text = label,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = if (reachable) StatusSuccess else StatusError,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
                 // 右侧箭头/勾选会消费触摸事件，条目主体的点击与长按都到不了这里，
                 // 因此「编辑」「删除」都给出内容区内的显式入口。
                 Row(
@@ -710,4 +747,23 @@ private fun ProviderListItem(
             }
         }
     }
+}
+
+/** 单个条目上的探测结论；null 表示还没测过，不占一行。 */
+private fun providerHealthLabel(health: ProviderHealth?): Pair<String, Boolean>? {
+    return when (health?.state) {
+        ProviderHealthState.Testing -> "检测中…" to true
+        ProviderHealthState.Reachable -> "可连接 · ${health.modelCount} 个模型" to true
+        ProviderHealthState.Unreachable -> "连接失败：${health.detail.orEmpty()}" to false
+        else -> null
+    }
+}
+
+/** 顶部入口的摘要：未测 / 进行中 / 结果统计。 */
+private fun providerHealthSummary(health: Map<String, ProviderHealth>): String {
+    if (health.isEmpty()) return "并发探测每个已启用的供应商，只读拉取模型列表，不改动任何配置"
+    if (health.values.any { it.state == ProviderHealthState.Testing }) return "检测中…"
+    val reachable = health.values.count { it.state == ProviderHealthState.Reachable }
+    val failed = health.values.count { it.state == ProviderHealthState.Unreachable }
+    return "可用 $reachable 个 · 连接失败 $failed 个"
 }
