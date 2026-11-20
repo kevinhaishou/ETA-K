@@ -42,8 +42,9 @@ internal fun GlassDialog(
         title = title.orEmpty(),
         summary = summary.orEmpty(),
         onDismissRequest = onDismissRequest,
-        content = content,
-    )
+    ) {
+        content()
+    }
 }
 
 @Composable
@@ -60,8 +61,9 @@ internal fun GlassBottomSheet(
         show = true,
         title = title.orEmpty(),
         onDismissRequest = onDismissRequest,
-        content = content,
-    )
+    ) {
+        content()
+    }
 }
 
 @Composable
@@ -88,9 +90,10 @@ internal fun MiuixTopBarActionButton(
     icon: ImageVector = Icons.Rounded.Edit,
     contentDescription: String?,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    IconButton(modifier = modifier, onClick = onClick) {
+    IconButton(modifier = modifier, onClick = onClick, enabled = enabled) {
         Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier)
     }
 }
