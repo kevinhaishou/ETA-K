@@ -42,8 +42,8 @@ internal fun GlassDialog(
         title = title.orEmpty(),
         summary = summary.orEmpty(),
         onDismissRequest = onDismissRequest,
-    ) {
-        content()
+    ) { scope ->
+        with(scope) { content() }
     }
 }
 
@@ -61,8 +61,8 @@ internal fun GlassBottomSheet(
         show = true,
         title = title.orEmpty(),
         onDismissRequest = onDismissRequest,
-    ) {
-        content()
+    ) { scope ->
+        with(scope) { content() }
     }
 }
 
