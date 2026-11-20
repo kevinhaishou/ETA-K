@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -343,20 +344,21 @@ internal fun CouiScaffoldPage(
                 modifier = Modifier
                     .fillMaxSize()
                     .couiVerticalScroll(scrollState, overscrollEffect = overscrollEffect)
+                    // contentPadding 由 CouiCollapsingAppBarState 动态给出（含顶栏折叠偏移），
+                    // 必须放在滚动内容层，不能缩小滚动视口。
+                    .padding(contentPadding)
                     .padding(horizontal = sidePadding)
-                    .consumeWindowInsets(innerPadding),
-                content = {
-                    // contentPadding 必须放在滚动内容内部：加在 couiVerticalScroll 之后
-                    // 会缩小滚动视口本身，底部内容永远滚不到（列表末尾约一屏高的条目
-                    // 全部无法点击）。现在用内层 Spacer 撑进滚动内容。
-                    Spacer(Modifier.height(contentPadding.calculateTopPadding()))
-                    Column(content = content)
-                    Spacer(
-                        Modifier.height(
-                            contentPadding.calculateBottomPadding() + CouiPageDefaults.groupSpacing,
-                        ),
-                    )
-                },
+                    .consumeWindowInsets(innerPadding)
+                    // 本机 navigationBars 高度为 0（手势导航），真正吃触摸的是
+                    // mandatorySystemGestures（实测底部 130px）。不补这段，末尾条目
+                    // 落进手势区会被系统抢走触摸，表现为「最后几条点了没反应」。
+                    .padding(
+                        bottom = CouiPageDefaults.groupSpacing +
+                            with(localDensity) {
+                                WindowInsets.mandatorySystemGestures.getBottom(this).toDp()
+                            },
+                    ),
+                content = content,
             )
         }
         overlay()
