@@ -94,6 +94,12 @@ sealed interface AppRoute : NavKey {
     data class LinuxFiles(val distribution: String) : AppRoute
 
     @Serializable
+    data object ImageGenSettings : AppRoute
+
+    @Serializable
+    data object ImageGenGallery : AppRoute
+
+    @Serializable
     data object ModelProviders : AppRoute
 
     @Serializable

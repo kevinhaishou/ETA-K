@@ -10,6 +10,8 @@ import io.github.mangi.eta.data.db.EtaDatabase
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.model.AgentModelExecutionException
 import io.github.mangi.eta.agent.model.AgentModelFailure
+import io.github.mangi.eta.agent.imagegen.ImageGenToolCatalog
+import io.github.mangi.eta.agent.imagegen.ImageGenToolExecutor
 import io.github.mangi.eta.agent.model.AgentHttpClient
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.memory.AgentMemoryContextBuilder
@@ -36,6 +38,7 @@ import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
+import io.github.mangi.eta.data.repository.ImageGenSettingsRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -294,14 +297,43 @@ internal class AgentRuntimeRunExecutor(
                     )
                 },
             )
+            // AI 生图只在聊天操作、设置已启用且工具未被单独关闭时挂载。
+            val imageGenEnabled = runBlocking {
+                runCatching { ImageGenSettingsRepository.settings().enabled }.getOrDefault(false)
+            } && Prefs.isToolEnabled(ImageGenToolCatalog.TOOL_NAME) &&
+                request.operation == AgentRuntimeWire.OP_CHAT
+            val isVoiceOverlay = request.handoff?.source == AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE
+            val imageGenToolExecutor = ImageGenToolExecutor(
+                context = appContext,
+                conversationId = conversationId,
+                sessionKey = conversationId ?: request.effectiveModelSessionId,
+                currentTurnUserImages = {
+                    // 浮层自动采集的屏幕截图不算用户授权附件，不传给第三方生图服务。
+                    if (isVoiceOverlay) emptyList() else request.images.filterNot { it.preserveOriginal }
+                },
+                runController = runController,
+            )
             val runTools = buildRunTools(
                 mcpTools = mcpTools,
                 subagentAllowed = subagentAllowed(),
                 includeHistoryTool = historyTool != null,
                 includeCharacterMemoryTools = characterMemoryTools != null && memoryEnabled,
+                includeImageGenTool = imageGenEnabled,
             )
             val runToolExecutor = AgentModelClient.ToolExecutor { call ->
-                if (call.name in AgentSubagentToolCatalog.names) {
+                if (call.name in ImageGenToolCatalog.names) {
+                    if (!Prefs.isToolEnabled(call.name)) {
+                        AgentModelClient.ToolResult(
+                            JSONObject()
+                                .put("ok", false)
+                                .put("code", "TOOL_DISABLED")
+                                .put("message", "工具 ${call.name} 已在工具列表中关闭，本次未执行")
+                                .toString(),
+                        )
+                    } else {
+                        imageGenToolExecutor.execute(call)
+                    }
+                } else if (call.name in AgentSubagentToolCatalog.names) {
                     if (!subagentAllowed()) {
                         AgentModelClient.ToolResult(
                             JSONObject()
@@ -521,10 +553,12 @@ internal class AgentRuntimeRunExecutor(
             subagentAllowed: Boolean,
             includeHistoryTool: Boolean,
             includeCharacterMemoryTools: Boolean,
+            includeImageGenTool: Boolean = false,
             isToolEnabled: (String) -> Boolean = Prefs::isToolEnabled,
         ): JSONArray = JSONArray(mcpTools.toString()).also { tools ->
             if (subagentAllowed) AgentSubagentToolCatalog.appendSchemas(tools)
             if (includeHistoryTool) tools.put(AgentConversationToolCatalog.schema())
+            if (includeImageGenTool) ImageGenToolCatalog.appendTo(tools)
             if (includeCharacterMemoryTools) {
                 val temp = JSONArray().also(CharacterMemoryTools::appendSchemas)
                 for (index in 0 until temp.length()) {

@@ -586,6 +586,15 @@ fun AgentAppRoot(
                 entry<AppRoute.WebToolsSettings>(swipeDismiss = swipeDismiss) {
                     WebToolsSettingsScreen(onBack = ::popRoute)
                 }
+                entry<AppRoute.ImageGenSettings>(swipeDismiss = swipeDismiss) {
+                    ImageGenSettingsScreen(
+                        onBack = ::popRoute,
+                        onOpenGallery = { pushRoute(AppRoute.ImageGenGallery) },
+                    )
+                }
+                entry<AppRoute.ImageGenGallery>(swipeDismiss = swipeDismiss) {
+                    ImageGenGalleryScreen(onBack = ::popRoute)
+                }
                 entry<AppRoute.Subagents>(swipeDismiss = swipeDismiss) {
                     SubagentSettingsScreen(onBack = ::popRoute)
                 }

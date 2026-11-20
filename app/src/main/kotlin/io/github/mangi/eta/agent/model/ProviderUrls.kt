@@ -13,6 +13,15 @@ internal object ProviderUrls {
     fun openAiModelsUrl(baseUrl: String): String =
         appendPath(baseUrl, "models")
 
+    fun openAiImagesGenerationsUrl(baseUrl: String): String =
+        appendPath(baseUrl, "images/generations")
+
+    fun openAiImagesEditsUrl(baseUrl: String): String =
+        appendPath(baseUrl, "images/edits")
+
+    fun qwenMultimodalGenerationUrl(baseUrl: String): String =
+        appendPath(baseUrl, "api/v1/services/aigc/multimodal-generation/generation")
+
     fun anthropicMessagesUrl(baseUrl: String): String =
         appendPath(baseUrl, "v1/messages")
 

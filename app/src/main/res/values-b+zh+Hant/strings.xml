@@ -1427,4 +1427,9 @@
   <string name="speech_tts_clone">語音複製（本機）</string>
   <string name="settings_keep_screen_on">執行期間保持螢幕恆亮</string>
   <string name="settings_keep_screen_on_summary">Agent 執行任務期間防止螢幕自動熄滅</string>
+  <string name="image_gen_settings_title">AI 生圖</string>
+  <string name="image_gen_gallery_title">已生成圖片</string>
+  <string name="image_gen_configure_action">配置生圖</string>
+  <string name="tool_generate_image">AI 生圖</string>
+  <string name="tool_generate_image_description">使用已配置的生圖模型根據文字描述創作圖片，或基於參考圖進行圖像編輯與風格遷移。</string>
 </resources>

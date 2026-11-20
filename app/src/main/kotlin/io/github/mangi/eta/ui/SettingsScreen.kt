@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.ImportContacts
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Inventory
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Language
@@ -96,6 +97,8 @@ import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.model.enabledModel
+import io.github.mangi.eta.data.model.ImageGenSettings
+import io.github.mangi.eta.data.repository.ImageGenSettingsRepository
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.data.update.AppLatestRelease
@@ -123,7 +126,7 @@ import io.github.mangi.eta.ui.components.coui.CouiSettingsIcon
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
 import io.github.mangi.eta.ui.components.coui.CouiTextField
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
-import io.github.mangi.eta.ui.navigation.AppRoute
+import io.github.mangi.eta.ui.screens.imagegen.shortName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -235,6 +238,10 @@ private fun SettingsPageContent(
             Toast.makeText(context, context.getString(R.string.settings_open_assistant_failed), Toast.LENGTH_SHORT).show()
         }
     }
+
+    // AI 生图设置：两个皮肤分支共用同一份订阅。
+    val imageGenSettings by remember { ImageGenSettingsRepository.settingsFlow() }
+        .collectAsState(initial = ImageGenSettings())
 
     // 关于组：版本信息与更新检查。结果对话框在列表外渲染，状态需要页面级 owner。
     val appPackageInfo = remember {
@@ -586,6 +593,22 @@ private fun SettingsPageContent(
                             )
                         },
                         onClick = { onNavigate(AppRoute.GitHubAccount) },
+                    )
+                    CouiIconDivider()
+                    CouiPreference(
+                        title = stringResource(R.string.image_gen_settings_title),
+                        value = if (imageGenSettings.enabled) {
+                            imageGenSettings.backend.shortName()
+                        } else {
+                            stringResource(R.string.image_gen_configure_action)
+                        },
+                        icon = {
+                            CouiSettingsIcon(
+                                Icons.Rounded.Image,
+                                SettingsIconColors.Orange,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.ImageGenSettings) },
                     )
                     CouiIconDivider()
                     CouiPreference(
@@ -1061,6 +1084,16 @@ private fun SettingsPageContent(
                                 )
                             },
                             onClick = { onNavigate(AppRoute.GitHubAccount) },
+                        )
+                        ArrowPreference(
+                            title = stringResource(R.string.image_gen_settings_title),
+                            summary = if (imageGenSettings.enabled) {
+                                imageGenSettings.backend.shortName()
+                            } else {
+                                stringResource(R.string.image_gen_configure_action)
+                            },
+                            startAction = { SettingsIcon(Icons.Rounded.Image) },
+                            onClick = { onNavigate(AppRoute.ImageGenSettings) },
                         )
                         ArrowPreference(
                             title = "角色",

@@ -1531,4 +1531,9 @@
   <string name="speech_tts_clone">语音克隆（本机）</string>
   <string name="settings_keep_screen_on">运行期间保持屏幕常亮</string>
   <string name="settings_keep_screen_on_summary">Agent 执行任务期间防止屏幕自动熄灭</string>
+  <string name="image_gen_settings_title">AI 生图</string>
+  <string name="image_gen_gallery_title">已生成图片</string>
+  <string name="image_gen_configure_action">配置生图</string>
+  <string name="tool_generate_image">AI 生图</string>
+  <string name="tool_generate_image_description">使用已配置的生图模型根据文字描述创作图片，或基于参考图进行图像编辑与风格迁移。</string>
 </resources>

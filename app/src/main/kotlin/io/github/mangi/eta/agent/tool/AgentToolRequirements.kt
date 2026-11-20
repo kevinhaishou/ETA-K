@@ -45,6 +45,8 @@ internal object AgentToolRequirements {
             "skills_inspect_github", "skills_install_from_github",
             // 会话内提问卡：不需要 root、GUI 或任何系统权限，纯 UI 交互
             "ask_user",
+            // 生图不需要 root/GUI，属于纯网络能力
+            "generate_image",
         )
         register(
             RootRequirement.PARTIAL,
