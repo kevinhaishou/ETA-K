@@ -531,12 +531,15 @@ private fun ProviderListItem(
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
             val colors = CouiPageDefaults.themeColors()
+            // COUI 的 Item 内部自带 clickable，外层再挂 combinedClickable 会被内层
+            // 先消费掉（内层 onClick 默认空实现），表现就是整行点了没反应。
+            // 必须把点击交给 Item 自己的 onClick。
             Item(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .combinedClickable(onClick = onOpen, onLongClick = onDelete)
                     .graphicsLayer { alpha = opacity }
                     .then(lastItemPadding),
+                onClick = onOpen,
                 icon = { ProviderIcon(provider) },
                 title = {
                     Row(
