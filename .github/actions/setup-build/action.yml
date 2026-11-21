@@ -24,7 +24,7 @@ runs:
 
     - name: 安装 Android SDK 37
       shell: bash
-      run: sdkmanager --channel=3 "platforms;android-37.0"
+      run: sdkmanager --channel=3 "platforms;android-37.2"
 
     # 离线语音识别依赖 sherpa-onnx 的预编译 AAR（含 arm64-v8a 原生库）。
     # 本地网络拉不动 GitHub 资产，改由 runner 下载；同时打印关键类签名，便于核对 Kotlin API。

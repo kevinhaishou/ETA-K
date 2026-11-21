@@ -22,7 +22,7 @@ internal object AgentMemoryToolCatalog {
                                     JSONObject()
                                         .put("type", "string")
                                         .put("maxLength", 500)
-                                        .put("description", "Optional keyword(s) to search in the full memory file. Space- or punctuation-separated words are scored independently (exact phrase > more matched words > repeats), and the most relevant matched lines are returned with one line of context each — paraphrase freely, you do not need the exact original wording."),
+                                        .put("description", "Optional case-insensitive text to search for in the full memory file."),
                                 )
                                 .put(
                                     "start_line",

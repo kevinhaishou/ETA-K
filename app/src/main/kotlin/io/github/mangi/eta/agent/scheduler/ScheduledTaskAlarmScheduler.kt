@@ -4,7 +4,6 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.data.repository.ScheduledTaskRepository
@@ -17,7 +16,7 @@ import io.github.mangi.eta.data.repository.ScheduledTaskRepository
  * 由闹钟冷启动或系统广播重新同步。
  */
 internal object ScheduledTaskAlarmScheduler {
-    const val ACTION_ALARM_FIRE = "io.github.mangi.eta.action.SCHEDULED_TASK_ALARM"
+    const val ACTION_ALARM_FIRE = "io.github.kevinhaishou.etak.action.SCHEDULED_TASK_ALARM"
     private const val REQUEST_CODE = 20401
     /** 系统 AlarmManager 的最小提前量，确保刚过期的待执行点也能立即触发。 */
     private const val MIN_FUTURITY_MS = 5_000L
@@ -34,11 +33,7 @@ internal object ScheduledTaskAlarmScheduler {
         }
 
         val triggerAt = maxOf(nextTask.nextRunAt, nowMs + MIN_FUTURITY_MS)
-        val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            runCatching { alarmManager.canScheduleExactAlarms() }.getOrDefault(false)
-        } else {
-            true
-        }
+        val canExact = runCatching { alarmManager.canScheduleExactAlarms() }.getOrDefault(false)
         try {
             if (canExact) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)

@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.components
 
+import top.yukonga.miuix.kmp.blur.Backdrop
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
@@ -88,7 +89,6 @@ fun MiuixScaffoldPage(
                 } else {
                     AdaptiveTopAppBar(
                         title = title,
-                        color = topBarColor,
                         navigationIcon = { MiuixBackButton(onClick = onBack) },
                         actions = actions,
                         scrollBehavior = scrollBehavior,
@@ -134,13 +134,16 @@ fun MiuixScaffold(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
+    scrollBehavior: ScrollBehavior = MiuixScrollBehavior(),
+    isContentScrolled: Boolean? = null,
+    topBarBottomContent: @Composable (Backdrop?) -> Unit = {},
+    overlay: @Composable () -> Unit = {},
     content: @Composable (
         paddingValues: PaddingValues,
         scrollBehavior: ScrollBehavior,
         sidePadding: Dp,
     ) -> Unit,
 ) {
-    val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
     // 与 MiuixScaffoldPage 保持一致：壁纸模式下顶栏透明、页面自绘壁纸，
     // 否则这类自定义内容页在壁纸下是整块不透明底。
@@ -165,15 +168,16 @@ fun MiuixScaffold(
             TopBarBackdrop(backdrop) {
                 AdaptiveTopAppBar(
                     title = title,
-                    color = topBarColor,
-                    navigationIcon = { MiuixBackButton(onClick = onBack) },
                     actions = actions,
                     scrollBehavior = scrollBehavior,
+                    isContentScrolled = isContentScrolled,
+                    bottomContent = { topBarBottomContent(backdrop) },
                 )
             }
         },
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().captureForTopBar(backdrop)) {
+            overlay()
             WidePageContent { sidePadding ->
                 content(paddingValues, scrollBehavior, sidePadding)
             }

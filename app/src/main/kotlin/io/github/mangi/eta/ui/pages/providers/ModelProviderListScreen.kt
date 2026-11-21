@@ -6,21 +6,12 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.mandatorySystemGestures
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.TravelExplore
-import androidx.compose.material.icons.rounded.Wifi
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,10 +22,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -42,43 +30,41 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.layout.Item
-import com.itos.coui.radiobutton.RadioButton
-import com.itos.coui.text.CouiTextKind
-import com.itos.coui.text.Text as CouiText
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.model.typeLabel
-import io.github.mangi.eta.data.repository.ProviderHealth
-import io.github.mangi.eta.data.repository.ProviderHealthRepository
-import io.github.mangi.eta.data.repository.ProviderHealthState
+import io.github.mangi.eta.data.provider.BuiltinProviders
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.EtaPreferenceGroupItem
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
-import io.github.mangi.eta.ui.components.StatusError
-import io.github.mangi.eta.ui.components.StatusSuccess
 import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
-import io.github.mangi.eta.ui.components.coui.CouiIconDivider
-import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
+import io.github.mangi.eta.ui.components.coui.CouiItem
+import io.github.mangi.eta.ui.components.coui.CouiLazyScaffoldPage
+import io.github.mangi.eta.ui.components.coui.CouiPageDefaults
+import io.github.mangi.eta.ui.components.coui.CouiPageSearch
 import io.github.mangi.eta.ui.components.coui.CouiPreference
-import io.github.mangi.eta.ui.components.coui.CouiScaffoldPage
-import io.github.mangi.eta.ui.components.coui.CouiSearchBarBox
+import io.github.mangi.eta.ui.components.coui.CouiPreferenceGroup
+import io.github.mangi.eta.ui.components.coui.CouiSectionTitle
 import io.github.mangi.eta.ui.components.coui.CouiSettingsIcon
+import io.github.mangi.eta.ui.components.coui.CouiText
+import io.github.mangi.eta.ui.components.coui.CouiTextKind
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.navigation.NewProviderType
+import io.github.suqi8.coui.kmp.basic.RadioButton
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.glass.GlassDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -90,138 +76,137 @@ internal fun ModelProviderListScreen(
     val scope = rememberCoroutineScope()
     val providers by ProviderRepository.providersFlow().collectAsState(initial = emptyList())
     val selectedProviderId by RuntimeConfigRepository.selectedProviderIdFlow().collectAsState(initial = null)
-    val providerHealth by ProviderHealthRepository.health.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var providerToDelete by remember { mutableStateOf<ProviderSetting?>(null) }
-    var showSortDialog by remember { mutableStateOf(false) }
-    // 排序只在未过滤时开放：过滤视图中相邻交换会打乱全局语义。
-    val reorderEnabled = searchQuery.isBlank()
+    var retainedProviderToDelete by remember { mutableStateOf<ProviderSetting?>(null) }
+    if (providerToDelete != null) retainedProviderToDelete = providerToDelete
 
     LaunchedEffect(Unit) {
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
     }
 
-    val filteredProviders = remember(providers, searchQuery) {
+    val displayNames = providers.associate { provider ->
+        val nameRes = BuiltinProviders.defaultNameRes(provider.id, provider.name)
+        provider.id to (if (nameRes != null) stringResource(nameRes) else provider.name)
+    }
+    val filteredProviders = remember(providers, searchQuery, displayNames) {
         val query = searchQuery.trim()
         providers.filter { provider ->
+            val localizedName = displayNames[provider.id] ?: provider.name
             query.isBlank() ||
                 provider.name.contains(query, ignoreCase = true) ||
+                localizedName.contains(query, ignoreCase = true) ||
                 provider.baseUrl.contains(query, ignoreCase = true) ||
                 provider.typeLabel.contains(query, ignoreCase = true)
+        }
+    }
+
+    val activeDeleteTarget = providerToDelete ?: retainedProviderToDelete
+    val activeDeleteName = activeDeleteTarget?.let { target ->
+        displayNames[target.id] ?: target.name
+    }.orEmpty()
+    val onConfirmDelete: () -> Unit = {
+        scope.launch {
+            activeDeleteTarget?.let { provider ->
+                ProviderRepository.deleteProvider(provider.id)
+                RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+            }
+            providerToDelete = null
         }
     }
 
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
             val colors = CouiPageDefaults.themeColors()
-            CouiScaffoldPage(title = stringResource(R.string.ui_model_provider_e8c7f5), onBack = onBack) {
-                CouiSearchBarBox(
-                    query = searchQuery,
-                    onQueryChange = { searchQuery = it },
-                    placeholder = stringResource(R.string.ui_search_provider_74e049),
-                )
-
-                ProviderSection(title = stringResource(R.string.ui_add_new_provider_74df54)) {
-                    CouiPreference(
-                        title = "从 models.dev 添加",
-                        summary = "浏览 models.dev 社区目录并选择模型",
-                        icon = {
-                            CouiSettingsIcon(
-                                icon = Icons.Rounded.TravelExplore,
-                                tint = colors.accent,
+            CouiLazyScaffoldPage(
+                title = stringResource(R.string.ui_model_provider_e8c7f5),
+                onBack = onBack,
+                search = CouiPageSearch(searchQuery, { searchQuery = it }, stringResource(R.string.ui_search_provider_74e049)),
+                overlay = {
+                    CouiConfirmDialog(
+                        visible = providerToDelete != null,
+                        title = stringResource(R.string.ui_remove_provider_9f848f),
+                        message = stringResource(R.string.provider_delete_summary, activeDeleteName),
+                        confirmText = stringResource(R.string.ui_delete_3755f5),
+                        destructive = true,
+                        onConfirm = onConfirmDelete,
+                        onDismissRequest = { providerToDelete = null },
+                        onDismissFinished = { if (providerToDelete == null) retainedProviderToDelete = null },
+                    )
+                },
+            ) { searching ->
+                if (!searching) item(key = "new_providers") {
+                    CouiPreferenceGroup(title = stringResource(R.string.ui_add_new_provider_74df54)) {
+                        item {
+                            CouiPreference(
+                                title = stringResource(R.string.catalog_i18n_title),
+                                summary = stringResource(R.string.catalog_i18n_entry_summary),
+                                icon = {
+                                    CouiSettingsIcon(
+                                        icon = Icons.Rounded.TravelExplore,
+                                        tint = colors.accent,
+                                    )
+                                },
+                                onClick = { onNavigate(AppRoute.CommunityCatalog) },
                             )
-                        },
-                        onClick = { onNavigate(AppRoute.CommunityCatalog) },
-                    )
-                    CouiIconDivider()
-                    CouiPreference(
-                        title = stringResource(R.string.ui_added_openai_compatible_6bd471),
-                        summary = stringResource(R.string.ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02),
-                        icon = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
-                        onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.OpenAiCompatible)) },
-                    )
-                    CouiIconDivider()
-                    CouiPreference(
-                        title = stringResource(R.string.ui_new_anthropic_db6098),
-                        summary = stringResource(R.string.ui_support_anthropic_claude_official_or_compatible_api_de3f80),
-                        icon = { ProviderBrandIcon(ProviderSourceTypes.ANTHROPIC) },
-                        onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Anthropic)) },
-                    )
-                    CouiIconDivider()
-                    CouiPreference(
-                        title = "新增 Gemini",
-                        summary = "使用 API Key 连接原生 Interactions API",
-                        icon = { ProviderBrandIcon(ProviderSourceTypes.GEMINI) },
-                        onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Gemini)) },
+                        }
+                        item {
+                            CouiPreference(
+                                title = stringResource(R.string.ui_added_openai_compatible_6bd471),
+                                summary = stringResource(R.string.ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02),
+                                icon = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
+                                onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.OpenAiCompatible)) },
+                            )
+                        }
+                        item {
+                            CouiPreference(
+                                title = stringResource(R.string.ui_new_anthropic_db6098),
+                                summary = stringResource(R.string.ui_support_anthropic_claude_official_or_compatible_api_de3f80),
+                                icon = { ProviderBrandIcon(ProviderSourceTypes.ANTHROPIC) },
+                                onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Anthropic)) },
+                            )
+                        }
+                        item {
+                            CouiPreference(
+                                title = stringResource(R.string.provider_i18n_add_gemini),
+                                summary = stringResource(R.string.provider_i18n_add_gemini_summary),
+                                icon = { ProviderBrandIcon(ProviderSourceTypes.GEMINI) },
+                                onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Gemini)) },
+                            )
+                        }
+                    }
+                }
+                item(key = "configured_providers") {
+                    CouiSectionTitle(
+                        pluralStringResource(R.plurals.provider_configured_count, filteredProviders.size, filteredProviders.size),
                     )
                 }
-
-                ProviderSection(title = null) {
-                    CouiPreference(
-                        title = "排序方式",
-                        summary = "自动按名称或创建时间排列，或在列表项上用箭头手动微调",
-                        icon = {
-                            CouiSettingsIcon(
-                                icon = Icons.Rounded.KeyboardArrowUp,
-                                tint = colors.accent,
-                            )
-                        },
-                        onClick = { showSortDialog = true },
-                    )
-                    CouiIconDivider()
-                    CouiPreference(
-                        title = "检测全部供应商",
-                        summary = providerHealthSummary(providerHealth),
-                        icon = { CouiSettingsIcon(Icons.Rounded.Wifi, tint = colors.accent) },
-                        onClick = { ProviderHealthRepository.testAll(providers) },
-                    )
-                }
-
-                ProviderSection(
-                    title = pluralStringResource(
-                        R.plurals.provider_configured_count,
-                        filteredProviders.size,
-                        filteredProviders.size,
-                    ),
-                ) {
-                    if (filteredProviders.isEmpty()) {
+                if (filteredProviders.isEmpty()) {
+                    item(key = "empty_providers") {
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 24.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             CouiText(
-                                text = if (searchQuery.isBlank()) {
-                                    stringResource(R.string.provider_empty)
-                                } else {
-                                    stringResource(R.string.provider_no_matches)
-                                },
+                                text = stringResource(
+                                    if (searching) R.string.provider_no_matches else R.string.provider_empty,
+                                ),
                                 kind = CouiTextKind.ItemSummary,
                                 color = colors.summary,
                             )
                         }
-                    } else {
-                        filteredProviders.forEachIndexed { index, provider ->
-                            val canMoveUp = reorderEnabled && index > 0
-                            val canMoveDown = reorderEnabled && index < filteredProviders.lastIndex
+                    }
+                } else {
+                    itemsIndexed(filteredProviders, key = { _, provider -> provider.id }) { index, provider ->
+                        EtaPreferenceGroupItem(
+                            isFirst = index == 0,
+                            isLast = index == filteredProviders.lastIndex,
+                            hasLeadingIcon = true,
+                        ) {
                             ProviderListItem(
                                 provider = provider,
-                                health = providerHealth[provider.id],
+                                displayName = displayNames[provider.id] ?: provider.name,
                                 isSelected = provider.id == selectedProviderId,
-                                isLastItem = index == filteredProviders.lastIndex,
-                                canMoveUp = canMoveUp,
-                                canMoveDown = canMoveDown,
-                                onMoveUp = if (canMoveUp) {
-                                    { scope.launch { ProviderRepository.moveProvider(provider.id, -1) } }
-                                } else {
-                                    null
-                                },
-                                onMoveDown = if (canMoveDown) {
-                                    { scope.launch { ProviderRepository.moveProvider(provider.id, 1) } }
-                                } else {
-                                    null
-                                },
                                 onOpen = { onNavigate(AppRoute.ModelProviderDetail(provider.id)) },
                                 onDelete = if (!provider.isBuiltIn) {
                                     { providerToDelete = provider }
@@ -235,16 +220,9 @@ internal fun ModelProviderListScreen(
                                     }
                                 },
                             )
-                            if (index < filteredProviders.lastIndex) {
-                                CouiIconDivider()
-                            }
                         }
                     }
                 }
-
-                CouiPageBottomSpacer()
-                // 最底部条目的按钮常被系统导航栏/手势区吃掉点击，补一段安全间距。
-                Spacer(Modifier.height(48.dp))
             }
         }
 
@@ -268,8 +246,8 @@ internal fun ModelProviderListScreen(
                 item(key = "create_section") {
                     ProviderSection(title = stringResource(R.string.ui_add_new_provider_74df54)) {
                         ArrowPreference(
-                            title = "从 models.dev 添加",
-                            summary = "浏览 models.dev 社区目录并选择模型",
+                            title = stringResource(R.string.catalog_i18n_title),
+                            summary = stringResource(R.string.catalog_i18n_entry_summary),
                             startAction = {
                                 Box(
                                     modifier = Modifier
@@ -304,25 +282,10 @@ internal fun ModelProviderListScreen(
                             onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Anthropic)) },
                         )
                         ArrowPreference(
-                            title = "新增 Gemini",
-                            summary = "使用 API Key 连接原生 Interactions API",
+                            title = stringResource(R.string.provider_i18n_add_gemini),
+                            summary = stringResource(R.string.provider_i18n_add_gemini_summary),
                             startAction = { ProviderBrandIcon(ProviderSourceTypes.GEMINI) },
                             onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Gemini)) },
-                        )
-                    }
-                }
-
-                item(key = "sort_entry") {
-                    ProviderSection(title = null) {
-                        ArrowPreference(
-                            title = "排序方式",
-                            summary = "自动按名称或创建时间排列，或在列表项上用箭头手动微调",
-                            onClick = { showSortDialog = true },
-                        )
-                        ArrowPreference(
-                            title = "检测全部供应商",
-                            summary = providerHealthSummary(providerHealth),
-                            onClick = { ProviderHealthRepository.testAll(providers) },
                         )
                     }
                 }
@@ -345,26 +308,11 @@ internal fun ModelProviderListScreen(
                                 )
                             }
                         } else {
-                            filteredProviders.forEachIndexed { index, provider ->
-                                val canMoveUp = reorderEnabled && index > 0
-                                val canMoveDown = reorderEnabled && index < filteredProviders.lastIndex
+                            filteredProviders.forEach { provider ->
                                 ProviderListItem(
                                     provider = provider,
-                                    health = providerHealth[provider.id],
+                                    displayName = displayNames[provider.id] ?: provider.name,
                                     isSelected = provider.id == selectedProviderId,
-                                    isLastItem = index == filteredProviders.lastIndex,
-                                    canMoveUp = canMoveUp,
-                                    canMoveDown = canMoveDown,
-                                    onMoveUp = if (canMoveUp) {
-                                        { scope.launch { ProviderRepository.moveProvider(provider.id, -1) } }
-                                    } else {
-                                        null
-                                    },
-                                    onMoveDown = if (canMoveDown) {
-                                        { scope.launch { ProviderRepository.moveProvider(provider.id, 1) } }
-                                    } else {
-                                        null
-                                    },
                                     onOpen = { onNavigate(AppRoute.ModelProviderDetail(provider.id)) },
                                     onDelete = if (!provider.isBuiltIn) {
                                         { providerToDelete = provider }
@@ -386,97 +334,21 @@ internal fun ModelProviderListScreen(
         }
     }
 
-    if (showSortDialog) {
-        val modes = listOf(
-            "按名称 A → Z" to ProviderRepository.ProviderSortMode.NAME_ASC,
-            "按名称 Z → A" to ProviderRepository.ProviderSortMode.NAME_DESC,
-            "按创建时间（新 → 旧）" to ProviderRepository.ProviderSortMode.CREATED_DESC,
-        )
-        when (LocalUiStyle.current) {
-            AppearanceUiStyle.COUI -> {
-                CouiConfirmDialog(
-                    visible = true,
-                    title = "排序方式",
-                    message = "选择自动排序规则，立即应用到列表顺序",
-                    confirmText = "完成",
-                    onConfirm = { showSortDialog = false },
-                    onDismissRequest = { showSortDialog = false },
-                ) {
-                    modes.forEach { (label, mode) ->
-                        CouiPreference(
-                            title = label,
-                            onClick = {
-                                scope.launch { ProviderRepository.autoSortProviders(mode) }
-                                showSortDialog = false
-                            },
-                        )
-                    }
-                }
-            }
-            AppearanceUiStyle.MIUIX -> {
-                OverlayDialog(
-                    show = true,
-                    title = "排序方式",
-                    summary = "选择自动排序规则，立即应用到列表顺序",
-                    onDismissRequest = { showSortDialog = false },
-                ) {
-                    modes.forEach { (label, mode) ->
-                        BasicComponent(
-                            title = label,
-                            onClick = {
-                                scope.launch { ProviderRepository.autoSortProviders(mode) }
-                                showSortDialog = false
-                            },
-                        )
-                    }
-                    MiuixDialogActions(
-                        confirmText = "完成",
-                        onCancel = { showSortDialog = false },
-                        onConfirm = { showSortDialog = false },
-                    )
-                }
-            }
-        }
-    }
-
-    if (providerToDelete != null) {
-        val target = providerToDelete
-        val onConfirmDelete: () -> Unit = {
-            scope.launch {
-                target?.let { provider ->
-                    ProviderRepository.deleteProvider(provider.id)
-                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                }
-                providerToDelete = null
-            }
-        }
-        when (LocalUiStyle.current) {
-            AppearanceUiStyle.COUI -> {
-                CouiConfirmDialog(
-                    visible = true,
-                    title = stringResource(R.string.ui_remove_provider_9f848f),
-                    message = stringResource(R.string.provider_delete_summary, target?.name.orEmpty()),
-                    confirmText = stringResource(R.string.ui_delete_3755f5),
-                    destructive = true,
-                    onConfirm = onConfirmDelete,
-                    onDismissRequest = { providerToDelete = null },
-                )
-            }
-            AppearanceUiStyle.MIUIX -> {
-                OverlayDialog(
-                    show = true,
-                    title = stringResource(R.string.ui_remove_provider_9f848f),
-                    summary = stringResource(R.string.provider_delete_summary, target?.name.orEmpty()),
-                    onDismissRequest = { providerToDelete = null },
-                ) {
-                    MiuixDialogActions(
-                        confirmText = stringResource(R.string.ui_delete_3755f5),
-                        destructive = true,
-                        onCancel = { providerToDelete = null },
-                        onConfirm = onConfirmDelete,
-                    )
-                }
-            }
+    if (LocalUiStyle.current == AppearanceUiStyle.MIUIX) {
+        GlassDialog(
+            show = providerToDelete != null,
+            backdrop = currentGlassOverlayBackdrop(),
+            title = stringResource(R.string.ui_remove_provider_9f848f),
+            summary = stringResource(R.string.provider_delete_summary, activeDeleteName),
+            onDismissRequest = { providerToDelete = null },
+            onDismissFinished = { if (providerToDelete == null) retainedProviderToDelete = null },
+        ) {
+            MiuixDialogActions(
+                confirmText = stringResource(R.string.ui_delete_3755f5),
+                destructive = true,
+                onCancel = { providerToDelete = null },
+                onConfirm = onConfirmDelete,
+            )
         }
     }
 }
@@ -485,62 +357,12 @@ internal fun ModelProviderListScreen(
 @Composable
 private fun ProviderListItem(
     provider: ProviderSetting,
-    health: ProviderHealth? = null,
+    displayName: String,
     isSelected: Boolean,
-    isLastItem: Boolean = false,
-    canMoveUp: Boolean = false,
-    canMoveDown: Boolean = false,
-    onMoveUp: (() -> Unit)? = null,
-    onMoveDown: (() -> Unit)? = null,
     onOpen: () -> Unit,
     onDelete: (() -> Unit)?,
     onSelect: () -> Unit,
 ) {
-    // 本机 navigationBars inset 高度为 0（手势导航），真正吃触摸的是
-    // mandatorySystemGestures（实测底部 130px）。这里按真实 inset 避让，
-    // 再叠加 16dp 余量；否则最后一条的按钮会落进手势区被系统抢走。
-    val gestureBottom = WindowInsets.mandatorySystemGestures.getBottom(LocalDensity.current)
-    val lastItemPadding = if (isLastItem) {
-        Modifier.padding(bottom = with(LocalDensity.current) { gestureBottom.toDp() } + 16.dp)
-    } else {
-        Modifier
-    }
-    // 竖排上下箭头：与选择控件并排，紧凑且不破坏既有布局。
-    @Composable
-    fun MoveArrows(titleColor: Color) {
-        Column(
-            modifier = Modifier.width(28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp, 16.dp)
-                    .clickable(enabled = canMoveUp, onClick = { onMoveUp?.invoke() }, role = Role.Button),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.KeyboardArrowUp,
-                    contentDescription = "上移",
-                    modifier = Modifier.size(18.dp),
-                    tint = titleColor.copy(alpha = if (canMoveUp) 1f else 0.3f),
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .size(28.dp, 16.dp)
-                    .clickable(enabled = canMoveDown, onClick = { onMoveDown?.invoke() }, role = Role.Button),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = "下移",
-                    modifier = Modifier.size(18.dp),
-                    tint = titleColor.copy(alpha = if (canMoveDown) 1f else 0.3f),
-                )
-            }
-        }
-    }
-
     val opacity = if (provider.isEnabled) 1f else 0.6f
     val subtitle = listOfNotNull(
         provider.typeLabel,
@@ -552,15 +374,11 @@ private fun ProviderListItem(
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
             val colors = CouiPageDefaults.themeColors()
-            // COUI 的 Item 内部自带 clickable，外层再挂 combinedClickable 会被内层
-            // 先消费掉（内层 onClick 默认空实现），表现就是整行点了没反应。
-            // 必须把点击交给 Item 自己的 onClick。
-            Item(
+            CouiItem(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .graphicsLayer { alpha = opacity }
-                    .then(lastItemPadding),
-                onClick = onOpen,
+                    .combinedClickable(onClick = onOpen, onLongClick = onDelete)
+                    .graphicsLayer { alpha = opacity },
                 icon = { ProviderIcon(provider) },
                 title = {
                     Row(
@@ -568,7 +386,7 @@ private fun ProviderListItem(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         CouiText(
-                            text = provider.name,
+                            text = displayName,
                             kind = CouiTextKind.ItemTitle,
                             color = if (isSelected) colors.accent else colors.title,
                             maxLines = 1,
@@ -596,65 +414,25 @@ private fun ProviderListItem(
                         color = colors.summary,
                         modifier = Modifier.padding(top = 2.dp),
                     )
-                    providerHealthLabel(health)?.let { (label, reachable) ->
-                        CouiText(
-                            text = label,
-                            kind = CouiTextKind.GroupFooter,
-                            color = if (reachable) StatusSuccess else StatusError,
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    }
-                    // 与 MIUIX 分支一致：右侧箭头会吞掉触摸，编辑/删除放到内容区。
-                    Row(
-                        modifier = Modifier.padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        CouiText(
-                            text = "编辑",
-                            kind = CouiTextKind.GroupFooter,
-                            color = colors.accent,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable(onClick = onOpen)
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                        )
-                        if (onDelete != null) {
-                            CouiText(
-                                text = "删除",
-                                kind = CouiTextKind.GroupFooter,
-                                color = StatusError,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable(onClick = onDelete)
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
-                        }
-                    }
                 },
                 trailing = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        if (onMoveUp != null || onMoveDown != null) {
-                            MoveArrows(colors.title)
-                        }
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clickable(
-                                    enabled = provider.isEnabled,
-                                    role = Role.RadioButton,
-                                    onClick = onSelect,
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            RadioButton(
-                                modifier = Modifier.size(24.dp),
-                                selected = isSelected,
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .size(32.dp)
+                            .clickable(
                                 enabled = provider.isEnabled,
-                            )
-                        }
+                                role = Role.RadioButton,
+                                onClick = onSelect,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        RadioButton(
+                            modifier = Modifier.size(24.dp),
+                            selected = isSelected,
+                            onClick = null,
+                            enabled = provider.isEnabled,
+                        )
                     }
                 },
             )
@@ -664,13 +442,9 @@ private fun ProviderListItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .combinedClickable(onClick = onOpen, onLongClick = onDelete)
-                    .graphicsLayer { alpha = opacity }
-                    .then(lastItemPadding),
+                    .graphicsLayer { alpha = opacity },
                 startAction = { ProviderIcon(provider) },
                 endActions = {
-                    if (onMoveUp != null || onMoveDown != null) {
-                        MoveArrows(MiuixTheme.colorScheme.onSurface)
-                    }
                     Checkbox(
                         state = ToggleableState(isSelected),
                         onClick = if (provider.isEnabled) onSelect else null,
@@ -683,7 +457,7 @@ private fun ProviderListItem(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(
-                        text = provider.name,
+                        text = displayName,
                         fontSize = MiuixTheme.textStyles.headline1.fontSize,
                         fontWeight = FontWeight.Medium,
                         color = if (isSelected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
@@ -709,61 +483,7 @@ private fun ProviderListItem(
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                providerHealthLabel(health)?.let { (label, reachable) ->
-                    Text(
-                        text = label,
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = if (reachable) StatusSuccess else StatusError,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }
-                // 右侧箭头/勾选会消费触摸事件，条目主体的点击与长按都到不了这里，
-                // 因此「编辑」「删除」都给出内容区内的显式入口。
-                Row(
-                    modifier = Modifier.padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = "编辑",
-                        style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onOpen)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                    if (onDelete != null) {
-                        Text(
-                            text = "删除",
-                            style = MiuixTheme.textStyles.footnote1,
-                            color = StatusError,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable(onClick = onDelete)
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                        )
-                    }
-                }
             }
         }
     }
-}
-
-/** 单个条目上的探测结论；null 表示还没测过，不占一行。 */
-private fun providerHealthLabel(health: ProviderHealth?): Pair<String, Boolean>? {
-    return when (health?.state) {
-        ProviderHealthState.Testing -> "检测中…" to true
-        ProviderHealthState.Reachable -> "对话可用 · ${health.modelCount} 个模型" to true
-        ProviderHealthState.Unreachable -> "连接失败：${health.detail.orEmpty()}" to false
-        else -> null
-    }
-}
-
-/** 顶部入口的摘要：未测 / 进行中 / 结果统计。 */
-private fun providerHealthSummary(health: Map<String, ProviderHealth>): String {
-    if (health.isEmpty()) return "对每个已启用供应商发一条极小消息实测对话，结果代表真实可用性"
-    if (health.values.any { it.state == ProviderHealthState.Testing }) return "检测中…"
-    val reachable = health.values.count { it.state == ProviderHealthState.Reachable }
-    val failed = health.values.count { it.state == ProviderHealthState.Unreachable }
-    return "可用 $reachable 个 · 连接失败 $failed 个"
 }

@@ -2,9 +2,9 @@ package io.github.mangi.eta.agent.scheduler
 
 import android.app.KeyguardManager
 import android.content.Context
-import android.os.Build
 import android.os.PowerManager
 import io.github.mangi.eta.EtaApp
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.runtime.AgentExecutionService
@@ -13,6 +13,7 @@ import io.github.mangi.eta.agent.runtime.AgentRuntimeClient
 import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AndroidAgentLogger
+import io.github.mangi.eta.core.AppStrings
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.model.ScheduledTask
@@ -23,6 +24,7 @@ import io.github.mangi.eta.data.model.ScheduledTaskSessionMode
 import io.github.mangi.eta.data.model.ScheduledTaskTriggerSource
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.data.repository.ScheduledTaskRepository
+import io.github.mangi.eta.ui.MainActivity
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -163,7 +165,7 @@ internal object ScheduledTaskRunner {
                     task = task,
                     triggerSource = triggerSource,
                     scheduledForAt = scheduledForAt,
-                    reason = "上一次执行尚未结束，已跳过本次重叠触发",
+                    reason = context.getString(R.string.scheduled_skip_overlap_running),
                 )
             }
             return false
@@ -174,7 +176,7 @@ internal object ScheduledTaskRunner {
             task.capabilities.guiTools &&
             shouldDeferLockedGuiTask(context)
         ) {
-            val reason = "设备当前处于锁屏状态且未启用后台虚拟屏，已改为发送提醒，解锁后点按通知即可执行"
+            val reason = context.getString(R.string.scheduled_skip_locked_gui_deferred)
             recordSkippedAndAdvance(
                 context = context,
                 task = task,
@@ -186,26 +188,30 @@ internal object ScheduledTaskRunner {
             return false
         }
 
-        // 在 Doze 10 秒豁免窗内先抢占前台执行租约与有界 WakeLock，确保长推理与工具调用不断网。
+        // 未开启「运行时显示进度通知」且设备具备免 FGS 后台网络豁免（电池无限制 / Root / 前台）时，
+        // 跳过 AgentExecutionService，仅持有有界 WakeLock 与绑定服务，实现运行时 0 通知静默执行。
         val leaseId = "scheduled:$runId"
         val executionJobHolder = arrayOfNulls<ActiveExecution>(1)
         val allowBoundFallback = RootAccess.isGranted
-        val fgsAcquired = AgentExecutionService.acquire(
-            context = context,
-            id = leaseId,
-            allowBoundFallback = allowBoundFallback,
-        ) {
-            cancelRunningTask(context, task.id)
-        }
-        if (!fgsAcquired && !allowBoundFallback) {
-            recordSkippedAndAdvance(
+        val needForegroundLease = task.showRunningNotification || !canRunSilentlyWithoutForegroundService(context)
+        if (needForegroundLease) {
+            val fgsAcquired = AgentExecutionService.acquire(
                 context = context,
-                task = task,
-                triggerSource = triggerSource,
-                scheduledForAt = scheduledForAt,
-                reason = "系统拒绝在后台启动前台执行服务，请检查精确闹钟与电池无限制权限",
-            )
-            return false
+                id = leaseId,
+                allowBoundFallback = allowBoundFallback,
+            ) {
+                cancelRunningTask(context, task.id)
+            }
+            if (!fgsAcquired && !allowBoundFallback) {
+                recordSkippedAndAdvance(
+                    context = context,
+                    task = task,
+                    triggerSource = triggerSource,
+                    scheduledForAt = scheduledForAt,
+                    reason = context.getString(R.string.scheduled_skip_fgs_denied),
+                )
+                return false
+            }
         }
 
         val timeoutMs = task.timeoutSeconds.coerceIn(
@@ -263,7 +269,7 @@ internal object ScheduledTaskRunner {
                 ScheduledTaskRunReportRegistry.clear(runId)
                 activeByTaskId.remove(task.id)
                 publishActiveTasks()
-                AgentExecutionService.release(leaseId)
+                if (needForegroundLease) AgentExecutionService.release(leaseId)
                 releaseWakeLockSafely(wakeLock)
             }
         }
@@ -272,7 +278,7 @@ internal object ScheduledTaskRunner {
         val previous = activeByTaskId.putIfAbsent(task.id, active)
         if (previous != null) {
             job.cancel()
-            AgentExecutionService.release(leaseId)
+            if (needForegroundLease) AgentExecutionService.release(leaseId)
             releaseWakeLockSafely(wakeLock)
             return false
         }
@@ -299,7 +305,7 @@ internal object ScheduledTaskRunner {
         val baseModelConfig = resolveTaskModelConfig(task)
         if (baseModelConfig == null) {
             val finishedAt = System.currentTimeMillis()
-            val message = "未配置可用的模型，请在「模型提供商」中配置后再试"
+            val message = context.getString(R.string.scheduled_error_no_model_configured)
             val failedRun = ScheduledTaskRun(
                 id = runId,
                 taskId = task.id,
@@ -352,6 +358,7 @@ internal object ScheduledTaskRunner {
             runId = runId,
             triggerSource = triggerSource,
             deliveryMode = task.deliveryMode,
+            showRunningNotification = task.showRunningNotification,
             sessionMode = task.sessionMode,
             capabilities = task.capabilities,
             memo = task.memo,
@@ -361,7 +368,7 @@ internal object ScheduledTaskRunner {
         val archivePayload = AgentExternalArchivePayload(
             userText = task.prompt,
             conversationKey = archiveKey,
-            title = task.name.ifBlank { "定时任务" },
+            title = task.name.ifBlank { context.getString(R.string.route_scheduled_tasks) },
             thinkingEnabled = baseModelConfig.thinkingEnabled,
             reasoningEffort = baseModelConfig.effectiveReasoningEffort,
             adapterPayload = runContext.toAdapterPayload(),
@@ -402,23 +409,24 @@ internal object ScheduledTaskRunner {
         val (status, summary, shouldNotifySuccess) = when {
             timedOut -> Triple(
                 ScheduledTaskRunStatus.TIMEOUT,
-                "任务运行超过 ${task.timeoutSeconds} 秒上限，已自动中止",
+                context.getString(R.string.scheduled_run_timeout_summary, task.timeoutSeconds),
                 false,
             )
             userCancelled -> Triple(
                 ScheduledTaskRunStatus.CANCELLED,
-                "已手动停止",
+                context.getString(R.string.scheduled_run_cancelled_summary),
                 false,
             )
             !runResult.ok -> Triple(
                 ScheduledTaskRunStatus.FAILED,
-                runResult.error?.takeIf { it.isNotBlank() } ?: "执行失败",
+                runResult.error?.takeIf { it.isNotBlank() }
+                    ?: context.getString(R.string.scheduled_status_failed),
                 false,
             )
             task.deliveryMode == ScheduledTaskDeliveryMode.ON_CHANGE &&
                 reported?.outcome == ScheduledTaskReportedOutcome.Outcome.NO_CHANGE -> Triple(
                 ScheduledTaskRunStatus.NO_CHANGE,
-                reported.summary.ifBlank { "已检查，无明显变化" },
+                reported.summary.ifBlank { context.getString(R.string.scheduled_run_no_change_summary) },
                 false,
             )
             task.deliveryMode == ScheduledTaskDeliveryMode.SILENT -> Triple(
@@ -557,13 +565,12 @@ internal object ScheduledTaskRunner {
         )
     }
 
-    /** 仅当设备处于锁屏状态，且不满足 Android 14+ 后台受信任虚拟屏条件时，避免后台强闯物理主屏。 */
+    /** 仅当设备处于锁屏状态，且不满足后台受信任虚拟屏条件时，避免后台强闯物理主屏。 */
     private fun shouldDeferLockedGuiTask(context: Context): Boolean {
         val keyguard = context.getSystemService(KeyguardManager::class.java)
         val isLocked = keyguard?.isKeyguardLocked == true
         if (!isLocked) return false
-        val virtualDisplayPossible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
-            Prefs.isEnabled(Prefs.Keys.AGENT_VIRTUAL_DISPLAY_ENABLED) &&
+        val virtualDisplayPossible = Prefs.isEnabled(Prefs.Keys.AGENT_VIRTUAL_DISPLAY_ENABLED) &&
             (RootAccess.isGranted || EtaApp.serviceInstance != null)
         return !virtualDisplayPossible
     }
@@ -574,8 +581,19 @@ internal object ScheduledTaskRunner {
             .replace(Regex("[#>*`]+"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
-        return normalized.take(220).ifBlank { "已完成执行" }
+        return normalized.take(220).ifBlank {
+            AppStrings.get(R.string.scheduled_run_completed_summary, "已完成执行")
+        }
     }
+
+    /**
+     * 判断当前设备是否允许静默定时任务跳过前台执行服务：
+     * 处于前台、已授权 Root，或已加入电池优化白名单（Doze 不在 10 秒后切断后台网络）时安全放行。
+     */
+    internal fun canRunSilentlyWithoutForegroundService(context: Context): Boolean =
+        MainActivity.isInForeground ||
+            RootAccess.isGranted ||
+            ScheduledTaskHealthChecker.inspect(context).ignoringBatteryOptimizations
 
     private fun acquireBoundedWakeLock(context: Context, timeoutMs: Long): PowerManager.WakeLock? =
         runCatching {

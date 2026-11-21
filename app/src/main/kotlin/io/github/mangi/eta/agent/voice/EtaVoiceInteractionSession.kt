@@ -103,7 +103,7 @@ internal class EtaVoiceInteractionSession(context: Context) : VoiceInteractionSe
 
     internal companion object {
         private const val ACTION_HIDE_FOR_FOREGROUND_OPERATION =
-            "io.github.mangi.eta.agent.voice.HIDE_FOR_FOREGROUND_OPERATION"
+            "io.github.kevinhaishou.etak.agent.voice.HIDE_FOR_FOREGROUND_OPERATION"
 
         fun requestHideForForegroundOperation(context: Context) {
             context.sendBroadcast(

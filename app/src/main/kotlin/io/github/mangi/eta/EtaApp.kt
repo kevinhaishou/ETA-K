@@ -1,5 +1,6 @@
 package io.github.mangi.eta
 
+import io.github.mangi.eta.core.AppStrings
 import io.github.mangi.eta.agent.voice.SpeechOssUpload
 import android.app.Application
 import android.content.ComponentCallbacks2
@@ -50,6 +51,7 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         super.onCreate()
         Prefs.initLocal(this)
         CustomizationStore.init(this)
+        AppStrings.init(this)
         if (!AppProcessPolicy.shouldInitializeFullRuntime(Application.getProcessName(), packageName)) {
             return
         }

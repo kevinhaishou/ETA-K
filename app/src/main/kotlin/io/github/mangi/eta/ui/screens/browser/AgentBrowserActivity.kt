@@ -32,7 +32,7 @@ class AgentBrowserActivity : ComponentActivity() {
                 val appearance by AppearanceSettingsRepository.settingsFlow().collectAsState(initialAppearance)
                 AgentAppTheme(
                     appearance = appearance,
-                    applyInterfaceScale = true,
+                    provideGlassHost = true,
                     onResolvedDarkModeChange = { isDark ->
                         val style = if (isDark) {
                             SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
@@ -49,7 +49,7 @@ class AgentBrowserActivity : ComponentActivity() {
     }
 
     companion object {
-        private const val EXTRA_SESSION_KEY = "io.github.mangi.eta.extra.BROWSER_SESSION_KEY"
+        private const val EXTRA_SESSION_KEY = "io.github.kevinhaishou.etak.extra.BROWSER_SESSION_KEY"
 
         fun createIntent(context: Context, sessionKey: String): Intent {
             require(sessionKey.isNotBlank())

@@ -1,6 +1,5 @@
 package io.github.mangi.eta.data.db
 
-import io.github.mangi.eta.core.AndroidAgentLogger
 import android.content.Context
 import androidx.annotation.VisibleForTesting
 import androidx.room.Database
@@ -29,7 +28,7 @@ import androidx.room.migration.Migration
         ScheduledTaskEntity::class,
         ScheduledTaskRunEntity::class,
     ],
-    version = 28,
+    version = 30,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -42,57 +41,12 @@ internal abstract class EtaDatabase : RoomDatabase() {
     abstract fun scheduledTaskDao(): ScheduledTaskDao
 
     companion object {
-        /** 与 @Database(version) 保持一致；迁移前用它判断是否需要先备份。 */
-        private const val SCHEMA_VERSION = 28
-
         @Volatile
         private var instance: EtaDatabase? = null
 
-        /**
-         * 升级前自动备份数据库。
-         *
-         * 代价：只在「磁盘库版本 < 代码版本」时触发，平时启动零开销。
-         * 收益：迁移写坏库、schema 不匹配等情况下仍有完整副本可回滚。
-         * 直接读 SQLite 文件头的 user_version（偏移 60，4 字节大端），不打开数据库，
-         * 避免为了判断版本反而触发 Room 的迁移流程。
-         */
-        private fun backupBeforeUpgrade(context: Context) {
-            runCatching {
-                val dbFile = context.getDatabasePath("eta.db")
-                if (!dbFile.exists() || dbFile.length() < 1_000_000L) return@runCatching
-                val diskVersion = readUserVersion(dbFile)
-                if (diskVersion < 0 || diskVersion >= SCHEMA_VERSION) return@runCatching
-                val dir = java.io.File(context.filesDir, "db-backup").apply { mkdirs() }
-                val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
-                    .format(java.util.Date())
-                val target = java.io.File(dir, "eta-v$diskVersion-$stamp.db")
-                dbFile.copyTo(target, overwrite = true)
-                AndroidAgentLogger.info("db backup before upgrade: v$diskVersion -> v$SCHEMA_VERSION")
-                // 只保留最近 5 份，避免长期占用空间
-                dir.listFiles()?.sortedByDescending { it.name }?.drop(5)?.forEach { it.delete() }
-            }.onFailure { error ->
-                // 备份失败不能阻断启动，但必须留下痕迹
-                AndroidAgentLogger.warn("db backup failed: ${error.javaClass.simpleName}")
-            }
-        }
-
-        private fun readUserVersion(file: java.io.File): Int = runCatching {
-            java.io.RandomAccessFile(file, "r").use { raf ->
-                raf.seek(60)
-                val bytes = ByteArray(4)
-                raf.readFully(bytes)
-                ((bytes[0].toInt() and 0xFF) shl 24) or
-                    ((bytes[1].toInt() and 0xFF) shl 16) or
-                    ((bytes[2].toInt() and 0xFF) shl 8) or
-                    (bytes[3].toInt() and 0xFF)
-            }
-        }.getOrDefault(-1)
-
         fun get(context: Context): EtaDatabase =
             instance ?: synchronized(this) {
-                instance ?: run {
-                    backupBeforeUpgrade(context)
-                    Room.databaseBuilder(
+                instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     EtaDatabase::class.java,
                     "eta.db",
@@ -120,18 +74,16 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_25_26,
                         MIGRATION_26_27,
                         MIGRATION_27_28,
+                        MIGRATION_28_29,
+                        MIGRATION_29_30,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
                         override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
                     })
-                    // 绝不静默清库：对话、供应商与记忆都在同一个 db 里，一次误清等于全丢。
-                    // 缺少对应迁移时宁可启动报错，也不要让用户以为是"数据丢了"。
-                    // 绝不自动清库：库里是全部对话、供应商与记忆，一次误清等于全丢。
-                    // 缺迁移时让 Room 直接抛异常（可崩溃、可在日志里看到），绝不静默重建。
-                        .build()
-                        .also { instance = it }
-                }
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .build()
+                    .also { instance = it }
             }
 
         @VisibleForTesting
@@ -200,6 +152,11 @@ internal abstract class EtaDatabase : RoomDatabase() {
         }
 
         internal val MIGRATION_27_28 = Migration(27, 28) { database ->
+            database.execSQL("ALTER TABLE model_providers ADD COLUMN vertex_project TEXT NOT NULL DEFAULT ''")
+            database.execSQL("ALTER TABLE model_providers ADD COLUMN vertex_location TEXT NOT NULL DEFAULT 'global'")
+        }
+
+        internal val MIGRATION_28_29 = Migration(28, 29) { database ->
             database.execSQL(
                 "CREATE TABLE IF NOT EXISTS scheduled_tasks (" +
                     "id TEXT NOT NULL PRIMARY KEY, " +
@@ -258,6 +215,11 @@ internal abstract class EtaDatabase : RoomDatabase() {
             )
         }
 
+        internal val MIGRATION_29_30 = Migration(29, 30) { database ->
+            database.execSQL(
+                "ALTER TABLE scheduled_tasks ADD COLUMN show_running_notification INTEGER NOT NULL DEFAULT 0"
+            )
+        }
 
         private fun createTextChunkCleanup(database: androidx.sqlite.db.SupportSQLiteDatabase) {
             mapOf("runtime_results" to "run_id", "runtime_archive_runs" to "archive_run_id",

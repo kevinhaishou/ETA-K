@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.components.SettingsTextField
 import io.github.mangi.eta.agent.voice.clone.CloneVoiceEngineCache
 import io.github.mangi.eta.agent.voice.clone.CloneVoicePlayback
 import io.github.mangi.eta.agent.voice.clone.CloneVoiceStore
@@ -202,7 +203,7 @@ internal fun CloneVoiceSection() {
 
         SpeechGroupCard(title = "参考与试听") {
             SpeechFieldColumn {
-                SpeechField(
+                SettingsTextField(
                     label = "参考音频里说的话（必填，必须是这段音频的原文）",
                     value = referenceText,
                     singleLine = false,
@@ -211,7 +212,7 @@ internal fun CloneVoiceSection() {
                         CloneVoiceStore.saveReferenceText(context, it)
                     },
                 )
-                SpeechField(
+                SettingsTextField(
                     label = "要合成的文本",
                     value = text,
                     singleLine = false,

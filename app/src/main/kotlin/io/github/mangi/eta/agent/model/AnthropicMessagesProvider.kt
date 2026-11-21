@@ -1,7 +1,9 @@
 package io.github.mangi.eta.agent.model
 
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.runtime.AgentTokenUsage
+import io.github.mangi.eta.core.AppStrings
 import java.io.InputStream
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -94,12 +96,14 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
         val systemParts = mutableListOf<String>()
         val anthropicMessages = JSONArray()
         // 当前轮（最后一条真实用户消息之后）的助手消息都原样带回签名块：工具循环中逐轮保持
-        // 同一前缀，缓存才能在每一轮续用；压缩指令消息不推进当前轮起点，以免丢失当前轮签名缓存。
+        // 同一前缀，缓存才能在每一轮续用；压缩指令与运行内 steering 补充不推进当前轮起点，
+        // 以免剥离此前已缓存轮次的思考签名导致前缀缓存失效。
         val currentTurnStart = (messages.length() - 1 downTo 0).firstOrNull { index ->
             messages.optJSONObject(index)?.let {
                 it.optString("role") == "user" &&
                     !it.optBoolean("_eta_observation") &&
-                    !it.optBoolean("_eta_compaction_prompt")
+                    !it.optBoolean("_eta_compaction_prompt") &&
+                    !it.optBoolean("_eta_steering")
             } == true
         } ?: -1
         for (index in 0 until messages.length()) {
@@ -336,15 +340,21 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
             }
             !sawMessageStop
         }
-        if (!sawMessageStop) throw AgentModelFailure.incompleteStream("Anthropic SSE 流未正常结束")
+        if (!sawMessageStop) throw AgentModelFailure.incompleteStream(
+            AppStrings.get(R.string.provider_err_anthropic_stream_not_ended, "Anthropic SSE 流未正常结束"),
+        )
         if (blocks.values.any { it.type in setOf("text", "thinking", "redacted_thinking", "tool_use") && !it.stopped }) {
-            throw AgentModelFailure.incompleteStream("Anthropic SSE 内容块未正常结束")
+            throw AgentModelFailure.incompleteStream(
+                AppStrings.get(R.string.provider_err_anthropic_block_not_ended, "Anthropic SSE 内容块未正常结束"),
+            )
         }
         val toolCalls = blocks.values
             .filter { it.type == "tool_use" && it.name.isNotBlank() }
             .sortedBy { it.index }
         if (toolCalls.isNotEmpty() && blocks.values.any { it.type == "thinking" && it.signature.isEmpty() }) {
-            throw AgentModelFailure.incompleteStream("Anthropic SSE 工具回合缺少思考签名")
+            throw AgentModelFailure.incompleteStream(
+                AppStrings.get(R.string.provider_err_anthropic_missing_signature, "Anthropic SSE 工具回合缺少思考签名"),
+            )
         }
 
         return JSONObject()
@@ -412,7 +422,7 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
         return when (type) {
             "error" -> throw AgentModelFailure.stream(
                 json.optJSONObject("error") ?: JSONObject(),
-                "Anthropic SSE 返回错误",
+                AppStrings.get(R.string.provider_err_anthropic_sse_error, "Anthropic SSE 返回错误"),
             )
             "message_start" -> {
                 EventResult(usage = parseUsage(json.optJSONObject("message")?.optJSONObject("usage")))

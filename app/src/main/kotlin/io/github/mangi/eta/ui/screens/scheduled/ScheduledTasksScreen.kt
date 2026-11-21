@@ -31,7 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -41,19 +41,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.icons.CouiIcons
-import com.itos.coui.input.CouiHapticFeedback
-import com.itos.coui.input.performCouiHapticFeedback
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.layout.Divider
-import com.itos.coui.layout.Footer
-import com.itos.coui.layout.Group
-import com.itos.coui.switch.CouiSwitchDefaults
-import com.itos.coui.switch.Switch as CouiSwitch
-import com.itos.coui.text.CouiTextKind
-import com.itos.coui.text.Text as CouiText
-import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.scheduler.ScheduledTaskHealthChecker
 import io.github.mangi.eta.agent.scheduler.ScheduledTaskHealthSnapshot
@@ -64,7 +51,6 @@ import io.github.mangi.eta.data.model.ScheduledTask
 import io.github.mangi.eta.data.model.ScheduledTaskPreset
 import io.github.mangi.eta.data.model.ScheduledTaskPresets
 import io.github.mangi.eta.data.repository.ScheduledTaskRepository
-import io.github.mangi.eta.ui.components.MiuixIconsGlassAlias
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.EtaPreferenceGroupItem
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
@@ -73,10 +59,20 @@ import io.github.mangi.eta.ui.components.coui.CouiButton
 import io.github.mangi.eta.ui.components.coui.CouiButtonRole
 import io.github.mangi.eta.ui.components.coui.CouiLazyScaffoldPage
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
+import io.github.mangi.eta.ui.components.coui.CouiPageDefaults
 import io.github.mangi.eta.ui.components.coui.CouiPreference
+import io.github.mangi.eta.ui.components.coui.CouiPreferenceFooter
+import io.github.mangi.eta.ui.components.coui.CouiPreferenceGroup
 import io.github.mangi.eta.ui.components.coui.CouiSectionTitle
+import io.github.mangi.eta.ui.components.coui.CouiText
+import io.github.mangi.eta.ui.components.coui.CouiTextKind
 import io.github.mangi.eta.ui.components.coui.CouiTopAppBarIconButton
+import io.github.mangi.eta.ui.components.coui.couiButtonFeedback
 import io.github.mangi.eta.ui.navigation.AppRoute
+import io.github.suqi8.coui.kmp.basic.Switch as CouiSwitch
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Add
+import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -87,6 +83,7 @@ import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.Add
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -96,6 +93,7 @@ internal fun ScheduledTasksScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val tasks by remember(context) { ScheduledTaskRepository.observeTasks(context) }
         .collectAsState(initial = emptyList())
@@ -122,7 +120,11 @@ internal fun ScheduledTasksScreen(
                     ScheduledTaskRepository.setEnabled(task.id, enabled, context = context)
                 }
             }.onFailure {
-                Toast.makeText(context, "更新定时任务开关失败", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    resources.getString(R.string.scheduled_toast_toggle_failed),
+                    Toast.LENGTH_SHORT,
+                ).show()
             }
         }
     }
@@ -136,13 +138,12 @@ internal fun ScheduledTasksScreen(
 
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
-            val colors = CouiPageDefaults.themeColors()
             CouiLazyScaffoldPage(
                 title = title,
                 onBack = onBack,
                 actions = {
                     CouiTopAppBarIconButton(
-                        icon = CouiIcons.Outlined.Add,
+                        icon = COUIIcons.Add,
                         contentDescription = createLabel,
                         onClick = { onNavigate(AppRoute.ScheduledTaskEditor()) },
                     )
@@ -158,25 +159,26 @@ internal fun ScheduledTasksScreen(
                 }
                 if (tasks.isEmpty()) {
                     item(key = "presets_group") {
-                        Group(title = "快速开始") {
+                        CouiPreferenceGroup(title = stringResource(R.string.scheduled_section_quick_start)) {
                             ScheduledTaskPresets.all.forEachIndexed { index, preset ->
-                                if (index > 0) Divider()
-                                CouiPresetRow(
-                                    preset = preset,
-                                    onClick = { onNavigate(AppRoute.ScheduledTaskEditor(presetId = preset.id)) },
-                                )
+                                item {
+                                    CouiPresetRow(
+                                        preset = preset,
+                                        onClick = { onNavigate(AppRoute.ScheduledTaskEditor(presetId = preset.id)) },
+                                    )
+                                }
                             }
                         }
                     }
                     item(key = "empty_hint") {
-                        Footer(
-                            text = "定时任务会在后台静默运行，只在有需要你关注的结果时通知；你也可以直接在聊天中对 Eta 说「每天晚上十点帮我总结今天的重要通知」。",
+                        CouiPreferenceFooter(
+                            text = stringResource(R.string.scheduled_empty_hint),
                         )
                     }
                 } else {
                     item(key = "tasks_header") {
                         val enabledCount = tasks.count { it.enabled }
-                        CouiSectionTitle("全部任务 · $enabledCount/${tasks.size} 已开启")
+                        CouiSectionTitle(stringResource(R.string.scheduled_section_all_tasks, enabledCount, tasks.size))
                     }
                     itemsIndexed(
                         items = tasks,
@@ -203,7 +205,7 @@ internal fun ScheduledTasksScreen(
                 onBack = onBack,
                 actions = {
                     MiuixTopBarActionButton(
-                        icon = MiuixIconsGlassAlias.Add,
+                        icon = MiuixIcons.Glass.Add,
                         contentDescription = createLabel,
                         onClick = { onNavigate(AppRoute.ScheduledTaskEditor()) },
                     )
@@ -219,11 +221,11 @@ internal fun ScheduledTasksScreen(
                 }
                 if (tasks.isEmpty()) {
                     item(key = "empty_intro") {
-                        SmallTitle(text = "快速开始")
+                        SmallTitle(text = stringResource(R.string.scheduled_section_quick_start))
                     }
                     item(key = "empty_hint") {
                         Text(
-                            text = "定时任务会在后台静默运行，只在有需要你关注的结果时通知；也可以直接在聊天里对 Eta 说「每天晚上十点帮我总结今天的重要通知」。",
+                            text = stringResource(R.string.scheduled_empty_hint),
                             fontSize = 13.sp,
                             lineHeight = 19.sp,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -238,8 +240,8 @@ internal fun ScheduledTasksScreen(
                         ) {
                             ScheduledTaskPresets.all.forEach { preset ->
                                 ArrowPreference(
-                                    title = preset.title,
-                                    summary = "${ScheduledTaskScheduleCalculator.describeSchedule(preset.schedule)} · ${preset.subtitle}",
+                                    title = stringResource(preset.titleRes),
+                                    summary = "${ScheduledTaskScheduleCalculator.describeSchedule(preset.schedule)} · ${stringResource(preset.subtitleRes)}",
                                     onClick = { onNavigate(AppRoute.ScheduledTaskEditor(presetId = preset.id)) },
                                 )
                             }
@@ -248,7 +250,7 @@ internal fun ScheduledTasksScreen(
                 } else {
                     item(key = "tasks_header") {
                         val enabledCount = tasks.count { it.enabled }
-                        SmallTitle(text = "全部任务 · $enabledCount/${tasks.size} 已开启")
+                        SmallTitle(text = stringResource(R.string.scheduled_section_all_tasks, enabledCount, tasks.size))
                     }
                     itemsIndexed(
                         items = tasks,
@@ -275,28 +277,30 @@ private fun CouiHealthBannerCard(
 ) {
     val colors = CouiPageDefaults.themeColors()
     val (title, summary, actionText) = healthGuidance(health)
-    Group {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            CouiText(
-                text = title,
-                kind = CouiTextKind.ItemTitle,
-                color = colors.title,
-            )
-            CouiText(
-                text = summary,
-                kind = CouiTextKind.ItemSummary,
-                color = colors.summary,
-            )
-            CouiButton(
-                text = actionText,
-                role = CouiButtonRole.Secondary,
-                onClick = onFix,
-            )
+    CouiPreferenceGroup {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                CouiText(
+                    text = title,
+                    kind = CouiTextKind.ItemTitle,
+                    color = colors.title,
+                )
+                CouiText(
+                    text = summary,
+                    kind = CouiTextKind.ItemSummary,
+                    color = colors.summary,
+                )
+                CouiButton(
+                    text = actionText,
+                    role = CouiButtonRole.Secondary,
+                    onClick = onFix,
+                )
+            }
         }
     }
 }
@@ -345,8 +349,8 @@ private fun CouiPresetRow(
 ) {
     val scheduleText = ScheduledTaskScheduleCalculator.describeSchedule(preset.schedule)
     CouiPreference(
-        title = preset.title,
-        summary = "$scheduleText · ${preset.subtitle}",
+        title = stringResource(preset.titleRes),
+        summary = "$scheduleText · ${stringResource(preset.subtitleRes)}",
         onClick = onClick,
     )
 }
@@ -360,8 +364,7 @@ private fun CouiScheduledTaskCard(
     onToggle: (Boolean) -> Unit,
 ) {
     val dark = CouiTheme.isDark
-    val colors = CouiPageDefaults.themeColors(dark)
-    val view = LocalView.current
+    val colors = CouiPageDefaults.themeColors()
     val interaction = remember { MutableInteractionSource() }
     val scheduleLine = buildScheduleMetaLine(task, nowMs)
     val statusLine = buildStatusMetaLine(task, isRunning, nowMs)
@@ -371,61 +374,61 @@ private fun CouiScheduledTaskCard(
         autoDisabled = !task.autoDisabledReason.isNullOrBlank(),
     )
 
-    Group {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .couiButtonFeedback(dark, interaction, enabled = true)
-                .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
-                .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+    CouiPreferenceGroup {
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .couiButtonFeedback(dark, interaction, enabled = true)
+                    .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
+                    .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                CouiText(
-                    text = task.name.ifBlank { "未命名任务" },
-                    kind = CouiTextKind.ItemTitle,
-                    color = if (task.enabled) colors.title else colors.summary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                CouiText(
-                    text = scheduleLine,
-                    kind = CouiTextKind.ItemSummary,
-                    color = colors.summary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(dotColor),
+                    CouiText(
+                        text = task.name.ifBlank { stringResource(R.string.scheduled_unnamed_task) },
+                        kind = CouiTextKind.ItemTitle,
+                        color = if (task.enabled) colors.title else colors.summary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     CouiText(
-                        text = statusLine,
+                        text = scheduleLine,
                         kind = CouiTextKind.ItemSummary,
                         color = colors.summary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(dotColor),
+                        )
+                        CouiText(
+                            text = statusLine,
+                            kind = CouiTextKind.ItemSummary,
+                            color = colors.summary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.width(12.dp))
+                CouiSwitch(
+                    checked = task.enabled,
+                    onCheckedChange = { next ->
+                        onToggle(next)
+                    },
+                )
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            CouiSwitch(
-                checked = task.enabled,
-                onCheckedChange = { next ->
-                    view.performCouiHapticFeedback(CouiHapticFeedback.Switch)
-                    onToggle(next)
-                },
-                colors = CouiSwitchDefaults.colors(accent = colors.accent, dark = dark),
-            )
         }
     }
 }
@@ -453,7 +456,7 @@ private fun MiuixScheduledTaskCard(
     ) {
         BasicComponent(
             onClick = onClick,
-            title = task.name.ifBlank { "未命名任务" },
+            title = task.name.ifBlank { stringResource(R.string.scheduled_unnamed_task) },
             summary = scheduleLine,
             bottomAction = {
                 Row(
@@ -486,20 +489,27 @@ private fun MiuixScheduledTaskCard(
     }
 }
 
+@Composable
 private fun buildScheduleMetaLine(task: ScheduledTask, nowMs: Long): String {
     val scheduleText = ScheduledTaskScheduleCalculator.describeSchedule(task.schedule)
     val deliveryText = ScheduledTaskUiFormatting.deliveryBadge(task.deliveryMode)
     val nextText = if (task.enabled && task.nextRunAt != null) {
-        " · 下次 ${ScheduledTaskScheduleCalculator.formatNextRunLabel(task.nextRunAt, nowMs)}"
+        " · " + stringResource(
+            R.string.scheduled_meta_next_run,
+            ScheduledTaskScheduleCalculator.formatNextRunLabel(task.nextRunAt, nowMs),
+        )
     } else ""
     return "$scheduleText · $deliveryText$nextText"
 }
 
+@Composable
 private fun buildStatusMetaLine(task: ScheduledTask, isRunning: Boolean, nowMs: Long): String {
-    if (isRunning) return "正在后台运行…"
+    if (isRunning) return stringResource(R.string.scheduled_status_running_background)
     if (!task.autoDisabledReason.isNullOrBlank()) return task.autoDisabledReason
     if (task.lastStatus == null) {
-        return if (task.enabled) "等待首次触发" else "已暂停"
+        return stringResource(
+            if (task.enabled) R.string.scheduled_status_awaiting_first_run else R.string.scheduled_status_paused,
+        )
     }
     val statusText = ScheduledTaskUiFormatting.statusLabel(task.lastStatus, runningNow = false)
     val timeText = ScheduledTaskUiFormatting.formatTimestamp(task.lastRunAt, nowMs)
@@ -511,21 +521,22 @@ private fun buildStatusMetaLine(task: ScheduledTask, isRunning: Boolean, nowMs: 
     }
 }
 
+@Composable
 private fun healthGuidance(health: ScheduledTaskHealthSnapshot): Triple<String, String, String> = when {
     !health.ignoringBatteryOptimizations -> Triple(
-        "建议允许后台无限制耗电",
-        "Android 深度休眠时会对受限应用在 10 秒后切断后台网络，开启「电池无限制」可确保定时推理与网页巡检稳定完成。",
-        "前往开启",
+        stringResource(R.string.scheduled_health_battery_title),
+        stringResource(R.string.scheduled_health_battery_summary),
+        stringResource(R.string.scheduled_health_battery_action),
     )
     !health.canScheduleExactAlarms -> Triple(
-        "精确闹钟权限未开启",
-        "未开启精确闹钟时，定时任务可能延迟数分钟触发；开启后可准点唤醒执行。",
-        "授权精确闹钟",
+        stringResource(R.string.scheduled_health_exact_alarm_title),
+        stringResource(R.string.scheduled_health_exact_alarm_summary),
+        stringResource(R.string.scheduled_health_exact_alarm_action),
     )
     else -> Triple(
-        "系统通知未开启",
-        "定时任务仍会在后台执行，但无法推送结果摘要和失败告警通知。",
-        "开启通知",
+        stringResource(R.string.scheduled_health_notification_title),
+        stringResource(R.string.scheduled_health_notification_summary),
+        stringResource(R.string.scheduled_health_notification_action),
     )
 }
 

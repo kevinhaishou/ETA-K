@@ -12,9 +12,10 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.EtaGlassSpinnerPreference
+import io.github.mangi.eta.ui.components.SettingsTextField
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.preference.OverlaySpinnerPreference
 
 @Composable
 internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
@@ -76,7 +77,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
                     )
                 }
                 AppearanceUiStyle.MIUIX -> {
-                    OverlaySpinnerPreference(
+                    EtaGlassSpinnerPreference(
                         title = stringResource(R.string.speech_voice),
                         items = presets.map { preset ->
                             DropdownItem(
@@ -91,7 +92,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
             }
             AnimatedVisibility(visible = custom) {
                 SpeechFieldColumn {
-                    SpeechField(
+                    SettingsTextField(
                         label = stringResource(R.string.speech_voice_id),
                         value = voice,
                         onChange = { change(it.trim()) },

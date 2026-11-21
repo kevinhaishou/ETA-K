@@ -67,12 +67,12 @@ class OfflineAsrService : Service() {
     }
 
     companion object {
-        private const val EXTRA_WAV = "io.github.mangi.eta.voice.offline.WAV"
-        private const val EXTRA_MODEL = "io.github.mangi.eta.voice.offline.MODEL"
-        private const val EXTRA_TOKENS = "io.github.mangi.eta.voice.offline.TOKENS"
-        private const val EXTRA_RECEIVER = "io.github.mangi.eta.voice.offline.RECEIVER"
-        private const val RESULT_TEXT = "io.github.mangi.eta.voice.offline.TEXT"
-        private const val RESULT_ERROR = "io.github.mangi.eta.voice.offline.ERROR"
+        private const val EXTRA_WAV = "io.github.kevinhaishou.etak.voice.offline.WAV"
+        private const val EXTRA_MODEL = "io.github.kevinhaishou.etak.voice.offline.MODEL"
+        private const val EXTRA_TOKENS = "io.github.kevinhaishou.etak.voice.offline.TOKENS"
+        private const val EXTRA_RECEIVER = "io.github.kevinhaishou.etak.voice.offline.RECEIVER"
+        private const val RESULT_TEXT = "io.github.kevinhaishou.etak.voice.offline.TEXT"
+        private const val RESULT_ERROR = "io.github.kevinhaishou.etak.voice.offline.ERROR"
         private const val WAV_HEADER = 44
         private const val IDLE_RELEASE_MS = 60_000L
 

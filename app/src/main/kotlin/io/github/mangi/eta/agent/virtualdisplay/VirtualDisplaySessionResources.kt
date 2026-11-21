@@ -87,7 +87,7 @@ internal class RootVirtualDisplayBridge private constructor(
             try {
                 val apkPath = appContext.applicationInfo.sourceDir
                 val command = "CLASSPATH=${DeviceToolContract.quote(apkPath)} app_process /system/bin " +
-                    "io.github.mangi.eta.agent.virtualdisplay.VirtualDisplayCommandMain"
+                    "io.github.kevinhaishou.etak.agent.virtualdisplay.VirtualDisplayCommandMain"
                 val started = supervisor.startShellProcess("root", command, mergeStderr = true) ?: return null
                 process = started
                 val readyLatch = CountDownLatch(1)

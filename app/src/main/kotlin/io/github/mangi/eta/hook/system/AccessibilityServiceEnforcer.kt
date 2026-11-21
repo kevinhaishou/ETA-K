@@ -10,7 +10,6 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.SystemClock
@@ -57,7 +56,6 @@ internal class AccessibilityServiceEnforcer(
     private var lastRestoreLogAt = 0L
 
     fun start(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
         if (!started.compareAndSet(false, true)) return
         if (!schedule(context, reason = "system_ready", delayMs = 0L)) {
             started.set(false)
@@ -277,8 +275,7 @@ internal class AccessibilityServiceEnforcer(
 
     private fun createControlReceiver(): BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(receiverContext: Context, intent: Intent) {
-            // 保护控制依赖系统附带的发送者身份，旧系统不接受降级后的身份校验。
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+            // 保护控制只信任系统附带的发送者 UID。
             val senderUid = sentFromUid
             val ordered = isOrderedBroadcast
             val action = intent.action
@@ -823,7 +820,7 @@ internal class AccessibilityServiceEnforcer(
     private companion object {
         const val APP_PACKAGE = "io.github.kevinhaishou.etak"
         const val SERVICE_CLASS =
-            "io.github.mangi.eta.agent.accessibility.AgentAccessibilityService"
+            "io.github.kevinhaishou.etak.agent.accessibility.AgentAccessibilityService"
         const val DISABLED = 0
         const val ENABLED = 1
         const val LOG_INTERVAL_MS = 10_000L

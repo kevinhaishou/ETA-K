@@ -8,7 +8,7 @@
 - 安装结果区分 `INSTALLED`、`MISSING`、`FAILED`、`SKIPPED`，保留 `HookHandle`，便于定位 ROM 或目标 App 升级后的签名漂移。
 - 普通目标缺失与反射异常按功能域失败开放；`HookFailedError` 等框架级 `Error` 不会被普通异常隔离层吞掉。
 - `ModuleMain` 会尽早过滤无关进程并调用 `detach()`，避免在不需要的进程中继续保留生命周期回调。
-- 小布和双指识屏的混淆目标在安装期通过 DexKit 的字符串、签名和调用关系定位；签名足够唯一的接口使用结构反射。零候选或多个候选均放弃接管，不选择第一个结果。描述符缓存随 APK 的 DEX 校验值和查询规则版本失效，缓存命中后仍校验反射签名；解析桥在安装结束时关闭，运行回调不扫描 DEX。
+- 双指识屏的混淆目标在安装期通过 DexKit 的字符串、签名和调用关系定位；签名足够唯一的接口使用结构反射。零候选或多个候选均放弃接管，不选择第一个结果。描述符缓存随 APK 的 DEX 校验值和查询规则版本失效，缓存命中后仍校验反射签名；解析桥在安装结束时关闭，运行回调不扫描 DEX。
 - DexKit 原生库先使用框架标准加载及模块安装目录；两者不可用时，从模块 APK 提取与当前进程位数匹配的原生库到宿主私有缓存。缓存按库内容的 SHA-256 隔离，复用前与 APK 字节校验，写入后设为只读并原子替换。库始终由模块 ClassLoader 加载，兼容压缩打包；日志分别报告原生库加载和 JNI 初始化失败，不记录 linker 消息中的文件路径。
 
 ## 日志与 Release 裁剪
@@ -37,7 +37,7 @@ Release 裁剪以 `app/proguard-rules.pro` 为唯一可执行事实来源，规�
 
 ## Eta 原生数字助理
 
-Manifest 注册 `VoiceInteractionService`、与浮窗同进程的 `VoiceInteractionSessionService`、全屏 `TYPE_APPLICATION_OVERLAY` 助理浮窗以及 Android 助理角色资格要求的 `RecognitionService`。设置页只负责打开系统数字助理选择界面；浮窗使用已授予的麦克风权限；未授权时提供应用权限设置入口并保留键盘输入。
+Manifest 注册 `VoiceInteractionService`、与浮窗同进程的 `VoiceInteractionSessionService`、全屏 `TYPE_APPLICATION_OVERLAY` 助理浮窗以及 Android 助理角色资格要求的 `RecognitionService`。设置页单行展示当前默认数字助理（`Eta`、其他默认助理应用或未设置），点击直接打开系统数字助理选择页供用户切换；浮窗使用已授予的麦克风权限；未授权时提供应用权限设置入口并保留键盘输入。
 
 `VoiceInteractionSession` 承接系统入口及系统提供的 Assist 数据，关闭自身 UI；`EtaAssistantOverlayService` 持有全屏窗口、语音序列动画、语音输入和键盘输入。窗口通过 `setFitInsetsTypes(0)` 绘制到状态栏、导航栏与显示开孔后方，可交互内容再通过状态栏、导航栏与 IME Insets 保持可触达，避免给根容器增加 Insets 后截断 edge-to-edge 背景。用户提交的文本交给 `AgentRuntimeClient`；请求、流式结果、前台工具收起、取消与归档沿用既有 Runtime 协议。前台工具执行前，Eta 自有入口在主线程定向移除窗口并通知系统会话 `hide()`，Runtime 等待该 View 真正 detach 后才继续；外部助手入口仍使用返回动作和目标包窗口确认。唤醒时已获麦克风权限且启用语音识别就启动一次云端语音识别，最终识别结果直接提交；流式预览只显示在输入区。失败时按凭据、网络、服务或麦克风原因提示并提供语音设置入口与键盘输入。切换键盘、关闭、再次唤醒和前台工具收起都会终止录音并隔离迟到结果。
 
@@ -51,17 +51,16 @@ GUI、Root、数字助理与内置浏览器的模型截图保持原尺寸与像�
 
 ## system_server
 
-- **电源键接管**：Hook `PhoneWindowManagerExtImpl$OplusSpeechHandler.handleMessage()` 处理系统分发给小布的唤醒消息（`what == 0x3F3`）。目标为小布时直接执行原方法；目标为 Gemini 或 Eta 时才拦截并分发到对应入口。
-- **兼容配置**：三态目标写入字符串键；键不存在或值非法时读取旧 `POWER_KEY_TAKEOVER` 布尔协议，`true` 继续表示 Gemini，`false` 表示小布。新安装默认保持小布，旧用户不会因新增 Eta 被改写目标。
-- **数字助理配置修复**：独立自动设置开关开启后，开机、解锁、切用户及启动失败恢复时，通过 `AssistantManager` 异步校正当前 Gemini/Eta 目标的 `android.app.role.ASSISTANT` 与 secure settings。小布模式和开关关闭时不写系统配置；校验缓存及异步回调同时核对用户与目标，旧目标任务不会继续覆盖新选择。
-- **唤起逻辑优化**：Gemini 恢复原有 `VoiceInteractionManagerService`、`ACTION_ASSIST`、`ACTION_VOICE_COMMAND` 顺序；Eta 优先使用活动 `voiceinteraction` 会话，再在已经配置为默认助理时尝试同包 `ACTION_ASSIST` 桥。所有路径失败后立即执行小布原逻辑，不阻塞系统回调。
-- **息屏后维持 Hey Google 可用**：Hook `PhoneWindowManager.screenTurnedOff()`，在默认显示息屏后短延迟检查 Google 的 `SoftwareTrustedHotwordDetectorSession`。只有已有 `mSoftwareCallback` 且当前未 running 时，才恢复 `startListeningFromMicLocked()`；亮屏或恢复成功后会取消未执行任务。
+- **电源键接管**：Hook `PhoneWindowManagerExtImpl$OplusSpeechHandler.handleMessage()` 处理系统分发给系统默认助理的唤醒消息（`what == 0x3F3`）。目标为系统默认助理时直接执行原方法；目标为 Gemini 或 Eta 时才拦截并分发到对应入口。
+- **兼容配置**：三态目标写入字符串键；键不存在或值非法时读取旧 `POWER_KEY_TAKEOVER` 布尔协议，`true` 继续表示 Gemini，`false` 表示系统默认助理。新安装默认保持系统默认，旧用户不会因新增 Eta 被改写目标。
+- **数字助理配置修复**：独立自动设置开关开启后，开机、解锁、切用户、设置页切换目标及启动失败恢复时，通过 `AssistantManager` 串行校正当前 Gemini/Eta 目标的 `android.app.role.ASSISTANT` 与 secure settings。切换托管目标时会先直接写入目标组件的 secure settings 让系统 `SettingsObserver` 立即完成服务切换（不再先置空或双重强制重建），再异步补齐 `RoleManager`；并发切换通过 `AssistantConfigurationCoordinator` 合并为 latest-wins，避免快速连切丢失最后一次变更。系统默认模式清空托管绑定，开关关闭时不写系统配置；校验缓存及异步回调同时核对用户与目标，旧目标任务不会继续覆盖新选择。
+- **唤起逻辑优化**：Gemini 恢复原有 `VoiceInteractionManagerService`、`ACTION_ASSIST`、`ACTION_VOICE_COMMAND` 顺序；Eta 优先使用活动 `voiceinteraction` 会话，再在已经配置为默认助理时尝试同包 `ACTION_ASSIST` 桥（服务绑定窗口期由 `EtaVoiceAssistActivity` 回退直接拉起浮窗）。所有路径失败后立即执行系统原逻辑，不阻塞系统回调。
 - **一圈即搜支持**：强制启用 `ContextualSearchManagerService`，将包名指向 Google App，并放行 `SystemUI` 与 ColorDirectService 的调用权限。作为一圈即搜的底层依赖始终执行，不可关闭。
 - **无障碍保护**：复用已验证的 `SystemServer.startOtherServices(TimingsTraceAndSlog)` 生命周期点，在系统服务启动完成后接入事件驱动保护。后台工作复用 Android `BackgroundThread`，不开模块线程、不轮询；开关默认关闭，开启请求需同时通过 signature 权限、真实发送 UID、服务声明与 APK signer 钉扎校验。保护只维护 owner 用户中的 Eta 组件和总开关，保留其他服务；断连时通过仅允许 `system` UID 调用的健康 Provider 确认，并对 Eta 做带次数上限和冷却的定向重绑。
 
 ## 无障碍保护
 
-无障碍保护要求 Android 14+，控制广播依赖系统提供的真实发送 UID；Android 13 不安装保护控制入口，也不通过弱化身份校验提供回退。
+无障碍保护使用系统提供的真实发送 UID 校验控制广播。
 
 「强制保持无障碍」默认关闭。开启后，注入 `system_server` 的保护后端会校验 Eta 的服务声明、调用 UID 与 APK 签名，并在无障碍服务列表、总开关、Eta 安装包或 owner 用户解锁状态变化时校正配置。它保留其他无障碍服务，不依赖 App 自启动，也不执行周期轮询。
 
@@ -87,11 +86,7 @@ adb shell settings delete global eta_app_signer_sha256
 
 ## ColorDirectService
 
-在 `com.coloros.directui.ui.CollectInfoActivity` 中按 `Intent → void` 签名和输入诊断字符串定位识屏入口，不依赖混淆方法名。读取 `startInfo.directExt` 中的 `fingerTrigger` 与 `touchInfo.fingerCount`，确认是双指识屏后，直接调用 `contextual_search` 服务触发一圈即搜，并关闭小布识屏页面；调用失败才回退小布原逻辑。
-
-## 小布助手
-
-消息处理、文本入口、聊天派发、当前房间、Agent、快速模式和历史序列化等目标按语义定位；历史读取、写入及指令派发按唯一签名定位。快速模式与深度思考保持取反关系，不把其他布尔状态当作思考开关。交付结果所需接口不完整时，不认领请求，避免请求被接管后无法回写小布。
+在 `com.coloros.directui.ui.CollectInfoActivity` 中按 `Intent → void` 签名和输入诊断字符串定位识屏入口，不依赖混淆方法名。读取 `startInfo.directExt` 中的 `fingerTrigger` 与 `touchInfo.fingerCount`，确认是双指识屏后，直接调用 `contextual_search` 服务触发一圈即搜，并关闭系统识屏页面；调用失败才回退原逻辑。
 
 ## 小布记忆
 
@@ -103,40 +98,11 @@ ColorOS 17 的小布记忆使用加密数据库时，Eta 优先校验已知 Room
 
 进程内查询桥不可用时，Runtime 才回退到 Root 快照路径：将主数据库及存在的 WAL、SHM 或 journal 边车文件限大复制到 Eta 缓存，用同一查询引擎只读打开，并在查询结束后立即删除。快照不是普通 SQLite 格式时，明确提示需要小布记忆 Hook，不尝试将加密文件作为普通数据库读取。
 
-## 超级小爱
-
-超级小爱入口当前锁定包名 `com.miui.voiceassist`、版本 `7.13.32.0016`（versionCode `507013032`），并且只在主进程与 `:core` 进程保留模块生命周期。版本不匹配或无法读取版本时不安装业务 Hook。
-
-适配器在 `OperationManager.setQueryInfo(String, String, JSONObject)` 原方法执行前暂存对话 ID、查询文本和可选的 `extra_image_file_id`，同时从 `z10.a.processed(Instruction)` 记录终态 `SpeechRecognizer.RecognizeResult`。`y00.r0.C0(Event): boolean` 收到 `Nlp.Request` 时，小爱已经通过 `APIUtils.buildEvent` 生成了新的 Event ID，因此适配器按查询文本关联输入上下文，不能要求它与 `setQueryInfo` 的对话 ID 相等。只有配置、前缀、图片引用和后台队列全部通过检查后才认领请求并返回发送成功；否则只调用一次原方法，让超级小爱继续原生处理。
-
-终态 ASR 会在 `setQueryInfo` 之前建立短时轮次状态。当前轮次确定由 Eta 接管时，`kh0.s0` 的 `execute` / `executeActionsAsync` 原生 Agent Action 会被跳过，避免本地动作链在模型请求认领前抢先打开设置或执行其他动作。轮次状态有时效并在小爱会话清理时释放；文档输入不会进入这条接管链路。
-
-图片 ID 只解析为当前小爱进程可读的单个本地图片文件，认领前校验存在性、大小和文件头，不扫描目录，也不记录文件路径。图片正文继续通过 Eta 现有的文件描述符传输链路进入 Agent Runtime。文档理解、多图片以及无法解析的图片不在当前接管范围内。
-
-结果使用超级小爱的 `FlowTemplateToastCard` 在主线程流式更新，完成后通过其原生 TTS 入口朗读。卡片、取消、结果恢复和 Runtime handoff 都绑定已认领的对话 ID 与独立的 `xiaoai` source；不会全局屏蔽小爱的卡片、RN 数据或 TTS，也不共享小布适配器的状态。
-
-该版本已通过小米真机验证。系统或 App 大版本更新后，仍需重新确认目标签名与完整链路。
-
 ## Google App
 
 伪装设备为 Samsung S24 Ultra，使 Google 启用一圈即搜能力；同时拦截 `SystemProperties` 和 `PackageManager.hasSystemFeature()` 的关键查询，让 Google App 看到 `ro.opa.eligible_device=true`、`GOOGLE_BUILD` 与 `GOOGLE_EXPERIENCE`。这对应现成 Google App Magisk 模块和 OpenGApps 常用的 OPA eligibility 做法，但限定在 Google App 进程内，不改系统文件。机型伪装与资格补齐作为一圈即搜的底层依赖始终执行，不可关闭。
 
 机型字段优先使用反射写入；Android 拒绝写入静态 final 字段时，使用 `jdk.internal.misc.Unsafe` 的静态字段接口，并读回校验，兼容 Android 17 的字段写保护。
-
-锁屏唤起 Gemini 浮窗后，Google 偶发只显示输入框、不启动录音。模块优先直接 Hook `FloatyActivity.onResume()`，找不到目标类时才回退到全局 `Activity.onResume()`；确认仍处于锁屏后，带去重地补发一次 `ACTION_VOICE_COMMAND`，避免用户还要手动点麦克风。亮屏（解锁态）唤起时同样存在该偶发问题，因此在同一 hook 点对称增加亮屏分支：确认仍处于解锁态后同样补发一次 `ACTION_VOICE_COMMAND`。去重粒度限定在同一个 `FloatyActivity` 实例，防止同一浮窗 `onResume` 短时间内重复补发，但关闭后立刻新开浮窗不会被上一次全局冷却挡住；两分支各自在延迟任务执行前复查对应开关与锁屏状态是否仍匹配。
-
-## Google App 系统化
-
-Google App 作为普通用户应用时，缺乏语音唤醒所需的系统权限，且容易 ColorOS 被自启管理杀掉。模块内置了 Magisk/KernelSU 模块，可将 Google App 安装为系统 priv-app。
-
-安装流程由 `GoogleAppSystemizerInstaller` 负责：
-
-- 检测 root 管理器类型（Magisk 或 KernelSU）
-- KernelSU 需先安装 meta-overlayfs 模块，否则不支持模块安装
-- 将内置的 Google App 系统化模块通过 root 执行安装
-- 安装成功后提示用户重启生效
-
-系统化安装是用户主动操作，不自动执行。安装入口位于设置页「高级」分组，点击后弹窗确认说明原因与操作方式，用户确认后才开始安装。
 
 ## 配置与实时生效
 
@@ -146,18 +112,18 @@ Linux 环境页按当前环境、环境配置、文件与目录、扩展工具�
 
 配置链路如下：
 
-根导航使用 Miuix `NavDisplay` 与可保存路由栈，横移返回开关实时控制 App 内路由的 `swipeDismiss`（独立浏览器窗口使用系统返回）；预测性返回开关通过 `ApplicationInfo` 的系统开关应用，并无转场重建主 Activity。角色详情页开始新对话时，旧页先淡出，再由首页聊天淡入并轻微放大至原尺寸；仅在宿主完全透明时清除角色页面返回栈并重置导航呈现态，避免中间角色列表闪现。该过渡期间拦截重复点击和返回，取消时恢复可见与可交互状态；普通页面仍使用 Miuix 导航转场，会话数据由导航宿主外的 `AgentAppState` 持有。首页顶栏左侧以两条长短横线打开会话抽屉，正中承载模型胶囊或会话标题加模型副标题切换入口，右侧省略号打开包含新建对话、终端与浏览器等操作的功能菜单；消息列表全高延伸并通过顶部内边距避让顶栏，使滚动内容自然进入顶栏渐进模糊或毛玻璃区。首页会话列表与聊天页在同一容器内并排布局，由双锚点拖动状态同步推移；停止拖动与动画后按实际锚点回写开关状态，即使动画被打断并回到原位也会同步。两者始终相邻，不使用背景侧栏加前景覆盖的层叠结构。聊天页保持固定布局尺寸，不随侧滑缩小；高频位移只在放置阶段读取，两页保持直角分界，不使用页面圆角或阴影；聊天区在绘制阶段按展开进度叠加暗色遮罩，侧栏保持正常亮度，点击暗区可收起。侧栏保持组合与滚动位置，避免起手时重建搜索和列表；关闭时隔离侧栏焦点与无障碍语义，展开时收起聊天键盘并隔离聊天焦点。手势由共同容器处理，保留 Compose 子级滚动与选择仲裁。侧栏搜索区和纯图标工具条独立占位，使用不透明纯色表面，不添加阴影；列表在中间视口内裁剪滚动，不穿透固定区域，不使用毛玻璃或边界分割线。工具图标保留无障碍名称与最小触摸高度。侧栏返回仅由已恢复的当前首页消费，半展开时也可关闭；拖动结束和每次返回或点击收起均直接使用系统手势结束触感，不按方向、终点变化或重复返回过滤，不自定义振动波形。设置页与标准二级页面共用自适应 Scaffold：手机显示可折叠大标题，宽屏改用小标题并将内容限制在居中的最大宽度内。界面缩放覆盖主 App 的 Compose Density，但宽屏判定保留缩放前 Density，避免缩放触发错误的手机/宽屏布局切换；系统助手浮层不应用界面缩放。
+根导航使用 Miuix `NavDisplay` 与可保存路由栈，横移返回开关实时控制 App 内路由的 `swipeDismiss`（独立浏览器窗口使用系统返回）；预测性返回开关通过 `ApplicationInfo` 的系统开关应用，并无转场重建主 Activity。角色详情页开始新对话时，旧页先淡出，再由首页聊天淡入并轻微放大至原尺寸；仅在宿主完全透明时清除角色页面返回栈并重置导航呈现态，避免中间角色列表闪现。该过渡期间拦截重复点击和返回，取消时恢复可见与可交互状态；普通页面仍使用 Miuix 导航转场，会话数据由导航宿主外的 `AgentAppState` 持有。首页顶栏左侧打开会话抽屉，正中承载模型胶囊或会话标题加模型副标题切换入口，右侧省略号打开包含新建对话、终端与浏览器等操作的功能菜单（Miuix 使用 `GlassIconButton` + `GlassTransformPopup`）；消息列表全高延伸并通过顶部内边距避让顶栏，使滚动内容自然进入顶栏过渡带或渐进模糊区。首页会话列表与聊天页在同一容器内并排布局，由双锚点拖动状态同步推移；停止拖动与动画后按实际锚点回写开关状态，即使动画被打断并回到原位也会同步。两者始终相邻，不使用背景侧栏加前景覆盖的层叠结构。聊天页保持固定布局尺寸，不随侧滑缩小；高频位移只在放置阶段读取，两页保持直角分界，不使用页面圆角或阴影；聊天区在绘制阶段按展开进度叠加暗色遮罩，侧栏保持正常亮度，点击暗区可收起。侧栏保持组合与滚动位置，避免起手时重建搜索和列表；关闭时隔离侧栏焦点与无障碍语义，展开时收起聊天键盘并隔离聊天焦点。手势由共同容器处理，保留 Compose 子级滚动与选择仲裁。侧栏底部的搜索胶囊与权限、设置按钮悬浮于可滚动列表之上（Miuix 使用 `glassPanel`、`GlassIconButton` 与渐隐/渐进模糊，COUI 使用流体材质或降级浮层）。侧栏返回仅由已恢复的当前首页消费，半展开时也可关闭；拖动结束和每次返回或点击收起均直接使用系统手势结束触感，不按方向、终点变化或重复返回过滤，不自定义振动波形。设置页与标准二级页面共用自适应 Scaffold：手机显示可折叠大标题，宽屏改用小标题并将内容限制在居中的最大宽度内。宽屏布局按 Android 提供的显示密度和窗口宽度判定。
 
-各页面卡片统一使用 `EtaCard`，圆角由 `EtaCardDefaults.CornerRadius` 集中定义。模型列表分组的首尾圆角复用同一值；交互反馈、主题颜色与各页面内容间距由原有组件与调用方管理。
+卡片统一使用 `Card` 及其默认连续圆角；交互反馈、主题颜色与各页面内容间距由各自设计系统与页面模板统一管理。
 
-设置与管理页面统一使用 `EtaPreference` 系列组件：普通行、开关、单选、复选和选择菜单共享布局、图标间距与正文对齐分割线，支持无图标、长摘要、自定义正文及底部操作。功能入口使用 `EtaFeatureCard`，按钮与对话框通过 `EtaTextButton`、`EtaWindowDialog`、`EtaOverlayDialog` 复用 Miuix 的交互和宿主机制。尺寸、分类色与页面主题集中定义；标准页面骨架自动接入设置主题，Monet 与深色配置沿用 App 主题。具体组件选择、分组规则和插槽合同见 [设置与管理组件](UI_COMPONENTS.md)。
+设置与管理页面在 COUI 与 Miuix 两套实现间共享状态与业务动作：Miuix 侧使用 `MiuixScaffoldPage` / `MiuixScaffold`、`GlassTopAppBar`、Miuix `miuix-preference` 与 `miuix-glass` 弹层及组件；COUI 侧使用 `CouiScaffoldPage` / `CouiLazyScaffoldPage`、`CouiPreference` 与 COUI 弹层。具体组件选择、分组规则和插槽合同见 [设置与管理组件](UI_COMPONENTS.md)。
 
-外观配置保存在现有 `eta_settings` DataStore。主题根统一解析跟随系统、浅色、深色、Monet 色彩风格、强调色与纯黑背景，并同步系统栏和 Markdown 的 Material 颜色桥接。顶栏使用 COUI 渐进模糊或 Miuix `LayerBackdrop` 捕获滚动内容，聊天输入胶囊通过底部连续垂直渐隐悬浮于消息流上方。Miuix 聊天顶栏高度固定，聊天内容不接入壳层的折叠顶栏滚动连接，双向滚动由消息列表处理。页面滚动继续使用 Miuix 越界回弹和边界触感反馈，横屏安全区由 display cutout 与导航栏 Insets 共同约束。
+外观配置保存在现有 `eta_settings` DataStore。主题根为两种样式解析跟随系统、浅色和深色，并同步系统栏和 Markdown 的 Material 颜色桥接。COUI 采用库原生配色，Miuix 支持 Monet 色彩风格（含 `CMF`）、强调色与纯黑背景。Miuix 顶栏在设备支持 `RuntimeShader` 时直接使用 OS4 `GlassTopAppBar` 渐进模糊（`progressiveBlur = true`），不支持时回落为纯色底；聊天输入胶囊在 Miuix 下以 `glassPanel` 配合底部连续垂直渐隐悬浮于消息流上方。Miuix 聊天顶栏高度固定，聊天内容不接入壳层的折叠顶栏滚动连接，双向滚动由消息列表处理。页面滚动继续使用 Miuix 越界回弹和边界触感反馈，横屏安全区由 display cutout 与导航栏 Insets 共同约束。
 
 - **Eta Runtime 配置**：默认思考、网页浏览、设备直达、敏感信息读取、敏感设备操作和终端/文件工具保存在 App 私有配置中，不依赖 LSPosed。Runtime 在请求开始和每次工具执行前读取当前值；升级时会兼容迁移已有 RemotePreferences 值。
-- **Hook 配置**：`EtaApp` 在 `Application.onCreate` 注册 `XposedServiceHelper`，框架通过 `XposedProvider` 推送 binder 后拿到 `XposedService`。系统助手接管、Gemini 和一圈即搜等 Hook 开关通过 `XposedService.getRemotePreferences()` 写入 LSPosed 数据库；服务未连接时这些开关保持不可修改。
+- **Hook 配置**：`EtaApp` 在 `Application.onCreate` 注册 `XposedServiceHelper`，框架通过 `XposedProvider` 推送 binder 后拿到 `XposedService`。系统助手接管和一圈即搜等 Hook 开关通过 `XposedService.getRemotePreferences()` 写入 LSPosed 数据库；服务未连接时这些开关保持不可修改。
 - **Hook 进程**：`ModuleMain.onModuleLoaded` 调用 `XposedInterface.getRemotePreferences()` 缓存只读 `SharedPreferences` 到 `Prefs`。各 Hook 拦截回调入口直接读 `Prefs.isEnabled(key)`，关闭则走原逻辑；因此正常使用时，配置切换后的下一次相关触发表现为实时生效。这里的实时生效来自 Hook 入口读取当前配置，不是 libxposed API 102 的 hot reload 特性。
-- **延迟任务复查**：已排队的后台配置修复、`HotwordSelfHealHooks` retry 与 `GoogleAppHooks` 锁屏/亮屏语音命令会在执行前再次检查对应开关，避免用户在任务排队期间关闭开关后被旧任务绕过。
+- **延迟任务复查**：已排队的后台默认助理修复任务会在执行前再次检查对应开关与目标，避免用户在任务排队期间关闭开关或切换目标后被旧任务绕过。
 
 不可关闭的底层依赖（ContextualSearch 服务补齐、机型伪装、资格补齐）始终执行，不暴露开关。
 
@@ -268,12 +234,10 @@ Markdown 空行只参与块结构解析，不按源码数量累加可见高度�
 - 不轮询、不保活 Google 进程、不持续写日志
 - 无障碍保护默认关闭；开启后只响应设置、包、用户生命周期与 Runtime 明确上报，设置争抢采用退避，断连重绑有次数和冷却上限
 - 热路径只保留当前机型实际验证有效的 `OplusSpeechHandler` hook
-- 默认助理配置检查带 15 秒冷却，息屏后的 Hey Google 恢复路径不主动查写默认助理配置
+- 默认助理配置检查带 15 秒冷却
 - 高频成功路径使用 `DEBUG`；Debug 构建可诊断，Release 由 R8 确定性裁剪
 - 电源键拦截路径不执行休眠、轮询或阻塞等待；本次触发只做快速启动尝试，失败即回退系统原逻辑
-- 默认助理修复异步执行并按用户串行，完成时重新核验 role、目标与开关状态
-- 息屏后的 Hey Google 恢复只响应系统息屏事件；最多串行尝试 3 次，失败才投递下一次，亮屏/成功/结束都会移除未执行 callback
-- Google App 的锁屏/亮屏语音输入优先 Hook 固定 FloatyActivity，不常驻拦截 Google App 所有页面；语音补偿只按同一 FloatyActivity 实例去重，避免重复补发又不影响快速关闭后再次启动
+- 默认助理修复异步执行并按用户串行，并发切换合并为 latest-wins，完成时重新核验 role、目标与开关状态
 
 ## 模型请求缓存
 
@@ -288,6 +252,6 @@ Provider 按请求前缀复用缓存，前缀任一字节变化都会让其后�
 
 电源键目标为 Gemini 时，长按恢复 Google 原有系统助手与 Activity 兜底链路。目标为 Eta 且 Eta 已是默认数字助理时，长按会打开 edge-to-edge 全屏助理浮窗并优先开始单次语音输入，可切换键盘；系统在唤醒时采集截图、前台应用和页面内容，Session 异步接收后由浮窗自动随提问发送，不再显示手动添加屏幕按钮，也不依赖无障碍截图。用户提交文本后，工具执行、流式结果和归档仍由主进程中的 Agent Runtime 负责，语音识别由统一会话控制器调用千问或豆包云端接口。助手浮窗可自动播报语音提问的最终回答；开始录音、窗口隐藏或关闭时停止播放，不在后台补播。聊天听写先插入可编辑草稿，历史回答可手动朗读。配置、协议与生命周期边界见[语音配置与实现](VOICE.md)。
 
-Eta 尚未成为默认助理且自动设置关闭时，按既定策略直接回到小布，不创建平行 Activity 会话。自动设置开启时，失败触发只在后台修复当前选择，当前长按仍立即回退；后续触发使用修复后的主路径。HyperOS 后续只需把厂商按键事件接到同一目标分发边界，不需要修改文本会话和 Runtime。
+Eta 尚未成为默认助理且自动设置关闭时，按既定策略直接回到系统默认助理，不创建平行 Activity 会话。自动设置开启时，失败触发只在后台修复当前选择，当前长按仍立即回退；后续触发使用修复后的主路径。HyperOS 后续只需把厂商按键事件接到同一目标分发边界，不需要修改文本会话和 Runtime。
 
 配置界面按消费边界保存开关：Agent 与本地工具写入 App 私有配置，Hook 能力写入 LSPosed 侧 RemotePreferences。Hook 回调和延迟任务执行前都会读取对应开关，所以后续触发按当前配置执行。

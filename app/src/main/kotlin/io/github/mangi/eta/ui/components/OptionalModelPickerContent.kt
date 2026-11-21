@@ -73,7 +73,6 @@ internal fun OptionalModelPickerContent(
                     query = query,
                     onQueryChange = { query = it },
                     placeholder = "搜索模型或服务商",
-                    backgroundColor = Color.Transparent,
                 )
                 if (pickerState.providerGroups.size > 1) {
                     val tabItems = remember(pickerState.providerGroups) {
@@ -83,7 +82,6 @@ internal fun OptionalModelPickerContent(
                         items = tabItems,
                         selectedKey = providerFilter.orEmpty(),
                         onSelectedKeyChange = { key -> providerFilter = key.takeIf { it.isNotEmpty() } },
-                        backgroundColor = Color.Transparent,
                     )
                 }
             }

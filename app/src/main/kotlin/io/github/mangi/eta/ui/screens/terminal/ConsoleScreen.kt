@@ -191,6 +191,7 @@ internal fun ConsoleScreen(
 
     if (showTasks) {
         DaemonTasksDialog(
+            show = showTasks,
             tasks = terminalState.daemonTasks,
             onDismiss = { showTasks = false },
             onStop = terminalStore::stopDaemonTask,
@@ -200,6 +201,7 @@ internal fun ConsoleScreen(
 
     if (showSessions) {
         SessionListDialog(
+            show = showSessions,
             rows = state.sessions.map { session ->
                 SessionDialogRow(
                     id = session.id,

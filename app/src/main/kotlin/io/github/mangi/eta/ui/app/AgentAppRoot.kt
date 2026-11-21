@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -149,6 +150,8 @@ fun AgentAppRoot(
     assistantConversationKey: String? = null,
     requestedConversationId: String? = null,
     onRequestedConversationOpened: () -> Unit = {},
+    requestedScheduledTaskId: String? = null,
+    onScheduledTaskOpened: () -> Unit = {},
     requestedArchivedConversation: ArchivedConversationRequest? = null,
     onArchivedConversationOpened: () -> Unit = {},
     sharedContent: IncomingShareRequest? = null,
@@ -262,6 +265,13 @@ fun AgentAppRoot(
         conversationPaneOpen = false
         navigator.popToHome()
         onRequestedConversationOpened()
+    }
+
+    LaunchedEffect(requestedScheduledTaskId) {
+        val taskId = requestedScheduledTaskId ?: return@LaunchedEffect
+        conversationPaneOpen = false
+        navigator.push(AppRoute.ScheduledTaskDetail(taskId))
+        onScheduledTaskOpened()
     }
 
     LaunchedEffect(requestedArchivedConversation) {
@@ -582,6 +592,7 @@ fun AgentAppRoot(
                                 AgentToolsAction.NavigateBack -> popRoute()
                                 AgentToolsAction.OpenBrowser -> openConversationBrowser()
                                 AgentToolsAction.OpenWebToolsSettings -> pushRoute(AppRoute.WebToolsSettings)
+                                AgentToolsAction.OpenImageGenSettings -> pushRoute(AppRoute.ImageGenSettings)
                                 AgentToolsAction.OpenEnhancements -> pushRoute(AppRoute.SystemEnhance)
                                 AgentToolsAction.OpenPermissions -> pushRoute(AppRoute.Permissions)
                             }
@@ -1005,16 +1016,18 @@ fun AgentAppRoot(
             var renameInput by remember(conversation.id) { mutableStateOf(conversation.title) }
             when (LocalUiStyle.current) {
                 AppearanceUiStyle.COUI -> {
+                    val renameState = remember(conversation.id) {
+                        TextFieldState(conversation.title)
+                    }
                     CouiInputDialog(
                         visible = true,
                         title = stringResource(R.string.conversation_rename_title),
-                        value = renameInput,
-                        onValueChange = { renameInput = it },
+                        state = renameState,
                         placeholder = stringResource(R.string.conversation_rename_hint),
                         confirmText = stringResource(R.string.action_save),
-                        confirmEnabled = renameInput.isNotBlank(),
+                        confirmEnabled = renameState.text.isNotBlank(),
                         onConfirm = {
-                            agentState.renameConversation(conversation.id, renameInput)
+                            agentState.renameConversation(conversation.id, renameState.text.toString())
                             conversationRenameTarget = null
                         },
                         onDismissRequest = { conversationRenameTarget = null },

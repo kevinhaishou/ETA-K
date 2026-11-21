@@ -15,7 +15,6 @@ internal object OpenAiEndpointMode {
     const val RESPONSES = "responses"
 }
 
-/** Gemini 端点模式。Vertex AI 通道本次未接入，仅保留取值以兼容生图配置结构。 */
 internal object GeminiEndpointMode {
     const val AI_STUDIO = "ai_studio"
     const val VERTEX_AI = "vertex_ai"
@@ -132,16 +131,18 @@ data class GeminiProviderSetting(
     override val customBody: List<CustomBody> = emptyList(),
     override val createdAt: Long = System.currentTimeMillis(),
     override val hostedWebSearchEnabled: Boolean = false,
-    /** 端点模式与 Vertex 参数目前只作为生图等下游配置的承载，对话链路仍走 AI Studio。 */
     val endpointMode: String = GeminiEndpointMode.AI_STUDIO,
     val vertexProject: String = "",
     val vertexLocation: String = DEFAULT_VERTEX_LOCATION,
 ) : ProviderSetting {
     override val authMode: String get() = ProviderAuthModes.API_KEY
 
+    val isVertexAi: Boolean
+        get() = GeminiEndpointMode.normalize(endpointMode) == GeminiEndpointMode.VERTEX_AI
+
     companion object {
         const val DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-        const val DEFAULT_VERTEX_BASE_URL = "https://aiplatform.googleapis.com"
+        const val DEFAULT_VERTEX_BASE_URL = "https://aiplatform.googleapis.com/v1beta1"
         const val DEFAULT_VERTEX_LOCATION = "global"
     }
 }
@@ -178,7 +179,7 @@ internal val ProviderSetting.runtimeProviderType: String
 internal val ProviderSetting.typeLabel: String
     get() = when (this) {
         is AnthropicProviderSetting -> "Anthropic Messages"
-        is GeminiProviderSetting -> "Gemini Interactions"
+        is GeminiProviderSetting -> if (isVertexAi) "Vertex AI" else "Gemini Interactions"
         is OpenAiCompatibleProviderSetting -> "OpenAI-compatible"
         is CustomProviderSetting -> "Custom OpenAI-compatible"
     }

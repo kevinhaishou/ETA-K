@@ -2,14 +2,15 @@ package io.github.mangi.eta.ui.voice
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import com.itos.coui.layout.Divider
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.MimoAsrLanguage
 import io.github.mangi.eta.data.model.SpeechCredentialField
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
+import io.github.mangi.eta.ui.components.coui.CouiCardDivider as CouiDivider
+import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 
 @Composable
 internal fun MimoAsrConnectionSection(store: SpeechSettingsStore) {
@@ -44,13 +45,14 @@ internal fun MimoAsrConnectionSection(store: SpeechSettingsStore) {
                     selectedIndex = config.language.ordinal,
                     onSelectedIndexChange = onLanguageChange,
                 )
-                Divider()
+                CouiDivider()
             }
             AppearanceUiStyle.MIUIX -> {
-                OverlayDropdownPreference(
+                GlassDropdownPreference(
                     title = stringResource(R.string.speech_recognition_language),
                     items = items,
                     selectedIndex = config.language.ordinal,
+                    backdrop = currentGlassOverlayBackdrop(),
                     onSelectedIndexChange = onLanguageChange,
                 )
             }

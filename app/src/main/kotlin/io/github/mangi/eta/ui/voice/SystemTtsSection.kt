@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.components.SettingsTextField
 import io.github.mangi.eta.agent.voice.SystemTtsInspector
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
@@ -65,12 +66,12 @@ internal fun SystemTtsSection(store: SpeechSettingsStore) {
                 "不会在播放失败后自动切换。",
         )
         SpeechFieldColumn {
-            SpeechField(
+            SettingsTextField(
                 label = "引擎包名（留空使用系统默认）",
                 value = settings.systemTtsEngine,
                 onChange = { store.edit(store.settings.copy(systemTtsEngine = it.trim())) },
             )
-            SpeechField(
+            SettingsTextField(
                 label = "离线音色语言（如 zh-CN；留空使用语音语言）",
                 value = settings.systemTtsLanguage,
                 onChange = { store.edit(store.settings.copy(systemTtsLanguage = it.trim())) },

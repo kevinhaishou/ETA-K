@@ -43,14 +43,7 @@ internal object AgentToolRequirements {
             "character_memory_get", "character_memory_write",
             "skills_list", "skills_read", "skills_read_resource", "skills_list_curated",
             "skills_inspect_github", "skills_install_from_github",
-            // 会话内提问卡：不需要 root、GUI 或任何系统权限，纯 UI 交互
-            "ask_user",
-            // 生图不需要 root/GUI，属于纯网络能力
             "generate_image",
-            // 定时任务管理同样不依赖本地系统权限
-            "scheduled_tasks",
-            "scheduled_task_update_memo",
-            "scheduled_task_report",
         )
         register(
             RootRequirement.PARTIAL,

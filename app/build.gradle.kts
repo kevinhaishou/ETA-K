@@ -31,13 +31,17 @@ val buildMetadataSuffix = buildMetadata?.let { "+$it" }.orEmpty()
 
 android {
     namespace = "io.github.mangi.eta"
-    compileSdk = 37
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 2
+        }
+    }
     ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
         // 独立标识：namespace 保持上游包结构，安装包 id 独立，可与官方 Eta 并存
         applicationId = "io.github.kevinhaishou.etak"
-        minSdk = 33
+        minSdk = 34
         targetSdk = 37
         // versionCode 规则：yyyyMMdd + 两位当日序号（01 起），发版时随 versionName 一起手动递增。
         versionCode = 2026111302
@@ -186,10 +190,21 @@ dependencies {
     // Hook 侧用 XposedInterface.getRemotePreferences 读取当前进程持有的配置缓存。
     implementation(libs.libxposed.service)
     implementation(libs.dexkit)
-    implementation(libs.coui)
+    constraints {
+        // 延续旧依赖图中两套 UI 共用的窗口尺寸和 Android 兼容组件版本。
+        implementation(libs.androidx.compose.window.size)
+        implementation(libs.androidx.core.ktx)
+    }
+    implementation(libs.coui.ui)
+    implementation(libs.coui.preference)
     implementation(libs.coui.icons)
+    implementation(libs.coui.blur)
+    implementation(libs.coui.squircle)
     implementation(libs.miuix.ui)
     implementation(libs.miuix.blur)
+    implementation(libs.miuix.glass)
+    implementation(libs.miuix.glass.icons)
+    implementation(libs.miuix.material)
     implementation(libs.miuix.nav)
     implementation(libs.miuix.preference)
     implementation(libs.material.icons.extended)

@@ -168,96 +168,6 @@ internal class AgentLocalTools(
     private val inspectedGitHubSnapshots =
         ConcurrentHashMap<String, GitHubInspectionSnapshot>()
 
-    /** 需要用户审批的高危工具（审批开关开启时执行前弹卡）。 */
-    private fun requiresUserApproval(toolName: String, args: JSONObject): Boolean {
-        if (!Prefs.isEnabled(Prefs.Keys.AGENT_TOOL_APPROVAL_ENABLED)) return false
-        return when (toolName) {
-            // shell 命令执行；读文件、列目录这类只读动作不打扰
-            "terminal" -> args.optString("action").isBlank() ||
-                args.optString("action").equals("exec", ignoreCase = true)
-            "write_file", "edit_file" -> true
-            else -> false
-        }
-    }
-
-    /**
-     * 会话内审批卡：执行线程挂起等待用户裁决。
-     * 用户批准后返回 true；拒绝返回 false 并携带原因给模型。
-     */
-    private fun requestToolApproval(toolCall: AgentModelClient.ToolCall): ApprovalDecision {
-        val argsSummary = try {
-            val args = JSONObject(toolCall.argumentsJson.ifBlank { "{}" })
-            val brief = buildList {
-                for (key in listOf("command", "path", "content", "action", "url")) {
-                    args.optString(key).takeIf { it.isNotBlank() }?.let { value ->
-                        add("$key=${value.take(120)}")
-                    }
-                }
-            }.joinToString(", ").ifBlank { toolCall.argumentsJson.take(160) }
-            brief
-        } catch (_: Exception) {
-            toolCall.argumentsJson.take(160)
-        }
-        val answer = AgentQuestionBus.ask(
-            AgentQuestionBus.PendingQuestion(
-                id = java.util.UUID.randomUUID().toString(),
-                kind = AgentQuestionBus.Kind.TOOL_APPROVAL,
-                title = "工具执行确认",
-                question = "模型请求执行工具 ${toolCall.name}，是否允许？",
-                options = listOf("允许执行", "拒绝"),
-                toolName = toolCall.name,
-                toolArgsSummary = argsSummary,
-            ),
-        )
-        return when (answer) {
-            "允许执行" -> ApprovalDecision(approved = true, message = "")
-            else -> ApprovalDecision(approved = false, message = "用户选择了拒绝")
-        }
-    }
-
-    private data class ApprovalDecision(val approved: Boolean, val message: String)
-
-    /** ask_user：发布提问卡并挂起等待用户应答。 */
-    private fun askUser(args: JSONObject): AgentModelClient.ToolResult {
-        val question = args.optString("question").trim()
-        if (question.isBlank()) {
-            return textResult(errorResult("INVALID_ARGS", "ask_user 缺少 question 参数"))
-        }
-        val options = args.optJSONArray("options")?.let { array ->
-            (0 until array.length()).mapNotNull { index ->
-                array.optString(index).takeIf(String::isNotBlank)
-            }
-        }.orEmpty().take(6)
-        val multiSelect = args.optBoolean("multi_select", false) && options.size >= 2
-        val title = args.optString("title").trim().ifBlank { "需要你的输入" }
-        val answer = AgentQuestionBus.ask(
-            AgentQuestionBus.PendingQuestion(
-                id = java.util.UUID.randomUUID().toString(),
-                kind = AgentQuestionBus.Kind.ASK_USER,
-                title = title,
-                question = question,
-                options = options,
-                multiSelect = multiSelect,
-            ),
-        )
-        if (answer == SKIPPED_ANSWER) {
-            return textResult(
-                JSONObject()
-                    .put("ok", true)
-                    .put("answered", false)
-                    .put("note", "用户跳过了这个问题；请基于已有信息自行决定，或换一种方式继续")
-                    .toString(),
-            )
-        }
-        return textResult(
-            JSONObject()
-                .put("ok", true)
-                .put("answered", true)
-                .put("answer", answer)
-                .toString(),
-        )
-    }
-
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
         publishedObservation.set(PublishedObservation())
@@ -323,15 +233,6 @@ internal class AgentLocalTools(
                             code = decision.code,
                             message = decision.message,
                         ),
-                    )
-                }
-            }
-            if (toolCall.name == "ask_user") return@runCatching askUser(args)
-            if (requiresUserApproval(toolCall.name, args)) {
-                val decision = requestToolApproval(toolCall)
-                if (!decision.approved) {
-                    return@runCatching textResult(
-                        errorResult("USER_REJECTED", "用户拒绝了本次 ${toolCall.name} 执行：${decision.message}"),
                     )
                 }
             }
@@ -1873,8 +1774,6 @@ internal class AgentLocalTools(
     )
 
     private companion object {
-        private const val SKIPPED_ANSWER = "__SKIPPED__"
-
         val DEVICE_DIRECT_TOOL_NAMES = io.github.mangi.eta.agent.model.AgentPhoneToolCatalog.direct + setOf(
             "set_alarm",
             "set_timer",

@@ -191,7 +191,6 @@ internal class AgentRuntimeSession(
             )
         }
         controller.cancel()
-        io.github.mangi.eta.agent.tool.AgentQuestionBus.cancelAll()
         beforeTerminalPublish(result)
         lock.withLock {
             subscribers.forEach { it.resultSink(result) }
