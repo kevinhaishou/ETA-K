@@ -174,8 +174,36 @@ internal object Prefs {
      * [XposedService.getRemotePreferences] 的 commit 会同步等待 binder 提交到 LSPosed
      * 数据库，失败返回 false；service 未就绪时返回 null，让 UI 保持不可写。
      */
-    fun remotePreferencesForUi(service: XposedService?): SharedPreferences? =
-        runCatching { service?.getRemotePreferences(GROUP) }.getOrNull()
+    @Volatile
+    private var cachedRemoteService: XposedService? = null
+
+    @Volatile
+    private var cachedRemotePrefs: SharedPreferences? = null
+
+    /**
+     * 仅读进程内缓存，不触发 Binder。
+     * 设置页首帧用它拿 prefs：LSPosed 的 getRemotePreferences 是同步 Binder 调用，
+     * 放在组合期会让首帧多等一次跨进程往返。
+     */
+    fun cachedRemotePreferencesForUi(service: XposedService?): SharedPreferences? {
+        if (service == null) return null
+        return cachedRemotePrefs?.takeIf { cachedRemoteService === service }
+    }
+
+    fun remotePreferencesForUi(service: XposedService?): SharedPreferences? {
+        if (service == null) {
+            cachedRemoteService = null
+            cachedRemotePrefs = null
+            return null
+        }
+        cachedRemotePrefs?.takeIf { cachedRemoteService === service }?.let { return it }
+        return runCatching { service.getRemotePreferences(GROUP) }
+            .getOrNull()
+            ?.also { resolved ->
+                cachedRemoteService = service
+                cachedRemotePrefs = resolved
+            }
+    }
 
     /** Eta 设置页与 Runtime 使用的本地 Agent 配置，不依赖 LSPosed。 */
     fun localAgentPreferences(): SharedPreferences? = localAgent
