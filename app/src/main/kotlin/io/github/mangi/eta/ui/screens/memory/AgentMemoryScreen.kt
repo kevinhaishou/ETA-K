@@ -153,7 +153,7 @@ internal fun AgentMemoryScreen(
                     // AnimatedVisibility 的内容插槽是叠放语义，放进来会与上面的分组重叠，
                     // 必须作为 Column 的兄弟节点排在它下面。
                     MemoryRecallTester()
-                    MemoryRecallTester()
+                    MemoryDocumentCard(
                         state = state,
                         mode = currentMode,
                         onModeChange = { mode = it },
@@ -213,8 +213,7 @@ internal fun AgentMemoryScreen(
                     // AnimatedVisibility 的内容插槽是叠放语义，放进来会与上面的分组重叠，
                     // 必须作为 Column 的兄弟节点排在它下面。
                     MemoryRecallTester()
-                    MemoryRecallTester()
-                        state = state,
+                    MemoryDocumentCard(
                         mode = currentMode,
                         onModeChange = { mode = it },
                         onDraftChange = { onAction(AgentMemoryAction.DraftChanged(it)) },
