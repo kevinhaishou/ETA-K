@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -1014,16 +1015,18 @@ fun AgentAppRoot(
             var renameInput by remember(conversation.id) { mutableStateOf(conversation.title) }
             when (LocalUiStyle.current) {
                 AppearanceUiStyle.COUI -> {
+                    val renameState = remember(conversation.id) {
+                        TextFieldState(conversation.title)
+                    }
                     CouiInputDialog(
                         visible = true,
                         title = stringResource(R.string.conversation_rename_title),
-                        value = renameInput,
-                        onValueChange = { renameInput = it },
+                        state = renameState,
                         placeholder = stringResource(R.string.conversation_rename_hint),
                         confirmText = stringResource(R.string.action_save),
-                        confirmEnabled = renameInput.isNotBlank(),
+                        confirmEnabled = renameState.text.isNotBlank(),
                         onConfirm = {
-                            agentState.renameConversation(conversation.id, renameInput)
+                            agentState.renameConversation(conversation.id, renameState.text.toString())
                             conversationRenameTarget = null
                         },
                         onDismissRequest = { conversationRenameTarget = null },
