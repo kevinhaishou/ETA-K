@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -35,15 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit as OutlinedEdit
-import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.icons.CouiIcons
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.layout.Divider
-import com.itos.coui.layout.Footer
-import com.itos.coui.layout.Group
-import com.itos.coui.text.CouiTextKind
-import com.itos.coui.text.Text as CouiText
-import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.scheduler.ScheduledTaskRunner
 import io.github.mangi.eta.agent.scheduler.ScheduledTaskScheduleCalculator
@@ -54,23 +46,29 @@ import io.github.mangi.eta.data.model.ScheduledTaskRunStatus
 import io.github.mangi.eta.data.model.enabledModel
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.ScheduledTaskRepository
-import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
-import io.github.mangi.eta.ui.components.GlassDialog
-import io.github.mangi.eta.ui.components.MiuixIconsGlassAlias
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.MiuixTopBarActionButton
 import io.github.mangi.eta.ui.components.coui.CouiButton
 import io.github.mangi.eta.ui.components.coui.CouiButtonRole
+import io.github.mangi.eta.ui.components.coui.CouiCardDivider
 import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
 import io.github.mangi.eta.ui.components.coui.CouiLazyScaffoldPage
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
+import io.github.mangi.eta.ui.components.coui.CouiPageDefaults
 import io.github.mangi.eta.ui.components.coui.CouiPreference
+import io.github.mangi.eta.ui.components.coui.CouiPreferenceFooter
+import io.github.mangi.eta.ui.components.coui.CouiPreferenceGroup
 import io.github.mangi.eta.ui.components.coui.CouiSectionTitle
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
+import io.github.mangi.eta.ui.components.coui.CouiText
+import io.github.mangi.eta.ui.components.coui.CouiTextKind
 import io.github.mangi.eta.ui.components.coui.CouiTopAppBarIconButton
+import io.github.mangi.eta.ui.components.coui.couiButtonFeedback
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
 import io.github.mangi.eta.ui.navigation.AppRoute
+import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -80,7 +78,9 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.glass.GlassDialog
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.Edit
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -92,6 +92,7 @@ internal fun ScheduledTaskDetailScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val task by remember(context, taskId) { ScheduledTaskRepository.observeTask(taskId, context) }
         .collectAsState(initial = null)
@@ -106,20 +107,24 @@ internal fun ScheduledTaskDetailScreen(
     val currentTask = task
     val nowMs = System.currentTimeMillis()
 
-    val modelDisplay = remember(providers, currentTask?.modelId) {
-        val id = currentTask?.modelId?.takeIf { it.isNotBlank() }
-        if (id == null) {
-            "跟随全局默认模型"
-        } else {
-            providers.enabledModel(id)?.let { "${it.provider.name} / ${it.model.displayName}" }
-                ?: "模型已失效（将回退默认）"
-        }
+    val customModelId = currentTask?.modelId?.takeIf { it.isNotBlank() }
+    val resolvedModel = remember(providers, customModelId) {
+        customModelId?.let { providers.enabledModel(it) }
+    }
+    val modelDisplay = when {
+        customModelId == null -> stringResource(R.string.scheduled_model_follow_default)
+        resolvedModel != null -> "${resolvedModel.provider.name} / ${resolvedModel.model.displayName}"
+        else -> stringResource(R.string.scheduled_model_unavailable_fallback)
     }
 
     val onRunOrStop: () -> Unit = {
         if (isRunning) {
             ScheduledTaskRunner.cancelRunningTask(context, taskId)
-            Toast.makeText(context, "正在停止当前运行…", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                resources.getString(R.string.scheduled_toast_stopping),
+                Toast.LENGTH_SHORT,
+            ).show()
         } else {
             scope.launch {
                 val res = withContext(Dispatchers.IO) {
@@ -127,11 +132,23 @@ internal fun ScheduledTaskDetailScreen(
                 }
                 when (res) {
                     ScheduledTaskRunner.ManualTriggerResult.Started ->
-                        Toast.makeText(context, "已开始后台试跑", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            resources.getString(R.string.scheduled_toast_manual_started),
+                            Toast.LENGTH_SHORT,
+                        ).show()
                     ScheduledTaskRunner.ManualTriggerResult.AlreadyRunning ->
-                        Toast.makeText(context, "该任务正在运行中", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            resources.getString(R.string.scheduled_toast_already_running),
+                            Toast.LENGTH_SHORT,
+                        ).show()
                     ScheduledTaskRunner.ManualTriggerResult.NotFound ->
-                        Toast.makeText(context, "任务不存在", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            resources.getString(R.string.scheduled_toast_task_not_found),
+                            Toast.LENGTH_SHORT,
+                        ).show()
                 }
             }
         }
@@ -162,7 +179,11 @@ internal fun ScheduledTaskDetailScreen(
             withContext(Dispatchers.IO) {
                 ScheduledTaskRepository.updateMemo(taskId, "", context = context)
             }
-            Toast.makeText(context, "已清空任务小记事本", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                resources.getString(R.string.scheduled_toast_memo_cleared),
+                Toast.LENGTH_SHORT,
+            ).show()
         }
     }
 
@@ -179,16 +200,39 @@ internal fun ScheduledTaskDetailScreen(
                     if (currentTask != null) {
                         CouiTopAppBarIconButton(
                             icon = Icons.Outlined.OutlinedEdit,
-                            contentDescription = "编辑定时任务",
+                            contentDescription = stringResource(R.string.route_scheduled_task_edit),
                             onClick = { onNavigate(AppRoute.ScheduledTaskEditor(taskId = taskId)) },
                         )
                     }
+                },
+                overlay = {
+                    CouiConfirmDialog(
+                        visible = showDeleteConfirm,
+                        title = stringResource(R.string.scheduled_action_delete_task),
+                        message = stringResource(
+                            R.string.scheduled_delete_dialog_message,
+                            currentTask?.name.orEmpty(),
+                        ),
+                        confirmText = stringResource(R.string.action_delete),
+                        destructive = true,
+                        onConfirm = onConfirmDelete,
+                        onDismissRequest = { showDeleteConfirm = false },
+                    )
+                    CouiConfirmDialog(
+                        visible = showClearMemoConfirm,
+                        title = stringResource(R.string.scheduled_clear_memo_dialog_title),
+                        message = stringResource(R.string.scheduled_clear_memo_dialog_message),
+                        confirmText = stringResource(R.string.scheduled_action_clear),
+                        destructive = true,
+                        onConfirm = onConfirmClearMemo,
+                        onDismissRequest = { showClearMemoConfirm = false },
+                    )
                 },
             ) {
                 if (currentTask == null) {
                     item(key = "missing") {
                         CouiText(
-                            text = "该定时任务已不存在或已被删除。",
+                            text = stringResource(R.string.scheduled_detail_missing),
                             kind = CouiTextKind.ItemSummary,
                             color = colors.summary,
                             modifier = Modifier.padding(24.dp),
@@ -205,72 +249,94 @@ internal fun ScheduledTaskDetailScreen(
                         )
                     }
                     item(key = "prompt_card") {
-                        Group(title = "任务指令与配置") {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 14.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                CouiText(
-                                    text = currentTask.prompt,
-                                    kind = CouiTextKind.ItemSummary,
-                                    color = colors.title,
-                                )
-                            }
-                            Divider()
-                            CouiPreference(
-                                title = "执行模型",
-                                value = modelDisplay,
-                                showChevron = false,
-                            )
-                            Divider()
-                            CouiPreference(
-                                title = "通知与会话",
-                                value = "${ScheduledTaskUiFormatting.deliveryBadge(currentTask.deliveryMode)} · ${
-                                    if (currentTask.sessionMode.wireValue == "dedicated") "固定频道" else "独立归档"
-                                }",
-                                showChevron = false,
-                            )
-                            Divider()
-                            CouiPreference(
-                                title = "能力范围",
-                                summary = buildCapabilitiesSummary(currentTask),
-                                showChevron = false,
-                            )
-                        }
-                    }
-                    if (currentTask.memo.isNotBlank()) {
-                        item(key = "memo_card") {
-                            Group(title = "任务小记事本（供下次运行对比）") {
+                        CouiPreferenceGroup(title = stringResource(R.string.scheduled_detail_section_config)) {
+                            item {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 14.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
                                 ) {
                                     CouiText(
-                                        text = currentTask.memo,
+                                        text = currentTask.prompt,
                                         kind = CouiTextKind.ItemSummary,
-                                        color = colors.summary,
-                                        maxLines = 8,
-                                        overflow = TextOverflow.Ellipsis,
+                                        color = colors.title,
                                     )
-                                    CouiButton(
-                                        text = "清空记事本",
-                                        role = CouiButtonRole.Secondary,
-                                        onClick = { showClearMemoConfirm = true },
-                                    )
+                                }
+                                CouiCardDivider()
+                            }
+                            item {
+                                CouiPreference(
+                                    title = stringResource(R.string.scheduled_field_model),
+                                    value = modelDisplay,
+                                    showChevron = false,
+                                )
+                            }
+                            item {
+                                CouiPreference(
+                                    title = stringResource(R.string.scheduled_detail_field_notify_session),
+                                    value = "${ScheduledTaskUiFormatting.deliveryBadge(currentTask.deliveryMode)} · ${
+                                        stringResource(
+                                            if (currentTask.showRunningNotification) {
+                                                R.string.scheduled_progress_badge_show
+                                            } else {
+                                                R.string.scheduled_progress_badge_silent
+                                            },
+                                        )
+                                    } · ${
+                                        stringResource(
+                                            if (currentTask.sessionMode.wireValue == "dedicated") {
+                                                R.string.scheduled_session_badge_dedicated
+                                            } else {
+                                                R.string.scheduled_session_badge_isolated
+                                            },
+                                        )
+                                    }",
+                                    showChevron = false,
+                                )
+                            }
+                            item {
+                                CouiPreference(
+                                    title = stringResource(R.string.scheduled_detail_field_capabilities),
+                                    summary = buildCapabilitiesSummary(currentTask),
+                                    showChevron = false,
+                                )
+                            }
+                        }
+                    }
+                    if (currentTask.memo.isNotBlank()) {
+                        item(key = "memo_card") {
+                            CouiPreferenceGroup(title = stringResource(R.string.scheduled_detail_memo_title_with_hint)) {
+                                item {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    ) {
+                                        CouiText(
+                                            text = currentTask.memo,
+                                            kind = CouiTextKind.ItemSummary,
+                                            color = colors.summary,
+                                            maxLines = 8,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        CouiButton(
+                                            text = stringResource(R.string.scheduled_action_clear_memo),
+                                            role = CouiButtonRole.Secondary,
+                                            onClick = { showClearMemoConfirm = true },
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                     item(key = "history_section") {
-                        CouiSectionTitle("运行时间线")
+                        CouiSectionTitle(stringResource(R.string.scheduled_detail_section_timeline))
                     }
                     if (runs.isEmpty()) {
                         item(key = "history_empty") {
-                            Footer(text = "还没有运行记录，点上方「立即试跑」即可验证实际效果。")
+                            CouiPreferenceFooter(text = stringResource(R.string.scheduled_detail_timeline_empty))
                         }
                     } else {
                         itemsIndexed(items = runs, key = { _, run -> run.id }) { _, run ->
@@ -292,7 +358,7 @@ internal fun ScheduledTaskDetailScreen(
                                 .padding(horizontal = CouiPageDefaults.horizontalMargin, vertical = 16.dp),
                         ) {
                             CouiButton(
-                                text = "删除定时任务",
+                                text = stringResource(R.string.scheduled_action_delete_task),
                                 role = CouiButtonRole.Destructive,
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = { showDeleteConfirm = true },
@@ -304,25 +370,6 @@ internal fun ScheduledTaskDetailScreen(
                     }
                 }
             }
-
-            CouiConfirmDialog(
-                visible = showDeleteConfirm,
-                title = "删除定时任务",
-                message = "确定删除「${currentTask?.name.orEmpty()}」？这会取消后续排期并清除其运行时间线，已导入主聊天的对话保留不受影响。",
-                confirmText = "删除",
-                destructive = true,
-                onConfirm = onConfirmDelete,
-                onDismissRequest = { showDeleteConfirm = false },
-            )
-            CouiConfirmDialog(
-                visible = showClearMemoConfirm,
-                title = "清空任务小记事本",
-                message = "清空后，下一次定时运行将不再参考上次记录的状态或游标。",
-                confirmText = "清空",
-                destructive = true,
-                onConfirm = onConfirmClearMemo,
-                onDismissRequest = { showClearMemoConfirm = false },
-            )
         }
 
         AppearanceUiStyle.MIUIX -> {
@@ -332,8 +379,8 @@ internal fun ScheduledTaskDetailScreen(
                 actions = {
                     if (currentTask != null) {
                         MiuixTopBarActionButton(
-                            icon = MiuixIconsGlassAlias.Edit,
-                            contentDescription = "编辑定时任务",
+                            icon = MiuixIcons.Glass.Edit,
+                            contentDescription = stringResource(R.string.route_scheduled_task_edit),
                             onClick = { onNavigate(AppRoute.ScheduledTaskEditor(taskId = taskId)) },
                         )
                     }
@@ -342,7 +389,7 @@ internal fun ScheduledTaskDetailScreen(
                 if (currentTask == null) {
                     item(key = "missing") {
                         Text(
-                            text = "该定时任务已不存在或已被删除。",
+                            text = stringResource(R.string.scheduled_detail_missing),
                             fontSize = 14.sp,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             modifier = Modifier.padding(24.dp),
@@ -359,7 +406,7 @@ internal fun ScheduledTaskDetailScreen(
                         )
                     }
                     item(key = "prompt_section") {
-                        SmallTitle(text = "任务指令与配置")
+                        SmallTitle(text = stringResource(R.string.scheduled_detail_section_config))
                     }
                     item(key = "prompt_card") {
                         Card(
@@ -380,12 +427,26 @@ internal fun ScheduledTaskDetailScreen(
                                     color = MiuixTheme.colorScheme.onSurface,
                                 )
                                 Text(
-                                    text = "模型：$modelDisplay · ${ScheduledTaskUiFormatting.deliveryBadge(currentTask.deliveryMode)}",
+                                    text = stringResource(
+                                        R.string.scheduled_detail_miuix_model_meta,
+                                        modelDisplay,
+                                        ScheduledTaskUiFormatting.deliveryBadge(currentTask.deliveryMode),
+                                        stringResource(
+                                            if (currentTask.showRunningNotification) {
+                                                R.string.scheduled_progress_badge_show_full
+                                            } else {
+                                                R.string.scheduled_progress_badge_silent
+                                            },
+                                        ),
+                                    ),
                                     fontSize = 12.sp,
                                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 )
                                 Text(
-                                    text = "能力：${buildCapabilitiesSummary(currentTask)}",
+                                    text = stringResource(
+                                        R.string.scheduled_detail_miuix_capabilities_meta,
+                                        buildCapabilitiesSummary(currentTask),
+                                    ),
                                     fontSize = 12.sp,
                                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 )
@@ -394,7 +455,7 @@ internal fun ScheduledTaskDetailScreen(
                     }
                     if (currentTask.memo.isNotBlank()) {
                         item(key = "memo_section") {
-                            SmallTitle(text = "任务小记事本")
+                            SmallTitle(text = stringResource(R.string.scheduled_detail_memo_title))
                         }
                         item(key = "memo_card") {
                             Card(
@@ -417,7 +478,7 @@ internal fun ScheduledTaskDetailScreen(
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     TextButton(
-                                        text = "清空记事本",
+                                        text = stringResource(R.string.scheduled_action_clear_memo),
                                         onClick = { showClearMemoConfirm = true },
                                     )
                                 }
@@ -425,12 +486,12 @@ internal fun ScheduledTaskDetailScreen(
                         }
                     }
                     item(key = "history_section") {
-                        SmallTitle(text = "运行时间线")
+                        SmallTitle(text = stringResource(R.string.scheduled_detail_section_timeline))
                     }
                     if (runs.isEmpty()) {
                         item(key = "history_empty") {
                             Text(
-                                text = "还没有运行记录，点上方「立即试跑」即可验证实际效果。",
+                                text = stringResource(R.string.scheduled_detail_timeline_empty),
                                 fontSize = 13.sp,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -456,7 +517,7 @@ internal fun ScheduledTaskDetailScreen(
                                 .padding(horizontal = 12.dp, vertical = 16.dp),
                         ) {
                             TextButton(
-                                text = "删除定时任务",
+                                text = stringResource(R.string.scheduled_action_delete_task),
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.textButtonColors(
                                     textColor = MiuixTheme.colorScheme.error,
@@ -471,13 +532,16 @@ internal fun ScheduledTaskDetailScreen(
             if (showDeleteConfirm) {
                 GlassDialog(
                     show = true,
-                    title = "删除定时任务",
-                    summary = "确定删除「${currentTask?.name.orEmpty()}」？这会取消后续排期并清除运行时间线。",
+                    title = stringResource(R.string.scheduled_action_delete_task),
+                    summary = stringResource(
+                        R.string.scheduled_delete_dialog_message,
+                        currentTask?.name.orEmpty(),
+                    ),
                     backdrop = currentGlassOverlayBackdrop(),
                     onDismissRequest = { showDeleteConfirm = false },
                 ) {
                     MiuixDialogActions(
-                        confirmText = "删除",
+                        confirmText = stringResource(R.string.action_delete),
                         destructive = true,
                         onCancel = { showDeleteConfirm = false },
                         onConfirm = onConfirmDelete,
@@ -487,13 +551,13 @@ internal fun ScheduledTaskDetailScreen(
             if (showClearMemoConfirm) {
                 GlassDialog(
                     show = true,
-                    title = "清空任务小记事本",
-                    summary = "清空后，下一次定时运行将不再参考上次记录的状态或游标。",
+                    title = stringResource(R.string.scheduled_clear_memo_dialog_title),
+                    summary = stringResource(R.string.scheduled_clear_memo_dialog_message),
                     backdrop = currentGlassOverlayBackdrop(),
                     onDismissRequest = { showClearMemoConfirm = false },
                 ) {
                     MiuixDialogActions(
-                        confirmText = "清空",
+                        confirmText = stringResource(R.string.scheduled_action_clear),
                         destructive = true,
                         onCancel = { showClearMemoConfirm = false },
                         onConfirm = onConfirmClearMemo,
@@ -515,45 +579,58 @@ private fun CouiTaskControlCard(
     val colors = CouiPageDefaults.themeColors()
     val scheduleText = ScheduledTaskScheduleCalculator.describeSchedule(task.schedule)
     val nextText = if (task.enabled && task.nextRunAt != null) {
-        "下次运行：${ScheduledTaskScheduleCalculator.formatNextRunLabel(task.nextRunAt, nowMs)}"
+        stringResource(
+            R.string.scheduled_next_run_prefix,
+            ScheduledTaskScheduleCalculator.formatNextRunLabel(task.nextRunAt, nowMs),
+        )
     } else if (!task.autoDisabledReason.isNullOrBlank()) {
         task.autoDisabledReason
     } else {
-        "当前已暂停"
+        stringResource(R.string.scheduled_status_currently_paused)
     }
 
-    Group {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            CouiText(
-                text = scheduleText,
-                kind = CouiTextKind.ItemTitle,
-                color = colors.title,
-            )
-            CouiText(
-                text = nextText,
-                kind = CouiTextKind.ItemSummary,
-                color = colors.summary,
-            )
-            CouiButton(
-                text = if (isRunning) stringResource(R.string.scheduled_action_stop)
-                else stringResource(R.string.scheduled_action_run_now),
-                role = if (isRunning) CouiButtonRole.DestructiveFilled else CouiButtonRole.Primary,
-                modifier = Modifier.fillMaxWidth(),
-                onClick = onRunOrStop,
+    CouiPreferenceGroup {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                CouiText(
+                    text = scheduleText,
+                    kind = CouiTextKind.ItemTitle,
+                    color = colors.title,
+                )
+                CouiText(
+                    text = nextText,
+                    kind = CouiTextKind.ItemSummary,
+                    color = colors.summary,
+                )
+                CouiButton(
+                    text = if (isRunning) stringResource(R.string.scheduled_action_stop)
+                    else stringResource(R.string.scheduled_action_run_now),
+                    role = if (isRunning) CouiButtonRole.DestructiveFilled else CouiButtonRole.Primary,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onRunOrStop,
+                )
+            }
+            CouiCardDivider()
+        }
+        item {
+            CouiSwitchPreference(
+                title = stringResource(R.string.scheduled_detail_enable_schedule_title),
+                summary = stringResource(
+                    if (task.enabled) {
+                        R.string.scheduled_detail_enable_schedule_on_summary
+                    } else {
+                        R.string.scheduled_detail_enable_schedule_off_summary
+                    },
+                ),
+                checked = task.enabled,
+                onCheckedChange = onToggleEnabled,
             )
         }
-        Divider()
-        CouiSwitchPreference(
-            title = "启用定时排期",
-            summary = if (task.enabled) "将按上述排期在后台自动唤醒运行" else "已暂停自动触发，仍可随时手动试跑",
-            checked = task.enabled,
-            onCheckedChange = onToggleEnabled,
-        )
     }
 }
 
@@ -567,11 +644,14 @@ private fun MiuixTaskControlCard(
 ) {
     val scheduleText = ScheduledTaskScheduleCalculator.describeSchedule(task.schedule)
     val nextText = if (task.enabled && task.nextRunAt != null) {
-        "下次运行：${ScheduledTaskScheduleCalculator.formatNextRunLabel(task.nextRunAt, nowMs)}"
+        stringResource(
+            R.string.scheduled_next_run_prefix,
+            ScheduledTaskScheduleCalculator.formatNextRunLabel(task.nextRunAt, nowMs),
+        )
     } else if (!task.autoDisabledReason.isNullOrBlank()) {
         task.autoDisabledReason
     } else {
-        "当前已暂停"
+        stringResource(R.string.scheduled_status_currently_paused)
     }
 
     Card(
@@ -610,8 +690,14 @@ private fun MiuixTaskControlCard(
             )
         }
         SwitchPreference(
-            title = "启用定时排期",
-            summary = if (task.enabled) "将按排期自动在后台执行" else "已暂停自动触发",
+            title = stringResource(R.string.scheduled_detail_enable_schedule_title),
+            summary = stringResource(
+                if (task.enabled) {
+                    R.string.scheduled_detail_enable_schedule_on_summary
+                } else {
+                    R.string.scheduled_detail_enable_schedule_off_summary
+                },
+            ),
             checked = task.enabled,
             onCheckedChange = onToggleEnabled,
         )
@@ -626,7 +712,7 @@ private fun CouiRunTimelineItem(
     onOpenConversation: () -> Unit,
 ) {
     val dark = CouiTheme.isDark
-    val colors = CouiPageDefaults.themeColors(dark)
+    val colors = CouiPageDefaults.themeColors()
     val canOpen = !run.archiveConversationKey.isNullOrBlank() &&
         (isLive || (run.status != ScheduledTaskRunStatus.RUNNING && run.status != ScheduledTaskRunStatus.SKIPPED))
     val dotColor = ScheduledTaskUiFormatting.statusDotColor(
@@ -644,66 +730,70 @@ private fun CouiRunTimelineItem(
     }
     val timeText = ScheduledTaskUiFormatting.formatTimestamp(run.startedAt, nowMs)
 
-    Group {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (canOpen) {
-                        Modifier
-                            .couiButtonFeedback(dark, interaction, enabled = true)
-                            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onOpenConversation)
-                    } else Modifier
-                )
-                .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+    CouiPreferenceGroup {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (canOpen) {
+                            Modifier
+                                .couiButtonFeedback(dark, interaction, enabled = true)
+                                .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onOpenConversation)
+                        } else Modifier
+                    )
+                    .padding(horizontal = CouiPageDefaults.rowPadding, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(dotColor),
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(dotColor),
+                        )
+                        CouiText(
+                            text = headline,
+                            kind = CouiTextKind.ItemTitle,
+                            color = colors.title,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     CouiText(
-                        text = headline,
-                        kind = CouiTextKind.ItemTitle,
-                        color = colors.title,
-                        maxLines = 1,
+                        text = timeText,
+                        kind = CouiTextKind.ItemSummary,
+                        color = colors.summary,
+                    )
+                }
+                if (run.summary.isNotBlank()) {
+                    CouiText(
+                        text = run.summary,
+                        kind = CouiTextKind.ItemSummary,
+                        color = colors.summary,
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                CouiText(
-                    text = timeText,
-                    kind = CouiTextKind.ItemSummary,
-                    color = colors.summary,
-                )
-            }
-            if (run.summary.isNotBlank()) {
-                CouiText(
-                    text = run.summary,
-                    kind = CouiTextKind.ItemSummary,
-                    color = colors.summary,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (canOpen) {
-                CouiText(
-                    text = if (isLive) "点按实时查看运行过程" else "点按查看完整对话并继续追问",
-                    kind = CouiTextKind.ItemSummary,
-                    color = colors.accent,
-                )
+                if (canOpen) {
+                    CouiText(
+                        text = stringResource(
+                            if (isLive) R.string.scheduled_timeline_tap_live else R.string.scheduled_timeline_tap_conversation,
+                        ),
+                        kind = CouiTextKind.ItemSummary,
+                        color = colors.accent,
+                    )
+                }
             }
         }
     }
@@ -742,8 +832,8 @@ private fun MiuixRunTimelineItem(
             title = headline,
             summary = run.summary.ifBlank {
                 when {
-                    isLive -> "点按实时查看运行过程"
-                    canOpen -> "点按查看完整对话并继续追问"
+                    isLive -> stringResource(R.string.scheduled_timeline_tap_live)
+                    canOpen -> stringResource(R.string.scheduled_timeline_tap_conversation)
                     else -> ""
                 }
             },
@@ -767,15 +857,16 @@ private fun MiuixRunTimelineItem(
     }
 }
 
+@Composable
 private fun buildCapabilitiesSummary(task: ScheduledTask): String {
     val caps = task.capabilities
     val list = buildList {
-        if (caps.browserTools) add("网页与浏览器")
-        if (caps.deviceReadTools) add("设备信息读取")
-        if (caps.deviceActionTools) add("设备状态控制")
-        if (caps.terminalTools) add("终端与文件")
+        if (caps.browserTools) add(stringResource(R.string.scheduled_cap_short_browser))
+        if (caps.deviceReadTools) add(stringResource(R.string.scheduled_cap_device_read_title))
+        if (caps.deviceActionTools) add(stringResource(R.string.scheduled_cap_device_action_title))
+        if (caps.terminalTools) add(stringResource(R.string.scheduled_cap_short_terminal))
         if (caps.mcpTools) add("MCP")
-        if (caps.guiTools) add("应用界面操作")
+        if (caps.guiTools) add(stringResource(R.string.scheduled_cap_short_gui))
     }
-    return if (list.isEmpty()) "仅纯对话推理" else list.joinToString(" · ")
+    return if (list.isEmpty()) stringResource(R.string.scheduled_cap_none) else list.joinToString(" · ")
 }

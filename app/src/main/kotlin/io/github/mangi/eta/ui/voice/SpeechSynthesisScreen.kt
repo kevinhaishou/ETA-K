@@ -1,10 +1,10 @@
 package io.github.mangi.eta.ui.voice
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.maxLengthReject
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,22 +16,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import com.itos.coui.dialog.CouiDialogDefaults
-import com.itos.coui.layout.Divider
 import io.github.mangi.eta.R
-import io.github.mangi.eta.agent.voice.SystemTtsProbe
 import io.github.mangi.eta.agent.voice.validateSpeechSettings
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.components.SettingsTextField
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import io.github.mangi.eta.ui.components.coui.CouiPageBottomSpacer
 import io.github.mangi.eta.ui.components.coui.CouiPreference
 import io.github.mangi.eta.ui.components.coui.CouiScaffoldPage
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
+import io.github.mangi.eta.ui.components.coui.CouiCardDivider as CouiDivider
+import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -65,15 +66,7 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                 }
                 if (settings.tts != TtsProvider.NONE) {
                     SpeechConnectionSection(store, synthesis = true)
-                    if (settings.tts == TtsProvider.ANDROID) {
-                        SystemTtsSection(store)
-                    } else if (settings.tts != TtsProvider.CLONE) {
-                        SpeechVoiceSection(store)
-                    }
-                    // 克隆是独立引擎：系统朗读与克隆都要能配它，单独一处入口。
-                    if (settings.tts == TtsProvider.ANDROID || settings.tts == TtsProvider.CLONE) {
-                        CloneVoiceSection()
-                    }
+                    SpeechVoiceSection(store)
                     SpeechPreviewSection(store)
                 }
                 SpeechSaveBlock(store) {
@@ -101,10 +94,11 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                 }
                 item(key = "service") {
                     SpeechGroupCard(title = stringResource(R.string.speech_group_service)) {
-                        OverlayDropdownPreference(
+                        GlassDropdownPreference(
                             title = stringResource(R.string.speech_tts_service),
                             items = ttsLabels,
                             selectedIndex = settings.tts.ordinal,
+                            backdrop = currentGlassOverlayBackdrop(),
                             onSelectedIndexChange = { index ->
                                 TtsProvider.entries.getOrNull(index)?.let { store.edit(settings.copy(tts = it)) }
                             },
@@ -116,16 +110,7 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                         SpeechConnectionSection(store, synthesis = true)
                     }
                     item(key = "voice") {
-                        if (settings.tts == TtsProvider.ANDROID) {
-                            SystemTtsSection(store)
-                        } else if (settings.tts != TtsProvider.CLONE) {
-                            SpeechVoiceSection(store)
-                        }
-                        if (settings.tts == TtsProvider.ANDROID ||
-                            settings.tts == TtsProvider.CLONE
-                        ) {
-                            CloneVoiceSection()
-                        }
+                        SpeechVoiceSection(store)
                     }
                     item(key = "preview") {
                         SpeechPreviewSection(store)
@@ -156,27 +141,10 @@ private fun SpeechPreviewSection(store: SpeechSettingsStore) {
     var text by rememberSaveable { mutableStateOf(defaultText) }
     val title = stringResource(if (playing) R.string.speech_preview_stop else R.string.speech_preview_voice)
     val summary = playback.error ?: if (playback.loading) stringResource(R.string.speech_preview_loading) else null
-    // 进入播报页自动试听一次（仅本机引擎）：用于确认调用链是否打通
-    LaunchedEffect(store.settings.tts) {
-        if (store.settings.tts == TtsProvider.ANDROID) {
-            android.util.Log.w("EtaSystemTts", "auto preview enter tts=ANDROID")
-            store.playback.speak("preview-auto", text, store.settings, store.credentials)
-        }
-    }
-
-    val previewContext = LocalContext.current
     val onPreviewClick: () -> Unit = {
-        if (store.settings.tts == TtsProvider.ANDROID) {
-            // 本机引擎直接播报，绕开播报控制器与前台服务
-            SystemTtsProbe.speak(
-                context = previewContext,
-                text = text,
-                onResult = { message ->
-                    Toast.makeText(previewContext, message, Toast.LENGTH_SHORT).show()
-                },
-            )
-        } else {
+        if (playing) {
             store.playback.stop()
+        } else {
             store.playback.speak(
                 "preview",
                 text,
@@ -189,28 +157,27 @@ private fun SpeechPreviewSection(store: SpeechSettingsStore) {
     Column {
         SpeechGroupCard(title = stringResource(R.string.speech_preview_voice)) {
             SpeechFieldColumn {
-                SpeechField(
+                SettingsTextField(
                     label = stringResource(R.string.speech_preview_text),
                     value = text,
                     singleLine = false,
                     enabled = !store.saving,
+                    inputTransformation = InputTransformation.maxLengthReject(500),
                     onChange = {
-                        if (it.length <= 500) {
-                            store.playback.stop()
-                            text = it
-                        }
+                        store.playback.stop()
+                        text = it
                     },
                 )
             }
             when (LocalUiStyle.current) {
                 AppearanceUiStyle.COUI -> {
-                    val dialogColors = CouiDialogDefaults.themeColors()
-                    Divider()
+
+                    CouiDivider()
                     CouiPreference(
                         title = title,
                         summary = summary,
-                        summaryColor = if (playback.error != null) dialogColors.destructive else Color.Unspecified,
-                        enabled = text.isNotBlank(),
+                        summaryColor = if (playback.error != null) CouiTheme.colorScheme.error else Color.Unspecified,
+                        enabled = !store.saving && text.isNotBlank(),
                         showChevron = false,
                         onClick = onPreviewClick,
                     )
@@ -224,7 +191,7 @@ private fun SpeechPreviewSection(store: SpeechSettingsStore) {
                         } else {
                             BasicComponentDefaults.summaryColor()
                         },
-                        enabled = text.isNotBlank(),
+                        enabled = !store.saving && text.isNotBlank(),
                         onClick = onPreviewClick,
                     )
                 }
