@@ -725,6 +725,18 @@ internal class AgentAppState(
     suspend fun openAssistantConversation(conversationKey: String): Boolean =
         openArchivedConversation(AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE, conversationKey)
 
+    /**
+     * 从定时任务的运行时间线打开那一次运行的会话。
+     *
+     * 复用 [openArchivedConversation]：先导入归档再选中会话。定时任务运行在独立会话键下，
+     * 因此这里只按 scheduled_task 来源与归档键定位，不干扰主聊天。
+     */
+    suspend fun openScheduledTaskRun(archiveConversationKey: String): Boolean =
+        openArchivedConversation(
+            source = AgentRuntimeWire.SCHEDULED_TASK_HANDOFF_SOURCE,
+            conversationKey = archiveConversationKey,
+        )
+
     /** 打开外部入口按 [source] 与 [conversationKey] 归档的会话；先导入尚未入库的归档结果。 */
     suspend fun openArchivedConversation(source: String, conversationKey: String): Boolean {
         if (source.isBlank() || conversationKey.isBlank()) return false

@@ -602,7 +602,17 @@ fun AgentAppRoot(
                         taskId = route.taskId,
                         onNavigate = { target -> pushRoute(target) },
                         // 运行时间线挂载需要 AgentAppState 配套，本次先留空实现
-                        onOpenRun = { _, _, _ -> },
+                        onOpenRun = { run, _, _ ->
+                            val key = run.archiveConversationKey?.takeIf { it.isNotBlank() }
+                            if (key != null) {
+                                uiScope.launch {
+                                    if (agentState.openScheduledTaskRun(key)) {
+                                        conversationPaneOpen = false
+                                        navigator.popToHome()
+                                    }
+                                }
+                            }
+                        },
                         onBack = ::popRoute,
                     )
                 }
