@@ -201,6 +201,7 @@ internal fun ConsoleScreen(
 
     if (showSessions) {
         SessionListDialog(
+            show = showSessions,
             rows = state.sessions.map { session ->
                 SessionDialogRow(
                     id = session.id,
