@@ -23,6 +23,7 @@ import io.github.mangi.eta.customization.CustomizationStore
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.compose.rememberLauncherForActivityResult
