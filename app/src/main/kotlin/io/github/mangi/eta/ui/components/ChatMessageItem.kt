@@ -1682,11 +1682,9 @@ private fun CharacterReplyHeader(character: RoleplayChatUi, isGreeting: Boolean)
 }
 
 /** 思考卡片与运行记录等全宽描边卡片共用的圆角与描边强度，相邻时轮廓一致。 */
-private val ChatCardCorner = 12.dp
 private const val ChatCardOutlineAlpha = 0.5f
 
 /** 回答操作按钮的紧凑触控尺寸（28.dp 盒 + 16.dp 图标）；行整体左移 6.dp 对齐正文左边缘。 */
 internal val AnswerActionSize = 28.dp
-private val AnswerActionCenterOffset = 6.dp
 
 /** 回答下方的轻量操作：图标显式着色，因此禁用态需要自己换成禁用色，否则看起来仍可点。 */
