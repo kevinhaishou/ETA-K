@@ -83,6 +83,7 @@ import io.github.mangi.eta.ui.model.AgentMemoryUiState
 import io.github.suqi8.coui.kmp.basic.HorizontalDivider as CouiDivider
 import io.github.suqi8.coui.kmp.utils.COUIOverscrollEffect
 import java.text.NumberFormat
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
