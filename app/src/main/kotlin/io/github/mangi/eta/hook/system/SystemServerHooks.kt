@@ -20,6 +20,7 @@ internal object SystemServerHooks {
             AssistantManager.install(module, logger, classLoader),
             HotwordSelfHealHooks.install(module, logger, classLoader),
             PowerHooks.install(module, logger, classLoader),
+            HonorPowerHooks.install(module, logger, classLoader),
             HyperOsPowerHooks.install(module, logger, classLoader),
             VirtualDisplaySystemHooks.install(module, logger, classLoader)
         )

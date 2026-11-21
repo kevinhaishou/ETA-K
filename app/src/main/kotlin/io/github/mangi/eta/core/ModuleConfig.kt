@@ -43,6 +43,11 @@ internal object ModuleConfig {
     const val OP_LUS_SPEECH_HANDLER_CLASS =
         "com.android.server.policy.PhoneWindowManagerExtImpl\$OplusSpeechHandler"
 
+    // 荣耀 MagicOS：长按电源键唤起助手走 HwPhoneWindowManagerEx.notifyAIPower()，
+    // 内部硬编码 startService(com.hihonor.magicvoice)，不读 ASSISTANT role。
+    const val HONOR_PWM_EX_CLASS = "com.android.server.policy.HwPhoneWindowManagerEx"
+    const val HONOR_NOTIFY_AI_POWER_METHOD = "notifyAIPower"
+
     const val CIRCLE_TO_SEARCH_ENTRYPOINT = 2
     const val COLOR_DIRECT_EXTRA_START_INFO = "startInfo"
     const val COLOR_DIRECT_EXTRA_DIRECT_EXT = "directExt"
