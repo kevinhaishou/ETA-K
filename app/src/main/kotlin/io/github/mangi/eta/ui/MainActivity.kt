@@ -204,7 +204,5 @@ class MainActivity : ComponentActivity() {
         const val ACTION_OPEN_ARCHIVED_CONVERSATION = "io.github.kevinhaishou.etak.action.OPEN_ARCHIVED_CONVERSATION"
         const val EXTRA_HANDOFF_SOURCE = "io.github.kevinhaishou.etak.extra.HANDOFF_SOURCE"
         const val EXTRA_CONVERSATION_KEY = "io.github.kevinhaishou.etak.extra.CONVERSATION_KEY"
-        const val ACTION_OPEN_SCHEDULED_TASK_DETAIL = "io.github.kevinhaishou.etak.action.OPEN_SCHEDULED_TASK_DETAIL"
-        const val EXTRA_SCHEDULED_TASK_ID = "io.github.kevinhaishou.etak.extra.SCHEDULED_TASK_ID"
     }
 }
