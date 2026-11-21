@@ -54,6 +54,7 @@ import io.github.mangi.eta.data.repository.SpeechSettingsRepository
 import io.github.mangi.eta.ui.components.AdaptiveTopAppBar
 import io.github.mangi.eta.ui.components.AgentTopBarChatHeader
 import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.pageBackgroundColor
 import io.github.mangi.eta.ui.components.ChatBackground
 import io.github.mangi.eta.ui.components.ChatImagePreviewHost
 import io.github.mangi.eta.ui.components.ConversationSidePaneScaffold
@@ -166,7 +167,7 @@ internal fun AgentAppShell(
                 val backdrop = rememberCouiPageBackdrop(colors.background)
                 CouiLayoutScaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = colors.background,
+                    containerColor = pageBackgroundColor(colors.background),
                     contentWindowInsets = WindowInsets.safeDrawing.only(
                         WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
                     ),
@@ -236,6 +237,7 @@ internal fun AgentAppShell(
                 val pageBackdrop = rememberGlassBackdrop()
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
+                    containerColor = pageBackgroundColor(MiuixTheme.colorScheme.surface),
                     contentWindowInsets = WindowInsets.safeDrawing.only(
                         WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
                     ),

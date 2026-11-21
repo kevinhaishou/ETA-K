@@ -305,7 +305,18 @@ internal fun CouiScaffold(
     val compact = searchState == null && (compactTitle || rememberIsWideScreen())
     val behavior = COUIScrollBehavior(state = topBarState, canScroll = canScroll)
     val backdrop = rememberCouiPageBackdrop(colors.background)
-    val barColor = if (backdrop == null) colors.background else Color.Transparent
+    // 壁纸模式下顶栏与容器不给不透明底色，否则状态栏与内容区域是一条实心黑带
+    val barColor = if (backdrop == null) {
+        if (LocalChatBackgroundActive.current) Color.Transparent else colors.background
+    } else {
+        Color.Transparent
+    }
+    // 与 CouiScaffoldPage 保持一致：壁纸模式下自绘壁纸并把容器设为透明，
+    // 否则这类自定义内容页（记忆等）整页是 colors.background 的实心深色。
+    val scaffoldWallpaper = rememberWallpaperBitmap()
+    val scaffoldWallpaperDim = remember(scaffoldWallpaper) { CustomizationStore.wallpaperDim() }
+    val scaffoldWallpaperScale = remember(scaffoldWallpaper) { CustomizationStore.wallpaperScale() }
+    val scaffoldBaseColor = colors.background
     val glow: (@Composable BoxScope.() -> Unit)? = if (backdrop == null) {
         null
     } else {
@@ -321,8 +332,16 @@ internal fun CouiScaffold(
     }
     val navigation: @Composable () -> Unit = { CouiBackButton(onBack, colors = colors) }
     Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = colors.background,
+        modifier = modifier
+            .fillMaxSize()
+            .drawWithContent {
+                scaffoldWallpaper?.let { bitmap ->
+                    drawWallpaperBitmap(bitmap, scaffoldWallpaperScale)
+                    if (scaffoldWallpaperDim > 0f) drawRect(Color.Black, alpha = scaffoldWallpaperDim)
+                }
+                drawContent()
+            },
+        containerColor = if (scaffoldWallpaper != null) Color.Transparent else scaffoldBaseColor,
         floatingActionButton = {
             if (floatingAction != null) {
                 ProvideCouiMaterial(backdrop) {
