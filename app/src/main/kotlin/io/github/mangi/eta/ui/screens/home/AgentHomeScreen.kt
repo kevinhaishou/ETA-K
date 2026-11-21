@@ -94,9 +94,6 @@ internal fun AgentHomeScreen(
                         onEditMessage = { id -> onAction(AgentHomeAction.EditMessage(id)) },
                         onCancelMessageEdit = { onAction(AgentHomeAction.CancelMessageEdit) },
                         onDeleteMessage = { id -> onAction(AgentHomeAction.DeleteMessage(id)) },
-                        onQuoteMessage = { id, excerpt -> onAction(AgentHomeAction.QuoteMessage(id, excerpt)) },
-                        onSaveMemoryMessage = { id -> onAction(AgentHomeAction.SaveMemoryFromMessage(id)) },
-                        onSaveSkillMessage = { id -> onAction(AgentHomeAction.SaveSkillFromMessage(id)) },
                         onRegenerateMessage = { id -> onAction(AgentHomeAction.RegenerateMessage(id)) },
                         onBranchMessage = { id ->
                             conversationKey?.let { onAction(AgentHomeAction.BranchConversation(it, id)) }
