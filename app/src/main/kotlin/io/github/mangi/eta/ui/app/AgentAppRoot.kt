@@ -149,6 +149,8 @@ fun AgentAppRoot(
     assistantConversationKey: String? = null,
     requestedConversationId: String? = null,
     onRequestedConversationOpened: () -> Unit = {},
+    requestedScheduledTaskId: String? = null,
+    onScheduledTaskOpened: () -> Unit = {},
     requestedArchivedConversation: ArchivedConversationRequest? = null,
     onArchivedConversationOpened: () -> Unit = {},
     sharedContent: IncomingShareRequest? = null,
@@ -262,6 +264,13 @@ fun AgentAppRoot(
         conversationPaneOpen = false
         navigator.popToHome()
         onRequestedConversationOpened()
+    }
+
+    LaunchedEffect(requestedScheduledTaskId) {
+        val taskId = requestedScheduledTaskId ?: return@LaunchedEffect
+        conversationPaneOpen = false
+        navigator.push(AppRoute.ScheduledTaskDetail(taskId))
+        onScheduledTaskOpened()
     }
 
     LaunchedEffect(requestedArchivedConversation) {
