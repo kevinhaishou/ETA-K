@@ -731,19 +731,14 @@ private fun MemoryRecallTester(modifier: Modifier = Modifier) {
         }
     }
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        // COUI 用 Group：与上方「启用记忆」分组同源，自动跟随壁纸玻璃效果；
-        // MIUIX 用 Card。用 miuix Card 在 COUI 皮肤下会是一块不透明深色。
-        when (LocalUiStyle.current) {
-            AppearanceUiStyle.COUI -> CouiPreferenceGroup { content() }
-            AppearanceUiStyle.MIUIX -> Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .padding(top = 8.dp, bottom = 12.dp),
-            ) { content() }
-        }
-    }
+    // CouiPreferenceGroup 的 content 是 CardListGroupScope（非 Composable），
+    // 不能在内部调用 Composable，所以这里直接用 miuix Card 承载。
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .padding(top = 8.dp, bottom = 12.dp),
+    ) { content() }
 }
 
 @Composable
