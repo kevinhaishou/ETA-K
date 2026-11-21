@@ -137,6 +137,7 @@ fun MiuixScaffold(
     scrollBehavior: ScrollBehavior = MiuixScrollBehavior(),
     isContentScrolled: Boolean? = null,
     topBarBottomContent: @Composable (Backdrop?) -> Unit = {},
+    overlay: @Composable () -> Unit = {},
     content: @Composable (
         paddingValues: PaddingValues,
         scrollBehavior: ScrollBehavior,
@@ -176,6 +177,7 @@ fun MiuixScaffold(
         },
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().captureForTopBar(backdrop)) {
+            overlay()
             WidePageContent { sidePadding ->
                 content(paddingValues, scrollBehavior, sidePadding)
             }
