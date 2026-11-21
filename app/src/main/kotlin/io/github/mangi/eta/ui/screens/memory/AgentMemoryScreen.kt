@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -40,7 +39,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,43 +53,45 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
-import io.github.mangi.eta.data.repository.AgentMemoryReadResult
-import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.ui.app.LocalUiStyle
-import io.github.mangi.eta.ui.components.coui.CouiPageDefaults
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffold
+import io.github.mangi.eta.ui.components.MiuixTopBarActionButton
 import io.github.mangi.eta.ui.components.coui.CouiButton
 import io.github.mangi.eta.ui.components.coui.CouiButtonRole
 import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
 import io.github.mangi.eta.ui.components.coui.CouiNoticeDialog
+import io.github.mangi.eta.ui.components.coui.CouiPageDefaults
 import io.github.mangi.eta.ui.components.coui.CouiPreference
+import io.github.mangi.eta.ui.components.coui.CouiPreferenceGroup
 import io.github.mangi.eta.ui.components.coui.CouiScaffold
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
 import io.github.mangi.eta.ui.components.coui.CouiTopAppBarIconButton
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
+import io.github.mangi.eta.ui.components.rememberDraftTextFieldState
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import io.github.mangi.eta.ui.markdown.LazyStaticMarkdown
 import io.github.mangi.eta.ui.markdown.MarkdownTone
 import io.github.mangi.eta.ui.model.AgentMemoryAction
 import io.github.mangi.eta.ui.model.AgentMemoryUiState
+import io.github.suqi8.coui.kmp.basic.HorizontalDivider as CouiDivider
+import io.github.suqi8.coui.kmp.utils.COUIOverscrollEffect
 import java.text.NumberFormat
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.glass.GlassDialog
+import top.yukonga.miuix.kmp.glass.GlassDialogButton
+import top.yukonga.miuix.kmp.glass.GlassDialogButtonRole
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.Delete
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 private enum class MemoryViewMode { Preview, Edit }
 
@@ -102,6 +102,8 @@ internal fun AgentMemoryScreen(
     onAction: (AgentMemoryAction) -> Unit,
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
+    var retainedNotice by remember { mutableStateOf(state.notice) }
+    if (state.notice != null) retainedNotice = state.notice
     var mode by rememberSaveable {
         mutableStateOf(
             if (!state.isLoading && state.savedContent.isBlank()) MemoryViewMode.Edit else MemoryViewMode.Preview,
@@ -132,6 +134,31 @@ internal fun AgentMemoryScreen(
                         onClick = { showClearDialog = true },
                     )
                 },
+                overlay = {
+                    CouiConfirmDialog(
+                        visible = showClearDialog,
+                        title = stringResource(R.string.ui_clear_all_memory_a43bd3),
+                        message = stringResource(R.string.ui_the_entire_contents_of_memory_md_will_be_deleted_and_83a8ac),
+                        confirmText = stringResource(R.string.memory_clear),
+                        confirmEnabled = !state.isSaving,
+                        destructive = true,
+                        onConfirm = {
+                            showClearDialog = false
+                            onAction(AgentMemoryAction.Clear)
+                        },
+                        onDismissRequest = { showClearDialog = false },
+                    )
+
+                    val activeNotice = state.notice ?: retainedNotice
+                    CouiNoticeDialog(
+                        visible = state.notice != null,
+                        title = stringResource(R.string.ui_memory_b55ff5),
+                        message = activeNotice,
+                        confirmText = stringResource(R.string.ui_knew_cb63c6),
+                        onDismissRequest = { onAction(AgentMemoryAction.DismissNotice) },
+                        onDismissFinished = { if (state.notice == null) retainedNotice = null },
+                    )
+                },
             ) { contentPadding, _, nestedScrollConnection, sidePadding ->
                 Column(
                     modifier = Modifier
@@ -150,9 +177,6 @@ internal fun AgentMemoryScreen(
                     ) {
                         MemorySettingsGroup(state = state, onAction = onAction)
                     }
-                    // AnimatedVisibility 的内容插槽是叠放语义，放进来会与上面的分组重叠，
-                    // 必须作为 Column 的兄弟节点排在它下面。
-                    MemoryRecallTester()
                     MemoryDocumentCard(
                         state = state,
                         mode = currentMode,
@@ -177,19 +201,53 @@ internal fun AgentMemoryScreen(
                 title = stringResource(R.string.ui_memory_b55ff5),
                 onBack = { onAction(AgentMemoryAction.NavigateBack) },
                 actions = {
-                    IconButton(
-                        onClick = { showClearDialog = true },
+                    MiuixTopBarActionButton(
+                        icon = MiuixIcons.Glass.Delete,
+                        contentDescription = stringResource(R.string.ui_clear_all_memory_a43bd3),
                         enabled = canClear,
+                        onClick = { showClearDialog = true },
+                    )
+                },
+                overlay = {
+                    val overlayBackdrop = currentGlassOverlayBackdrop()
+                    GlassDialog(
+                        show = showClearDialog,
+                        backdrop = overlayBackdrop,
+                        title = stringResource(R.string.ui_clear_all_memory_a43bd3),
+                        summary = stringResource(R.string.ui_the_entire_contents_of_memory_md_will_be_deleted_and_83a8ac),
+                        onDismissRequest = { showClearDialog = false },
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.DeleteOutline,
-                            contentDescription = stringResource(R.string.ui_clear_all_memory_a43bd3),
-                            tint = if (!state.isLoading && state.draft.isNotEmpty()) {
-                                MiuixTheme.colorScheme.onSurface
-                            } else {
-                                MiuixTheme.colorScheme.disabledOnSurface
+                        MiuixDialogActions(
+                            confirmText = stringResource(R.string.memory_clear),
+                            destructive = true,
+                            confirmEnabled = !state.isSaving,
+                            onCancel = { showClearDialog = false },
+                            onConfirm = {
+                                showClearDialog = false
+                                onAction(AgentMemoryAction.Clear)
                             },
                         )
+                    }
+
+                    val activeNotice = state.notice ?: retainedNotice
+                    GlassDialog(
+                        show = state.notice != null,
+                        backdrop = overlayBackdrop,
+                        title = stringResource(R.string.ui_memory_b55ff5),
+                        summary = activeNotice,
+                        onDismissRequest = { onAction(AgentMemoryAction.DismissNotice) },
+                        onDismissFinished = { if (state.notice == null) retainedNotice = null },
+                    ) {
+                        GlassDialogButton(
+                            onClick = { onAction(AgentMemoryAction.DismissNotice) },
+                            role = GlassDialogButtonRole.Normal,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.ui_knew_cb63c6),
+                                style = MiuixTheme.textStyles.button,
+                            )
+                        }
                     }
                 },
             ) { paddingValues, scrollBehavior, sidePadding ->
@@ -210,9 +268,6 @@ internal fun AgentMemoryScreen(
                     ) {
                         MemorySettingsGroup(state = state, onAction = onAction)
                     }
-                    // AnimatedVisibility 的内容插槽是叠放语义，放进来会与上面的分组重叠，
-                    // 必须作为 Column 的兄弟节点排在它下面。
-                    MemoryRecallTester()
                     MemoryDocumentCard(
                         state = state,
                         mode = currentMode,
@@ -232,77 +287,7 @@ internal fun AgentMemoryScreen(
             }
         }
     }
-
-    if (showClearDialog) {
-        val onConfirmClear: () -> Unit = {
-            showClearDialog = false
-            onAction(AgentMemoryAction.Clear)
-        }
-        when (LocalUiStyle.current) {
-            AppearanceUiStyle.COUI -> {
-                CouiConfirmDialog(
-                    visible = true,
-                    title = stringResource(R.string.ui_clear_all_memory_a43bd3),
-                    message = stringResource(R.string.ui_the_entire_contents_of_memory_md_will_be_deleted_and_83a8ac),
-                    confirmText = stringResource(R.string.memory_clear),
-                    confirmEnabled = !state.isSaving,
-                    destructive = true,
-                    onConfirm = onConfirmClear,
-                    onDismissRequest = { showClearDialog = false },
-                )
-            }
-            AppearanceUiStyle.MIUIX -> {
-                WindowDialog(
-                    show = true,
-                    title = stringResource(R.string.ui_clear_all_memory_a43bd3),
-                    summary = stringResource(R.string.ui_the_entire_contents_of_memory_md_will_be_deleted_and_83a8ac),
-                    onDismissRequest = { showClearDialog = false },
-                ) {
-                    MiuixDialogActions(
-                        confirmText = stringResource(R.string.memory_clear),
-                        destructive = true,
-                        confirmEnabled = !state.isSaving,
-                        onCancel = { showClearDialog = false },
-                        onConfirm = onConfirmClear,
-                    )
-                }
-            }
-        }
-    }
-
-    state.notice?.let { notice ->
-        when (LocalUiStyle.current) {
-            AppearanceUiStyle.COUI -> {
-                CouiNoticeDialog(
-                    visible = true,
-                    title = stringResource(R.string.ui_memory_b55ff5),
-                    message = notice,
-                    confirmText = stringResource(R.string.ui_knew_cb63c6),
-                    onDismissRequest = { onAction(AgentMemoryAction.DismissNotice) },
-                )
-            }
-            AppearanceUiStyle.MIUIX -> {
-                WindowDialog(
-                    show = true,
-                    title = stringResource(R.string.ui_memory_b55ff5),
-                    summary = notice,
-                    onDismissRequest = { onAction(AgentMemoryAction.DismissNotice) },
-                ) {
-                    TextButton(
-                        text = stringResource(R.string.ui_knew_cb63c6),
-                        onClick = { onAction(AgentMemoryAction.DismissNotice) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        }
-    }
 }
-
-/**
- * 召回测试：输入关键词，直接调用与 memory_get 相同的检索（打分 + 过期标注），
- * 让用户直观看到「这条查询能召回哪些记忆、新旧程度如何」，发现记错/记旧。
- */
 
 @Composable
 private fun MemorySettingsGroup(
@@ -311,20 +296,23 @@ private fun MemorySettingsGroup(
 ) {
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
-            Group {
-                CouiSwitchPreference(
-                    title = stringResource(R.string.ui_enable_memory_4b69b7),
-                    summary = stringResource(R.string.ui_after_closing_no_memory_will_be_injected_and_the_mod_db3d23),
-                    checked = state.enabled,
-                    enabled = !state.isLoading,
-                    onCheckedChange = { onAction(AgentMemoryAction.ToggleEnabled(it)) },
-                )
-                Divider()
-                CouiPreference(
-                    title = stringResource(R.string.ui_core_memory_injection_budget_48b5d5),
-                    summary = stringResource(R.string.memory_budget_summary, formatNumber(state.coreBudgetChars)),
-                    showChevron = false,
-                )
+            CouiPreferenceGroup {
+                item {
+                    CouiSwitchPreference(
+                        title = stringResource(R.string.ui_enable_memory_4b69b7),
+                        summary = stringResource(R.string.ui_after_closing_no_memory_will_be_injected_and_the_mod_db3d23),
+                        checked = state.enabled,
+                        enabled = !state.isLoading,
+                        onCheckedChange = { onAction(AgentMemoryAction.ToggleEnabled(it)) },
+                    )
+                }
+                item {
+                    CouiPreference(
+                        title = stringResource(R.string.ui_core_memory_injection_budget_48b5d5),
+                        summary = stringResource(R.string.memory_budget_summary, formatNumber(state.coreBudgetChars)),
+                        showChevron = false,
+                    )
+                }
             }
         }
         AppearanceUiStyle.MIUIX -> {
@@ -395,7 +383,7 @@ private fun MemoryDocumentCard(
             MemoryModeSwitch(mode = mode, enabled = !state.isLoading, onModeChange = onModeChange)
         }
         if (isCoui) {
-            Divider()
+            CouiDivider()
         } else {
             Box(
                 modifier = Modifier
@@ -473,7 +461,7 @@ private fun MemoryPreview(content: String, onStartEditing: () -> Unit) {
         return
     }
     val overscroll = if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
-        rememberCouiOverscrollEffect()
+        remember { COUIOverscrollEffect() }
     } else {
         null
     }
@@ -509,8 +497,7 @@ private fun MemoryEditor(
             )
         }
         BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
+            state = rememberDraftTextFieldState(value, onValueChange),
             enabled = enabled,
             textStyle = MemoryTextStyle().copy(color = colors.onSurface),
             cursorBrush = SolidColor(colors.primary),
@@ -645,69 +632,3 @@ private fun formatBytes(bytes: Int): String = when {
 }
 
 private fun formatNumber(value: Int): String = NumberFormat.getIntegerInstance().format(value)
-
-/** GreetingMessagePrefix：开场白消息 id 前缀（本地识别用）。 */
-private const val GreetingMessagePrefix = "greeting-"
-
-/**
- * 召回测试：输入关键词，直接调用与 memory_get 相同的检索（打分 + 过期标注），
- * 让用户直观看到「这条查询能召回哪些记忆、新旧程度如何」，发现记错/记旧。
- */
-@Composable
-private fun MemoryRecallTester(modifier: Modifier = Modifier) {
-    val scope = rememberCoroutineScope()
-    var query by rememberSaveable { mutableStateOf("") }
-    var running by remember { mutableStateOf(false) }
-    var result by remember { mutableStateOf<AgentMemoryReadResult?>(null) }
-
-    fun run() {
-        val q = query.trim()
-        if (q.isEmpty() || running) return
-        running = true
-        scope.launch(Dispatchers.IO) {
-            val r = runCatching { AgentMemoryRepository.read(query = q, maxChars = 4_000) }
-                .getOrNull()
-            withContext(Dispatchers.Main) {
-                result = r
-                running = false
-            }
-        }
-    }
-
-    val content: @Composable () -> Unit = {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                text = "召回测试",
-                style = MiuixTheme.textStyles.title2,
-                color = MiuixTheme.colorScheme.onSurface,
-            )
-            TextField(
-                value = query,
-                onValueChange = { query = it },
-                label = "关键词",
-                singleLine = true,
-            )
-            Text(
-                text = if (result == null) "输入关键词后点这里测试" else (result?.content ?: ""),
-                color = MiuixTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "测试",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = query.isNotBlank() && !running) { run() }
-                    .padding(vertical = 10.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
-        }
-    }
-
-    // CouiPreferenceGroup 的 content 是 CardListGroupScope（非 Composable），
-    // 不能在内部调用 Composable，所以这里直接用 miuix Card 承载。
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .padding(top = 8.dp, bottom = 12.dp),
-    ) { content() }
-}
