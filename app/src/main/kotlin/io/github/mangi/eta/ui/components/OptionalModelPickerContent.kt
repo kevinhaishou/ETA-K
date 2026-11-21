@@ -82,7 +82,6 @@ internal fun OptionalModelPickerContent(
                         items = tabItems,
                         selectedKey = providerFilter.orEmpty(),
                         onSelectedKeyChange = { key -> providerFilter = key.takeIf { it.isNotEmpty() } },
-                        backgroundColor = Color.Transparent,
                     )
                 }
             }
