@@ -9,9 +9,18 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import java.io.File
 import java.io.FileOutputStream
+import java.util.UUID
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+
+internal data class PromptPreset(
+    val id: String,
+    val name: String,
+    val content: String,
+)
 
 /**
  * ETA-K 本地定制：自定义系统提示词与聊天背景。
@@ -22,6 +31,8 @@ import kotlinx.coroutines.flow.asStateFlow
 internal object CustomizationStore {
     private const val PREFS_NAME = "eta_customization"
     private const val KEY_SYSTEM_PROMPT = "custom_system_prompt"
+    private const val KEY_PROMPT_LIBRARY = "prompt_library"
+    private const val KEY_PROMPT_ACTIVE = "prompt_active_id"
     private const val KEY_WALLPAPER_NAME = "chat_background_name"
     private const val KEY_WALLPAPER_DIM = "chat_background_dim"
     private const val KEY_WALLPAPER_ENABLED = "chat_background_enabled"
@@ -64,6 +75,109 @@ internal object CustomizationStore {
         val persisted = prefs ?: return
         persisted.edit().putString(KEY_SYSTEM_PROMPT, value).apply()
         bump()
+    }
+
+
+    // ---------- 系统提示词预设库 ----------
+    // 生效内容仍然只走 KEY_SYSTEM_PROMPT，运行时读取路径完全不变；
+    // 预设只是若干候选，点哪条就把那条的内容写进生效字段。
+
+    fun promptPresets(): List<PromptPreset> {
+        val raw = prefs?.getString(KEY_PROMPT_LIBRARY, null)?.takeIf { it.isNotBlank() }
+            ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: continue
+                    val id = item.optString("id").takeIf { it.isNotBlank() } ?: continue
+                    add(
+                        PromptPreset(
+                            id = id,
+                            name = item.optString("name").ifBlank { "未命名" },
+                            content = item.optString("content"),
+                        )
+                    )
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun activePresetId(): String? = prefs?.getString(KEY_PROMPT_ACTIVE, null)
+
+    private fun writePresets(items: List<PromptPreset>) {
+        val persisted = prefs ?: return
+        val array = JSONArray()
+        items.forEach { preset ->
+            array.put(
+                JSONObject()
+                    .put("id", preset.id)
+                    .put("name", preset.name)
+                    .put("content", preset.content)
+            )
+        }
+        persisted.edit().putString(KEY_PROMPT_LIBRARY, array.toString()).apply()
+        bump()
+    }
+
+    /** 导入若干条（名称, 内容），返回实际写入条数。 */
+    fun importPromptPresets(entries: List<Pair<String, String>>): Int {
+        val incoming = entries.mapNotNull { (name, content) ->
+            val text = content.trim()
+            if (text.isEmpty()) return@mapNotNull null
+            PromptPreset(
+                id = UUID.randomUUID().toString(),
+                name = name.trim().ifBlank { "导入的提示词" },
+                content = text,
+            )
+        }
+        if (incoming.isEmpty()) return 0
+        writePresets(promptPresets() + incoming)
+        return incoming.size
+    }
+
+    /** 把当前编辑内容存成一条预设。 */
+    fun saveCurrentAsPreset(name: String): Boolean {
+        val text = systemPrompt().trim()
+        if (text.isEmpty()) return false
+        writePresets(
+            promptPresets() + PromptPreset(
+                id = UUID.randomUUID().toString(),
+                name = name.trim().ifBlank { "当前提示词" },
+                content = text,
+            )
+        )
+        return true
+    }
+
+    /** 应用某条预设：写入生效字段并记下激活的预设。 */
+    fun applyPromptPreset(id: String): Boolean {
+        val preset = promptPresets().firstOrNull { it.id == id } ?: return false
+        val persisted = prefs ?: return false
+        persisted.edit()
+            .putString(KEY_SYSTEM_PROMPT, preset.content)
+            .putString(KEY_PROMPT_ACTIVE, preset.id)
+            .apply()
+        bump()
+        return true
+    }
+
+    fun deletePromptPreset(id: String) {
+        val remaining = promptPresets().filterNot { it.id == id }
+        writePresets(remaining)
+        if (activePresetId() == id) {
+            prefs?.edit()?.remove(KEY_PROMPT_ACTIVE)?.apply()
+        }
+    }
+
+    fun renamePromptPreset(id: String, name: String) {
+        val renamed = name.trim()
+        if (renamed.isEmpty()) return
+        writePresets(
+            promptPresets().map { preset ->
+                if (preset.id == id) preset.copy(name = renamed) else preset
+            }
+        )
     }
 
     fun wallpaperDim(): Float =
