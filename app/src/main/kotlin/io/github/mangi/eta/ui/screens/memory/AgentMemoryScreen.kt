@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.screens.memory
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.data.repository.AgentMemoryReadResult
 import kotlinx.coroutines.Dispatchers
