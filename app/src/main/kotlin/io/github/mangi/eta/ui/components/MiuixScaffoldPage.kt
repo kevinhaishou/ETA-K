@@ -164,8 +164,6 @@ fun MiuixScaffold(
             TopBarBackdrop(backdrop) {
                 AdaptiveTopAppBar(
                     title = title,
-                    color = topBarColor,
-                    navigationIcon = { MiuixBackButton(onClick = onBack) },
                     actions = actions,
                     scrollBehavior = scrollBehavior,
                 )
