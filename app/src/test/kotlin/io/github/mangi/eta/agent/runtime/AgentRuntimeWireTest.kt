@@ -26,7 +26,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [33, 36])
+@Config(sdk = [34, 36])
 class AgentRuntimeWireTest {
     @Test
     fun searchSuggestionsCapabilityIsOptionalAndHtmlIsNeverDurable() {
@@ -766,7 +766,7 @@ class AgentRuntimeWireTest {
     fun entryHandoffBundleRoundTripPreservesEntrySurfacePolicy() {
         val handoff = AgentRuntimeWire.EntryHandoff(
             id = "handoff-1",
-            source = "breeno",
+            source = AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE,
             payload = """{"userText":"打开微信"}""",
             dismissEntrySurfaceOnForegroundOperation = true,
         )
@@ -792,28 +792,11 @@ class AgentRuntimeWireTest {
     }
 
     @Test
-    fun legacyBreenoHandoffDefaultsToDismissingEntrySurface() {
+    fun missingDismissFlagDefaultsToKeepingEntrySurfaceVisible() {
         val bundle = AgentRuntimeWire.toBundle(
             AgentRuntimeWire.EntryHandoff(
                 id = "handoff-1",
-                source = "breeno",
-                payload = "{}",
-            )
-        ).apply {
-            remove("handoff_dismiss_entry_surface_on_foreground_operation")
-        }
-
-        val handoff = AgentRuntimeWire.entryHandoffFromBundle(bundle)
-
-        assertEquals(true, handoff.dismissEntrySurfaceOnForegroundOperation)
-    }
-
-    @Test
-    fun legacyNonBreenoHandoffDefaultsToKeepingEntrySurfaceVisible() {
-        val bundle = AgentRuntimeWire.toBundle(
-            AgentRuntimeWire.EntryHandoff(
-                id = "handoff-1",
-                source = "app",
+                source = AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE,
                 payload = "{}",
             )
         ).apply {
@@ -823,5 +806,21 @@ class AgentRuntimeWireTest {
         val handoff = AgentRuntimeWire.entryHandoffFromBundle(bundle)
 
         assertEquals(false, handoff.dismissEntrySurfaceOnForegroundOperation)
+    }
+
+    @Test
+    fun steerBundlesRoundTripTextAndAcceptanceStatus() {
+        val requestBundle = AgentRuntimeWire.steerBundle("run-steer", "改用另一种实现")
+        assertEquals("run-steer", AgentRuntimeWire.runIdFromBundle(requestBundle))
+        assertEquals("改用另一种实现", AgentRuntimeWire.steerTextFromBundle(requestBundle))
+
+        val acceptedBundle = AgentRuntimeWire.steerResponseBundle("run-steer", accepted = true, supplementIndex = 3)
+        assertEquals("run-steer", AgentRuntimeWire.runIdFromBundle(acceptedBundle))
+        assertEquals(true, AgentRuntimeWire.steerAcceptedFromBundle(acceptedBundle))
+        assertEquals(3, AgentRuntimeWire.steerSupplementIndexFromBundle(acceptedBundle))
+
+        val rejectedBundle = AgentRuntimeWire.steerResponseBundle("run-steer", accepted = false)
+        assertEquals(false, AgentRuntimeWire.steerAcceptedFromBundle(rejectedBundle))
+        assertEquals(0, AgentRuntimeWire.steerSupplementIndexFromBundle(rejectedBundle))
     }
 }

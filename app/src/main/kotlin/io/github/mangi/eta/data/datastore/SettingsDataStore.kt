@@ -1,13 +1,13 @@
 package io.github.mangi.eta.data.datastore
 
 import android.content.Context
+import androidx.datastore.core.DataMigration
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -35,6 +35,7 @@ internal object SettingsDataStore {
     private val SPEECH_SETTINGS = stringPreferencesKey("speech_settings_v1")
     private val IMAGE_GEN_SETTINGS = stringPreferencesKey("image_gen_settings_v1")
     private val WEB_TOOLS_SETTINGS = stringPreferencesKey("web_tools_settings_v1")
+    private val IMAGE_GEN_SETTINGS = stringPreferencesKey("image_gen_settings_v1")
     private val SUBAGENT_SETTINGS = stringPreferencesKey("subagent_settings_v1")
     private val CONVERSATION_TITLE_SETTINGS = stringPreferencesKey("conversation_title_settings_v1")
     private val ASSISTANT_OVERLAY_SETTINGS = stringPreferencesKey("assistant_overlay_settings_v1")
@@ -97,6 +98,26 @@ internal object SettingsDataStore {
     suspend fun setWebToolsSettings(settings: WebToolsSettings) {
         ensureInitialized()
         dataStore.edit { it[WEB_TOOLS_SETTINGS] = speechJson.encodeToString(settings) }
+    }
+
+    fun imageGenSettingsFlow(): Flow<ImageGenSettings> {
+        ensureInitialized()
+        return dataStore.data
+            .catch { cause ->
+                if (cause is IOException) emit(emptyPreferences()) else throw cause
+            }
+            .map { prefs ->
+                prefs[IMAGE_GEN_SETTINGS]?.let { raw ->
+                    runCatching { speechJson.decodeFromString<ImageGenSettings>(raw) }.getOrNull()
+                } ?: ImageGenSettings()
+            }
+    }
+
+    suspend fun imageGenSettings(): ImageGenSettings = imageGenSettingsFlow().first()
+
+    suspend fun setImageGenSettings(settings: ImageGenSettings) {
+        ensureInitialized()
+        dataStore.edit { it[IMAGE_GEN_SETTINGS] = speechJson.encodeToString(settings) }
     }
 
     fun subagentSettingsFlow(): Flow<SubagentSettings> {
@@ -173,24 +194,49 @@ internal object SettingsDataStore {
     private val APPEARANCE_ACCENT_COLOR = stringPreferencesKey("appearance_accent_color")
     private val APPEARANCE_PURE_BLACK_ENABLED = booleanPreferencesKey("appearance_pure_black_enabled")
     private val APPEARANCE_BLUR_ENABLED = booleanPreferencesKey("appearance_blur_enabled")
+    private val APPEARANCE_PROGRESSIVE_BLUR_ENABLED =
+        booleanPreferencesKey("appearance_progressive_blur_enabled")
     private val APPEARANCE_TOP_BAR_BLUR_STYLE = stringPreferencesKey("appearance_top_bar_blur_style")
     private val APPEARANCE_SWIPE_DISMISS_ENABLED =
         booleanPreferencesKey("appearance_swipe_dismiss_enabled")
     private val APPEARANCE_PREDICTIVE_BACK_ENABLED =
         booleanPreferencesKey("appearance_predictive_back_enabled")
-    private val APPEARANCE_INTERFACE_SCALE = floatPreferencesKey("appearance_interface_scale")
     private const val SELECTED_MODEL_BY_PROVIDER_PREFIX = "selected_model_id_by_provider."
 
-    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = STORE_NAME)
+    internal object DefaultUiStyleMigration : DataMigration<Preferences> {
+        private val revision = intPreferencesKey("appearance_ui_style_default_revision")
+
+        override suspend fun shouldMigrate(currentData: Preferences): Boolean =
+            (currentData[revision] ?: 0) < AppearanceUiStyle.DEFAULT_REVISION
+
+        override suspend fun migrate(currentData: Preferences): Preferences =
+            currentData.toMutablePreferences().apply {
+                // 只在切换默认样式时清除旧选择，后续启动尊重用户重新选择的样式。
+                remove(APPEARANCE_UI_STYLE)
+                this[revision] = AppearanceUiStyle.DEFAULT_REVISION
+            }
+
+        override suspend fun cleanUp() = Unit
+    }
+
+    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+        name = STORE_NAME,
+        produceMigrations = { listOf(DefaultUiStyleMigration) },
+    )
 
     @Volatile
     private lateinit var dataStore: DataStore<Preferences>
+
+    @Volatile
+    private var cachedSettings: Settings? = null
 
     fun init(context: Context) {
         if (!::dataStore.isInitialized) {
             dataStore = context.applicationContext.dataStore
         }
     }
+
+    fun cachedSettingsOrNull(): Settings? = cachedSettings
 
     fun settingsFlow(): Flow<Settings> {
         ensureInitialized()
@@ -202,7 +248,7 @@ internal object SettingsDataStore {
                     throw cause
                 }
             }
-            .map { preferences -> preferences.toSettings() }
+            .map { preferences -> preferences.toSettings().also { cachedSettings = it } }
     }
 
     suspend fun settings(): Settings = settingsFlow().first()
@@ -227,7 +273,7 @@ internal object SettingsDataStore {
             prefs.putOrRemove(SELECTED_PROVIDER_ID, updated.selectedProviderId)
             prefs.putOrRemove(SELECTED_MODEL_ID, updated.selectedModelId)
             prefs[MEMORY_ENABLED] = updated.memoryEnabled
-            prefs.putAppearance(updated.appearance.normalized())
+            prefs.putAppearance(updated.appearance)
         }
     }
 
@@ -323,12 +369,12 @@ internal object SettingsDataStore {
     }
 
     suspend fun setAppearanceSettings(settings: AppearanceSettings) {
-        updateSettings { it.copy(appearance = settings.normalized()) }
+        updateSettings { it.copy(appearance = settings) }
     }
 
     suspend fun updateAppearanceSettings(transform: (AppearanceSettings) -> AppearanceSettings) {
         updateSettings { settings ->
-            settings.copy(appearance = transform(settings.appearance).normalized())
+            settings.copy(appearance = transform(settings.appearance))
         }
     }
 
@@ -378,13 +424,13 @@ internal object SettingsDataStore {
             accentColor = AppearanceAccentColor.fromPersistedValue(this[APPEARANCE_ACCENT_COLOR]),
             pureBlackEnabled = this[APPEARANCE_PURE_BLACK_ENABLED] ?: false,
             blurEnabled = this[APPEARANCE_BLUR_ENABLED] ?: true,
+            progressiveBlurEnabled = this[APPEARANCE_PROGRESSIVE_BLUR_ENABLED] ?: true,
             topBarBlurStyle = AppearanceTopBarBlurStyle.fromPersistedValue(
                 this[APPEARANCE_TOP_BAR_BLUR_STYLE],
             ),
             swipeDismissEnabled = this[APPEARANCE_SWIPE_DISMISS_ENABLED] ?: true,
             predictiveBackEnabled = this[APPEARANCE_PREDICTIVE_BACK_ENABLED] ?: true,
-            interfaceScale = this[APPEARANCE_INTERFACE_SCALE] ?: 1f,
-        ).normalized(),
+        ),
     )
 
     private fun MutablePreferences.putAppearance(settings: AppearanceSettings) {
@@ -398,9 +444,9 @@ internal object SettingsDataStore {
         this[APPEARANCE_ACCENT_COLOR] = settings.accentColor.persistedValue
         this[APPEARANCE_PURE_BLACK_ENABLED] = settings.pureBlackEnabled
         this[APPEARANCE_BLUR_ENABLED] = settings.blurEnabled
+        this[APPEARANCE_PROGRESSIVE_BLUR_ENABLED] = settings.progressiveBlurEnabled
         this[APPEARANCE_TOP_BAR_BLUR_STYLE] = settings.topBarBlurStyle.persistedValue
         this[APPEARANCE_SWIPE_DISMISS_ENABLED] = settings.swipeDismissEnabled
         this[APPEARANCE_PREDICTIVE_BACK_ENABLED] = settings.predictiveBackEnabled
-        this[APPEARANCE_INTERFACE_SCALE] = settings.interfaceScale
     }
 }
