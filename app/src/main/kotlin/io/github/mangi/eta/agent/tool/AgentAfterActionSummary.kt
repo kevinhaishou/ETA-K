@@ -12,10 +12,6 @@ import org.json.JSONObject
  * 变化判定只比较节点的可见语义（文本、描述、类名、view_id、位置），不依赖时间戳或动画帧。
  */
 internal object AgentAfterActionSummary {
-    /** 增量里每侧最多列出的文本条数，控制每步的 token 增量。 */
-    private const val PROGRESS_TEXT_LIMIT = 5
-    private const val PROGRESS_TEXT_CHARS = 40
-
     fun build(before: ElementObservation?, observation: Observation): JSONObject {
         val metadata = JSONObject(observation.content)
         val after = observation.elementObservation
@@ -37,8 +33,7 @@ internal object AgentAfterActionSummary {
                 ScreenObservationMetadata.uiTreeNote(status, observation.image != null)
             }
         } else if (changed) {
-            "以上为动作后的新界面：先看 goal_progress 的 added_texts / removed_texts 判断是否朝目标推进，" +
-                "再决定下一步；可直接用该 observation_id 继续操作，需要更多节点或截图时再调用 observe_screen"
+            "以上为动作后的新界面，可直接用该 observation_id 继续操作；需要更多节点或截图时再调用 observe_screen"
         } else {
             "界面没有可见变化，动作可能未生效；请换目标或方式，不要原样重复"
         }
@@ -56,15 +51,6 @@ internal object AgentAfterActionSummary {
                 if (after != null) before != null && before.windowId != after.windowId else JSONObject.NULL,
             )
             .put("ui_tree_status", status)
-            // 目标级进度：只说"变了"不够，还要说"往目标推进了多少"，避免模型盲目继续。
-            .put(
-                "goal_progress",
-                if (changed == true && before != null && after != null) {
-                    goalProgress(before.nodes, after.nodes)
-                } else {
-                    JSONObject.NULL
-                },
-            )
             .put("ui_tree_truncated", after?.truncated ?: false)
             .put("ui_nodes", JSONArray().also { array -> nodes.forEach { array.put(it.compactJson()) } })
             .put("note", note)
@@ -72,39 +58,6 @@ internal object AgentAfterActionSummary {
                 metadata.optJSONObject("focus")?.let { put("focus", it) }
                 metadata.optString("code").takeIf(String::isNotBlank)?.let { put("code", it) }
             }
-    }
-
-    /**
-     * 动作前后的界面增量，供模型判断"朝目标推进了多少"，而不是只知道界面变了没变。
-     *
-     * 只比较有可读文本的节点（text/desc 非空）：容器、装饰节点的小位移是噪音。
-     * 输出保持精简（文本各最多 [PROGRESS_TEXT_LIMIT] 条、每条截断），避免每步都涨 token。
-     */
-    private fun goalProgress(beforeNodes: List<UiNode>, afterNodes: List<UiNode>): JSONObject {
-        fun identity(node: UiNode) = "${node.className}|${node.viewId}|${node.text}|${node.desc}"
-        fun readable(node: UiNode) = node.text.isNotBlank() || node.desc.isNotBlank()
-        fun label(node: UiNode) = node.text.ifBlank { node.desc }.trim().take(PROGRESS_TEXT_CHARS)
-
-        val beforeKeys = beforeNodes.mapTo(HashSet()) { identity(it) }
-        val afterKeys = afterNodes.mapTo(HashSet()) { identity(it) }
-        val added = afterNodes.filter { readable(it) && identity(it) !in beforeKeys }
-        val removed = beforeNodes.filter { readable(it) && identity(it) !in afterKeys }
-        val checkedBefore = beforeNodes.count { it.checked == true }
-        val checkedAfter = afterNodes.count { it.checked == true }
-
-        return JSONObject()
-            .put("node_delta", afterNodes.size - beforeNodes.size)
-            .put("added_count", added.size)
-            .put("removed_count", removed.size)
-            .put("checked_delta", checkedAfter - checkedBefore)
-            .put(
-                "added_texts",
-                JSONArray().also { array -> added.take(PROGRESS_TEXT_LIMIT).forEach { array.put(label(it)) } },
-            )
-            .put(
-                "removed_texts",
-                JSONArray().also { array -> removed.take(PROGRESS_TEXT_LIMIT).forEach { array.put(label(it)) } },
-            )
     }
 
     private fun signature(nodes: List<UiNode>): List<String> =

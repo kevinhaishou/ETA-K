@@ -10,36 +10,6 @@ import androidx.room.Upsert
 
 @Dao
 internal interface ConversationDao : ChunkedTextDao {
-    /** 生图参考图：取该会话最近一条带图片的用户消息。 */
-    @Query(
-        "SELECT * FROM conversation_messages WHERE conversation_id = :conversationId " +
-            "AND type = 'user' AND images_json != '[]' AND images_json != '' " +
-            "ORDER BY sort_index DESC LIMIT 1",
-    )
-    suspend fun latestUserMessageWithImagesRow(conversationId: String): ConversationMessageEntity?
-
-    @Transaction
-    suspend fun latestUserMessageWithImages(conversationId: String): ConversationMessageEntity? =
-        latestUserMessageWithImagesRow(conversationId)?.let { restoreMessage(it) }
-
-    /** 生图续画：取该会话最近一次成功的同名工具调用。 */
-    @Query(
-        "SELECT * FROM conversation_messages WHERE conversation_id = :conversationId " +
-            "AND type = 'tool' AND tool_name = :toolName AND tool_status = 'Success' " +
-            "ORDER BY sort_index DESC LIMIT 1",
-    )
-    suspend fun latestSuccessfulToolMessageRow(
-        conversationId: String,
-        toolName: String,
-    ): ConversationMessageEntity?
-
-    @Transaction
-    suspend fun latestSuccessfulToolMessage(
-        conversationId: String,
-        toolName: String,
-    ): ConversationMessageEntity? = latestSuccessfulToolMessageRow(conversationId, toolName)
-        ?.let { restoreMessage(it) }
-
     @Query(
         "SELECT c.id, c.title, c.reasoning_effort, c.created_at, c.updated_at, c.model_id, c.is_pinned, " +
             "(c.roleplay_json != '') AS has_roleplay, " +
@@ -203,6 +173,28 @@ internal interface ConversationDao : ChunkedTextDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM conversation_messages WHERE conversation_id = :conversationId AND id = :messageId AND type = 'assistant')")
     suspend fun hasAssistantMessage(conversationId: String, messageId: String): Boolean
+
+    @Query(
+        "SELECT * FROM conversation_messages WHERE conversation_id = :conversationId " +
+            "AND type = 'user' AND images_json != '[]' AND images_json != '' " +
+            "ORDER BY sort_index DESC LIMIT 1",
+    )
+    suspend fun latestUserMessageWithImagesRow(conversationId: String): ConversationMessageEntity?
+
+    @Transaction
+    suspend fun latestUserMessageWithImages(conversationId: String): ConversationMessageEntity? =
+        latestUserMessageWithImagesRow(conversationId)?.let { restoreMessage(it) }
+
+    @Query(
+        "SELECT * FROM conversation_messages WHERE conversation_id = :conversationId " +
+            "AND type = 'tool' AND tool_name = :toolName AND tool_status = 'Success' " +
+            "ORDER BY sort_index DESC LIMIT 1",
+    )
+    suspend fun latestSuccessfulToolMessageRow(conversationId: String, toolName: String): ConversationMessageEntity?
+
+    @Transaction
+    suspend fun latestSuccessfulToolMessage(conversationId: String, toolName: String): ConversationMessageEntity? =
+        latestSuccessfulToolMessageRow(conversationId, toolName)?.let { restoreMessage(it) }
 
     @Query("SELECT * FROM conversation_context_checkpoints WHERE conversation_id = :conversationId")
     suspend fun contextCheckpointRow(conversationId: String): ConversationContextCheckpointEntity?

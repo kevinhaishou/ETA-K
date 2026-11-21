@@ -191,8 +191,6 @@ internal class AgentRuntimeSession(
             )
         }
         controller.cancel()
-        // ETA-K 定制：取消运行时清空问答总线，避免残留问题卡在浮层。
-        io.github.mangi.eta.agent.tool.AgentQuestionBus.cancelAll()
         beforeTerminalPublish(result)
         lock.withLock {
             subscribers.forEach { it.resultSink(result) }

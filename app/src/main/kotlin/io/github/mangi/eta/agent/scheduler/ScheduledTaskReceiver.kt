@@ -45,7 +45,7 @@ internal class ScheduledTaskAlarmReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val ACTION_RUN_TASK_NOW = "io.github.mangi.eta.action.RUN_SCHEDULED_TASK_NOW"
+        const val ACTION_RUN_TASK_NOW = "io.github.kevinhaishou.etak.action.RUN_SCHEDULED_TASK_NOW"
         const val EXTRA_TASK_ID = "scheduled_task_id"
         private val receiverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }

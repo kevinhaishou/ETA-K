@@ -1704,7 +1704,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             instance.mainHandler.post { instance.handleEtaUiVisibilityChanged() }
         }
 
-        private const val ACTION_KEEP_ALIVE = "io.github.mangi.eta.agent.runtime.KEEP_ALIVE"
+        private const val ACTION_KEEP_ALIVE = "io.github.kevinhaishou.etak.agent.runtime.KEEP_ALIVE"
         private const val WAKE_LOCK_TAG = "Eta:AgentRun"
         private const val LEGACY_STOPPED_ERROR = "已停止"
         private const val SYNTHETIC_STOPPED_ERROR = "eta_status:stopped"

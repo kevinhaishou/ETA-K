@@ -48,7 +48,7 @@ internal object AgentRuntimeWire {
     )
 
     /** bind 获取服务端 Messenger 的 Intent action。 */
-    const val ACTION_BIND = "io.github.mangi.eta.agent.runtime.BIND"
+    const val ACTION_BIND = "io.github.kevinhaishou.etak.agent.runtime.BIND"
 
     // Messenger.what
     /** client -> service：开始一次 Agent 运行，[Message.replyTo] 携带 client Messenger。 */
@@ -100,7 +100,7 @@ internal object AgentRuntimeWire {
     const val MSG_STEER_RESPONSE = 19
 
     private const val MODULE_PACKAGE = "io.github.kevinhaishou.etak"
-    private const val SERVICE_CLASS = "io.github.mangi.eta.agent.runtime.AgentRuntimeService"
+    private const val SERVICE_CLASS = "io.github.kevinhaishou.etak.agent.runtime.AgentRuntimeService"
 
     private const val KEY_TYPE = "type"
     private const val KEY_RUN_ID = "run_id"

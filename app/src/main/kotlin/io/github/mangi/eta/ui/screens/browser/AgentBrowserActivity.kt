@@ -49,7 +49,7 @@ class AgentBrowserActivity : ComponentActivity() {
     }
 
     companion object {
-        private const val EXTRA_SESSION_KEY = "io.github.mangi.eta.extra.BROWSER_SESSION_KEY"
+        private const val EXTRA_SESSION_KEY = "io.github.kevinhaishou.etak.extra.BROWSER_SESSION_KEY"
 
         fun createIntent(context: Context, sessionKey: String): Intent {
             require(sessionKey.isNotBlank())

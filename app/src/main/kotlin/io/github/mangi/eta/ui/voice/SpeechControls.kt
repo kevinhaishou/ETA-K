@@ -125,7 +125,7 @@ import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-internal const val ACTION_SPEECH_SETTINGS = "io.github.mangi.eta.OPEN_SPEECH_SETTINGS"
+internal const val ACTION_SPEECH_SETTINGS = "io.github.kevinhaishou.etak.OPEN_SPEECH_SETTINGS"
 
 internal fun openSpeechSettings(context: Context) {
     context.startActivity(

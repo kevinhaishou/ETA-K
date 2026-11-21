@@ -957,11 +957,11 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         private const val TOUCH_GUARD_TIMEOUT_MS = 8_000L
         private const val ACTION_DISMISS_OVERLAY = "io.github.kevinhaishou.etak.action.DISMISS_OVERLAY"
 
-        const val ACTION_SHOW = "io.github.mangi.eta.agent.voice.SHOW"
-        const val ACTION_OPEN_CONVERSATION = "io.github.mangi.eta.agent.voice.OPEN_CONVERSATION"
-        const val EXTRA_CONVERSATION_KEY = "io.github.mangi.eta.agent.voice.extra.CONVERSATION_KEY"
+        const val ACTION_SHOW = "io.github.kevinhaishou.etak.agent.voice.SHOW"
+        const val ACTION_OPEN_CONVERSATION = "io.github.kevinhaishou.etak.agent.voice.OPEN_CONVERSATION"
+        const val EXTRA_CONVERSATION_KEY = "io.github.kevinhaishou.etak.agent.voice.extra.CONVERSATION_KEY"
         private const val EXTRA_SCREEN_CONTEXT_ID = "assistant_screen_context_id"
-        private const val ACTION_HANDOFF_READY = "io.github.mangi.eta.agent.voice.HANDOFF_READY"
+        private const val ACTION_HANDOFF_READY = "io.github.kevinhaishou.etak.agent.voice.HANDOFF_READY"
         private const val HANDOFF_TIMEOUT_MS = 5_000L
         private const val HANDOFF_EXIT_DURATION_MS = 220L
         private const val HANDOFF_REQUEST_CODE = 0x455441
@@ -1015,9 +1015,9 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             }
         }
 
-        const val ACTION_RUN_AUTOMATION = "io.github.mangi.eta.agent.voice.RUN_AUTOMATION"
-        const val EXTRA_AUTOMATION_PROMPT = "io.github.mangi.eta.agent.voice.extra.AUTOMATION_PROMPT"
-        const val EXTRA_AUTOMATION_SOURCE = "io.github.mangi.eta.agent.voice.extra.AUTOMATION_SOURCE"
+        const val ACTION_RUN_AUTOMATION = "io.github.kevinhaishou.etak.agent.voice.RUN_AUTOMATION"
+        const val EXTRA_AUTOMATION_PROMPT = "io.github.kevinhaishou.etak.agent.voice.extra.AUTOMATION_PROMPT"
+        const val EXTRA_AUTOMATION_SOURCE = "io.github.kevinhaishou.etak.agent.voice.extra.AUTOMATION_SOURCE"
 
         /**
          * 通知触发自动化：从后台启动浮层并提交 prompt。

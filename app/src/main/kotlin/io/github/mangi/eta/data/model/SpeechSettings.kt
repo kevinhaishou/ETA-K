@@ -6,14 +6,10 @@ private const val MIMO_SPEECH_BASE_URL = "https://api.xiaomimimo.com/v1"
 private const val DEEPSEEK_SPEECH_BASE_URL = "https://api.deepseek.com"
 
 @Serializable
-enum class AsrProvider { SYSTEM, OFFLINE, QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO, DEEPSEEK, LOCAL;
-
-    /** 本机识别：OFFLINE（ONNX）与 LOCAL（GGUF/Vosk）都算。 */
-    val isLocal: Boolean get() = this == OFFLINE || this == LOCAL
-}
+enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO, DEEPSEEK }
 
 @Serializable
-enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, DEEPSEEK, ANDROID, CLONE }
+enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO, DEEPSEEK }
 
 @Serializable
 enum class SpeechRegion { BEIJING, SINGAPORE }
@@ -123,16 +119,6 @@ data class SpeechSettings(
     val minimaxTts: MiniMaxTtsConfig = MiniMaxTtsConfig(),
     val oss: SpeechOssConfig = SpeechOssConfig(),
     /** 助手浮窗停顿多久后自动发送；0 表示只在用户点击完成或松手时发送。 */
-    /** 系统离线朗读：引擎包名，空串表示用系统默认引擎。 */
-    val systemTtsEngine: String = "",
-    /** 系统离线朗读的语言标记，如 zh-CN；空串表示用语音默认语言。 */
-    val systemTtsLanguage: String = "zh-CN",
-    val systemTtsRate: Float = 1.0f,
-    val systemTtsPitch: Float = 1.0f,
-    /** 只使用引擎声明为不联网的音色。 */
-    val systemTtsOfflineOnly: Boolean = true,
-    /** 离线识别选中的模型 id；空串表示还没选。 */
-    val offlineModelId: String = "",
     val autoSendSilenceMs: Int = DEFAULT_AUTO_SEND_SILENCE_MS,
     /** 识别结果交付前使用当前对话模型保守纠错。 */
     val refineTranscript: Boolean = false,

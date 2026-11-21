@@ -13,9 +13,9 @@ internal object AccessibilityProtectionProtocol {
     const val VERSION = 1
 
     const val ACTION_SET =
-        "io.github.mangi.eta.action.SET_ACCESSIBILITY_PROTECTION"
+        "io.github.kevinhaishou.etak.action.SET_ACCESSIBILITY_PROTECTION"
     const val ACTION_RECOVER =
-        "io.github.mangi.eta.action.RECOVER_ACCESSIBILITY_SERVICE"
+        "io.github.kevinhaishou.etak.action.RECOVER_ACCESSIBILITY_SERVICE"
     const val PERMISSION =
         "io.github.kevinhaishou.etak.permission.CONTROL_ACCESSIBILITY_PROTECTION"
     const val RECEIVER_PACKAGE = "android"

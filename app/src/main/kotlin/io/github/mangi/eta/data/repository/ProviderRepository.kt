@@ -1,6 +1,8 @@
 package io.github.mangi.eta.data.repository
 
 import android.content.Context
+import io.github.mangi.eta.R
+import io.github.mangi.eta.core.AppStrings
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.db.EtaDatabase
 import io.github.mangi.eta.data.db.ProviderWithModelsSeed
@@ -41,16 +43,22 @@ internal object ProviderRepository {
     @Volatile
     private lateinit var applicationContext: Context
 
+    @Volatile
+    private var cachedProviders: List<ProviderSetting> = emptyList()
+
     fun init(context: Context) {
         applicationContext = context.applicationContext
         ProviderCredentialRepository.init(context)
     }
+
+    fun cachedProviders(): List<ProviderSetting> = cachedProviders
 
     fun providersFlow(): Flow<List<ProviderSetting>> =
         dao().providersFlow().map { providers ->
             providers
                 .map { it.toDomain() }
                 .sortedBy(ProviderSetting::sortOrder)
+                .also { cachedProviders = it }
         }
 
     fun settingsFlow(): Flow<Settings> =
@@ -63,6 +71,7 @@ internal object ProviderRepository {
         dao().providers()
             .map { it.toDomain() }
             .sortedBy(ProviderSetting::sortOrder)
+            .also { cachedProviders = it }
 
     suspend fun providerById(id: String): ProviderSetting? =
         dao().providerById(id)?.toDomain()
@@ -79,72 +88,25 @@ internal object ProviderRepository {
         return added
     }
 
-    /** 供应商列表的自动排序规则。 */
-    internal enum class ProviderSortMode { NAME_ASC, NAME_DESC, CREATED_DESC }
-
-    /**
-     * 手动排序：按给定 id 顺序重写全部 sortOrder。
-     * 未出现在列表中的供应商保持原有相对次序，追加在末尾（防止过滤视图丢项）。
-     */
-    suspend fun reorderProviders(orderedIds: List<String>) {
-        mutationMutex.withLock {
-            val current = allProviders().associateBy { it.id }
-            val ordered = orderedIds.mapNotNull(current::get)
-            val rest = current.values
-                .filter { provider -> provider.id !in orderedIds.toSet() }
-                .sortedBy { it.sortOrder }
-            dao().upsertProviders((ordered + rest).mapIndexed { index, provider ->
-                provider.withSortOrder(index).toEntity()
-            })
-        }
-    }
-
-    /** 自动排序：按规则一次性重写全部 sortOrder，名称比较不区分大小写。 */
-    suspend fun autoSortProviders(mode: ProviderSortMode) {
-        mutationMutex.withLock {
-            val sorted = when (mode) {
-                ProviderSortMode.NAME_ASC ->
-                    allProviders().sortedWith(compareBy { it.name.lowercase() })
-                ProviderSortMode.NAME_DESC ->
-                    allProviders().sortedWith(compareByDescending { it.name.lowercase() })
-                ProviderSortMode.CREATED_DESC ->
-                    allProviders().sortedByDescending { it.createdAt }
-            }
-            dao().upsertProviders(sorted.mapIndexed { index, provider ->
-                provider.withSortOrder(index).toEntity()
-            })
-        }
-    }
-
-    /** 手动微调：把供应商与相邻项交换位置（delta = -1 上移，+1 下移）。 */
-    suspend fun moveProvider(id: String, delta: Int) {
-        mutationMutex.withLock {
-            val list = allProviders().sortedBy { it.sortOrder }
-            val from = list.indexOfFirst { it.id == id }
-            val to = from + delta
-            if (from < 0 || to !in list.indices) return
-            val swapped = list.toMutableList()
-            val item = swapped.removeAt(from)
-            swapped.add(to, item)
-            dao().upsertProviders(swapped.mapIndexed { index, provider ->
-                provider.withSortOrder(index).toEntity()
-            })
-        }
-    }
-
     suspend fun updateProvider(provider: ProviderSetting) {
         mutationMutex.withLock {
-            val previous = requireNotNull(providerById(provider.id)) { "Provider 不存在" }
+            val previous = requireNotNull(providerById(provider.id)) {
+                AppStrings.get(R.string.repo_err_provider_not_found, "Provider 不存在")
+            }
             if (previous.authMode != provider.authMode) {
                 forgetCredentials(provider.id)
             }
-            require(dao().updateProvider(provider.toEntity()) == 1) { "Provider 不存在" }
+            require(dao().updateProvider(provider.toEntity()) == 1) {
+                AppStrings.get(R.string.repo_err_provider_not_found, "Provider 不存在")
+            }
         }
         repairSelection()
     }
 
     internal suspend fun replaceModels(providerId: String, models: List<Model>) {
-        val provider = requireNotNull(providerById(providerId)) { "Provider 不存在" }
+        val provider = requireNotNull(providerById(providerId)) {
+            AppStrings.get(R.string.repo_err_provider_not_found, "Provider 不存在")
+        }
         dao().replaceModels(
             providerId = providerId,
             models = provider.withModels(models).toModelEntities(),
@@ -170,7 +132,11 @@ internal object ProviderRepository {
             val nextOrder = (allProviders().maxOfOrNull { it.sortOrder } ?: -1) + 1
             source.deepCopy(
                 id = newId(),
-                name = "${source.name} 副本",
+                name = AppStrings.get(
+                    R.string.repo_err_provider_copy_name,
+                    "%1\$s 副本",
+                    source.name,
+                ),
                 sortOrder = nextOrder,
                 builtIn = false,
             ).also { replaceProvider(it) }

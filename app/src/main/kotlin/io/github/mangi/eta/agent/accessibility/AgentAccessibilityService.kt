@@ -166,14 +166,7 @@ class AgentAccessibilityService : AccessibilityService() {
         val connectionToken = serviceToken
         val startedAt = SystemClock.elapsedRealtime()
         val deadline = startedAt + timeoutMillis.coerceIn(1L, 3_000L)
-        // 默认屏观察是即时的，短窗口即可；虚拟屏里 app 冷启动到窗口上报通常要 1–2 秒，
-        // 850ms 会在窗口出现前就放弃（表现为 no_window，且虚拟屏不允许回退 uiautomator）。
-        val retryBudgetMs = if (displayId == android.view.Display.DEFAULT_DISPLAY) {
-            850L
-        } else {
-            VIRTUAL_DISPLAY_RETRY_BUDGET_MS
-        }
-        val retryDeadline = minOf(deadline, startedAt + retryBudgetMs)
+        val retryDeadline = minOf(deadline, startedAt + 850L)
         while (true) {
             val result = queryExecutor.query(
                 (deadline - SystemClock.elapsedRealtime()).coerceAtLeast(1L),
@@ -297,9 +290,6 @@ class AgentAccessibilityService : AccessibilityService() {
         windowManager.defaultDisplay.getRealSize(point)
         if (point.x > 0 && point.y > 0) point.x to point.y else null
     }.getOrNull()
-
-    /** 虚拟屏等待窗口出现的时间预算；总查询上限仍是 timeoutMillis（≤3s）。 */
-    private val VIRTUAL_DISPLAY_RETRY_BUDGET_MS = 2_500L
 
     private fun selectedWindowOnDisplay(displayId: Int): AccessibilityWindowInfo? =
         windowsOnAllDisplays.get(displayId).orEmpty()

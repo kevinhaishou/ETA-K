@@ -717,7 +717,7 @@ internal object VirtualDisplayController {
         if (rootAvailable()) {
             val apkPath = context.applicationInfo.sourceDir
             val cmd = "CLASSPATH=${DeviceToolContract.quote(apkPath)} app_process /system/bin " +
-                "io.github.mangi.eta.agent.virtualdisplay.VirtualDisplayCommandMain"
+                "io.github.kevinhaishou.etak.agent.virtualdisplay.VirtualDisplayCommandMain"
             val req = JSONObject()
                 .put("action", "move_to_main")
                 .put("display_id", displayId)

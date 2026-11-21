@@ -3,8 +3,8 @@ package io.github.mangi.eta.data.repository
 import android.content.SharedPreferences
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.config.Prefs
-import io.github.mangi.eta.customization.CustomizationStore
 import io.github.mangi.eta.data.datastore.SettingsDataStore
+import io.github.mangi.eta.data.model.GeminiEndpointMode
 import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.AssistantOverlaySettings
@@ -38,6 +38,10 @@ internal object RuntimeConfigRepository {
     fun selectedProviderIdFlow() = SettingsDataStore.selectedProviderIdFlow()
 
     fun selectedModelIdFlow() = SettingsDataStore.selectedModelIdFlow()
+
+    fun cachedSelectedProviderId(): String? = SettingsDataStore.cachedSettingsOrNull()?.selectedProviderId
+
+    fun cachedSelectedModelId(): String? = SettingsDataStore.cachedSettingsOrNull()?.selectedModelId
 
     fun subagentSettingsFlow() = SettingsDataStore.subagentSettingsFlow()
 
@@ -288,11 +292,7 @@ internal object RuntimeConfigRepository {
         json.encodeToString(if (config.authMode == ProviderAuthModes.API_KEY) config else config.copy(apiKey = ""))
 
     fun buildRuntimeConfig(provider: ProviderSetting, model: Model): AgentModelClient.ModelConfig {
-        // ETA-K 定制：全局自定义系统提示词叠加在服务商提示词之后，越靠后越贴近当前请求
-        val customPrompt = CustomizationStore.systemPrompt().trim()
-        val systemPrompt = listOf(provider.systemPrompt.orEmpty().trim(), customPrompt)
-            .filter { it.isNotBlank() }
-            .joinToString("\n\n")
+        val systemPrompt = provider.systemPrompt.orEmpty().trim()
         val sourceType = ProviderSourceRegistry.resolve(provider)
         val profile = ProviderConnectionProfile.forAuthMode(provider.authMode)
         val endpointMode = profile?.endpointMode ?: provider.endpointMode()
@@ -314,6 +314,13 @@ internal object RuntimeConfigRepository {
             anthropicVersion = (provider as? AnthropicProviderSetting)?.anthropicVersion
                 ?: AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,
             openAiEndpointMode = endpointMode,
+            geminiEndpointMode = (provider as? GeminiProviderSetting)?.endpointMode
+                ?.let(GeminiEndpointMode::normalize)
+                ?: GeminiEndpointMode.AI_STUDIO,
+            vertexProject = (provider as? GeminiProviderSetting)?.vertexProject?.trim().orEmpty(),
+            vertexLocation = (provider as? GeminiProviderSetting)?.vertexLocation?.trim()
+                ?.ifBlank { GeminiProviderSetting.DEFAULT_VERTEX_LOCATION }
+                ?: GeminiProviderSetting.DEFAULT_VERTEX_LOCATION,
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
             thinkingEnabled = reasoningCapabilities != null,
             reasoningEffort = reasoningCapabilities?.let { ReasoningEffort.DEFAULT }
@@ -326,6 +333,7 @@ internal object RuntimeConfigRepository {
 
     fun reasoningCapabilities(provider: ProviderSetting, model: Model): ModelReasoningCapabilities? {
         if (provider is GeminiProviderSetting) {
+            if (provider.isVertexAi) return GeminiModelCapabilities.resolveVertexReasoning(model)
             return GeminiModelCapabilities.resolveReasoning(model)
         }
         val sourceType = ProviderSourceRegistry.resolve(provider)

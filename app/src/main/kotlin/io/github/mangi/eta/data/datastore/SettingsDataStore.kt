@@ -33,7 +33,6 @@ import kotlinx.coroutines.flow.map
 
 internal object SettingsDataStore {
     private val SPEECH_SETTINGS = stringPreferencesKey("speech_settings_v1")
-    private val IMAGE_GEN_SETTINGS = stringPreferencesKey("image_gen_settings_v1")
     private val WEB_TOOLS_SETTINGS = stringPreferencesKey("web_tools_settings_v1")
     private val IMAGE_GEN_SETTINGS = stringPreferencesKey("image_gen_settings_v1")
     private val SUBAGENT_SETTINGS = stringPreferencesKey("subagent_settings_v1")
@@ -58,26 +57,6 @@ internal object SettingsDataStore {
     suspend fun setSpeechSettings(settings: SpeechSettings) {
         ensureInitialized()
         dataStore.edit { it[SPEECH_SETTINGS] = speechJson.encodeToString(settings) }
-    }
-
-    fun imageGenSettingsFlow(): Flow<ImageGenSettings> {
-        ensureInitialized()
-        return dataStore.data
-            .catch { cause ->
-                if (cause is IOException) emit(emptyPreferences()) else throw cause
-            }
-            .map { prefs ->
-                prefs[IMAGE_GEN_SETTINGS]?.let { raw ->
-                    runCatching { speechJson.decodeFromString<ImageGenSettings>(raw) }.getOrNull()
-                } ?: ImageGenSettings()
-            }
-    }
-
-    suspend fun imageGenSettings(): ImageGenSettings = imageGenSettingsFlow().first()
-
-    suspend fun setImageGenSettings(settings: ImageGenSettings) {
-        ensureInitialized()
-        dataStore.edit { it[IMAGE_GEN_SETTINGS] = speechJson.encodeToString(settings) }
     }
 
     fun webToolsSettingsFlow(): Flow<WebToolsSettings> {

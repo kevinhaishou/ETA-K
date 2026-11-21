@@ -171,7 +171,7 @@ internal class AgentExecutionService : Service() {
     companion object {
         private const val CHANNEL = "eta_execution"
         private const val NOTIFICATION_ID = 1107
-        private const val ACTION_STOP = "io.github.mangi.eta.action.STOP_USER_EXECUTION"
+        private const val ACTION_STOP = "io.github.kevinhaishou.etak.action.STOP_USER_EXECUTION"
         private const val BRAND_COLOR = 0xFF4285F4.toInt()
         private val leases = ExecutionLeaseRegistry()
         private val ownerSequence = AtomicLong()
