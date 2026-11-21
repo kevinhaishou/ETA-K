@@ -592,6 +592,7 @@ fun AgentAppRoot(
                                 AgentToolsAction.NavigateBack -> popRoute()
                                 AgentToolsAction.OpenBrowser -> openConversationBrowser()
                                 AgentToolsAction.OpenWebToolsSettings -> pushRoute(AppRoute.WebToolsSettings)
+                                AgentToolsAction.OpenImageGenSettings -> pushRoute(AppRoute.ImageGenSettings)
                                 AgentToolsAction.OpenEnhancements -> pushRoute(AppRoute.SystemEnhance)
                                 AgentToolsAction.OpenPermissions -> pushRoute(AppRoute.Permissions)
                             }
