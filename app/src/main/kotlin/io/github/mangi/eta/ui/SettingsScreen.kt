@@ -312,7 +312,16 @@ private fun SettingsPageContent(
 
     // prefs 绑定到 XposedService：service 到达时切换到 RemotePreferences（跨进程提交到
     // LSPosed 数据库）；未就绪时保持 null，UI 禁止修改。
-    var prefs by remember { mutableStateOf(Prefs.remotePreferencesForUi(EtaApp.serviceInstance)) }
+    // 首帧只读进程内缓存：LSPosed 的 getRemotePreferences 是同步 Binder，
+    // 放在组合期会让设置页首次打开多等一次跨进程往返。
+    var prefs by remember { mutableStateOf(Prefs.cachedRemotePreferencesForUi(EtaApp.serviceInstance)) }
+    LaunchedEffect(EtaApp.serviceInstance) {
+        if (prefs == null) {
+            prefs = withContext(Dispatchers.IO) {
+                Prefs.remotePreferencesForUi(EtaApp.serviceInstance)
+            }
+        }
+    }
     val agentPrefs = remember { Prefs.localAgentPreferences() }
     val pickerState = remember(providers, selectedProviderId, selectedModelId) {
         AgentModelPickerProjector.project(providers, selectedProviderId, selectedModelId)
