@@ -214,6 +214,7 @@ internal fun AgentMemoryScreen(
                     // 必须作为 Column 的兄弟节点排在它下面。
                     MemoryRecallTester()
                     MemoryDocumentCard(
+                        state = state,
                         mode = currentMode,
                         onModeChange = { mode = it },
                         onDraftChange = { onAction(AgentMemoryAction.DraftChanged(it)) },
