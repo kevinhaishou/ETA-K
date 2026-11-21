@@ -12,8 +12,10 @@ import android.Manifest
 import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.PixelFormat
 import android.net.Uri
@@ -131,6 +133,10 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var backInvokedCallback: OnBackInvokedCallback? = null
     private var runJob: Job? = null
     private var dismissalJob: Job? = null
+    // 浮层是全屏 TYPE_APPLICATION_OVERLAY：内容未就绪前必须保持不可触摸，
+    // 否则整块屏幕的点击都会被这个空窗口吃掉（表现为"屏幕点不动"）。
+    private var touchGuardJob: Job? = null
+    private var overlayDismissReceiver: BroadcastReceiver? = null
     private var activeRunId: String? = null
     private var entryGeneration = 0L
     private var presentedEntryGeneration = -1L
@@ -152,6 +158,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     override fun onCreate() {
         super.onCreate()
         activeService = this
+        registerDismissReceiver()
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
@@ -208,6 +215,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         EtaAssistantScreenContexts.release(entryScreenContext?.id)
         entryScreenContext = null
         cancelCurrentRun()
+        unregisterDismissReceiver()
         removeWindow()
         scope.cancel()
         cancellationExecutor.shutdown()
@@ -351,12 +359,15 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                         onEntranceFinished = {
                             if (generation == entryGeneration) {
                                 entryEntranceComplete = true
+                                // 入场动画完成即视为可见可点，先解除触摸屏蔽再等首帧内容。
+                                setWindowTouchable(true)
                                 presentEntryInput()
                             }
                         },
                         onContentReady = {
                             if (generation == entryGeneration) {
                                 entryContentReady = true
+                                setWindowTouchable(true)
                                 presentEntryInput()
                             }
                         },
@@ -404,6 +415,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
@@ -429,7 +441,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         windowView = view
         windowParams = params
         registerSystemBackCallback(view)
-        view.requestFocus()
+        startTouchGuard()
     }
 
     private fun createComposeView(content: @Composable () -> Unit): ComposeView =
@@ -722,7 +734,73 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         removeWindow(onComplete)
     }
 
+    /**
+     * 内容就绪前窗口保持 FLAG_NOT_TOUCHABLE。
+     * 浮窗是全屏 TYPE_APPLICATION_OVERLAY，内容没出来时它照样吞掉整屏触摸，
+     * 直接表现就是"屏幕点不动，只能重启"。
+     */
+    private fun setWindowTouchable(touchable: Boolean) {
+        val view = windowView ?: return
+        val wm = windowManager ?: return
+        val params = windowParams ?: return
+        val target = if (touchable) {
+            params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        } else {
+            params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        }
+        if (target != params.flags) {
+            params.flags = target
+            runCatching { wm.updateViewLayout(view, params) }.onFailure { throwable ->
+                AndroidAgentLogger.warnThrottled("eta_assistant_overlay_touchable_failed") {
+                    "Eta assistant overlay updateViewLayout failed: type=${throwable.javaClass.simpleName}"
+                }
+            }
+        }
+        if (touchable) {
+            runCatching { view.requestFocus() }
+        }
+    }
+
+    /** 窗口挂上但内容迟迟不就绪时强制收窗，避免全屏空窗口把整屏触摸锁死。 */
+    private fun startTouchGuard() {
+        touchGuardJob?.cancel()
+        touchGuardJob = scope.launch {
+            delay(TOUCH_GUARD_TIMEOUT_MS)
+            if (entryContentReady || entryEntranceComplete) return@launch
+            if (windowView == null) return@launch
+            AndroidAgentLogger.warn("Eta assistant overlay stuck without content, dismissing")
+            withContext(Dispatchers.Main.immediate) { dismissAndStop() }
+        }
+    }
+
+    /** 远程解围：root 用 am broadcast 强制收掉浮层，不必重启手机。 */
+    private fun registerDismissReceiver() {
+        if (overlayDismissReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                AndroidAgentLogger.warn("Eta assistant overlay dismissed by broadcast")
+                dismissAndStop()
+            }
+        }
+        runCatching {
+            registerReceiver(receiver, IntentFilter(ACTION_DISMISS_OVERLAY), Context.RECEIVER_EXPORTED)
+            overlayDismissReceiver = receiver
+        }.onFailure { throwable ->
+            AndroidAgentLogger.warnThrottled("eta_assistant_overlay_receiver_failed") {
+                "Eta assistant overlay dismiss receiver failed: type=${throwable.javaClass.simpleName}"
+            }
+        }
+    }
+
+    private fun unregisterDismissReceiver() {
+        val receiver = overlayDismissReceiver ?: return
+        overlayDismissReceiver = null
+        runCatching { unregisterReceiver(receiver) }
+    }
+
     private fun removeWindow(onComplete: ((Boolean) -> Unit)? = null) {
+        touchGuardJob?.cancel()
+        touchGuardJob = null
         entryInputPending = false
         playback.stop()
         speechInput.cancel()
@@ -876,6 +954,9 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     }
 
     internal companion object {
+        private const val TOUCH_GUARD_TIMEOUT_MS = 8_000L
+        private const val ACTION_DISMISS_OVERLAY = "io.github.kevinhaishou.etak.action.DISMISS_OVERLAY"
+
         const val ACTION_SHOW = "io.github.mangi.eta.agent.voice.SHOW"
         const val ACTION_OPEN_CONVERSATION = "io.github.mangi.eta.agent.voice.OPEN_CONVERSATION"
         const val EXTRA_CONVERSATION_KEY = "io.github.mangi.eta.agent.voice.extra.CONVERSATION_KEY"
