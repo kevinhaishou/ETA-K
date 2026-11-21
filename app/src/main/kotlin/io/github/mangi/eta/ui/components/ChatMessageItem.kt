@@ -44,8 +44,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -54,7 +54,6 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Lightbulb
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -96,21 +95,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.itos.coui.dialog.CouiDialogDefaults
-import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.menu.CouiMenuItem
-import com.itos.coui.menu.Menu
-import com.itos.coui.menu.couiMenuAnchor
-import com.itos.coui.menu.rememberCouiMenuAnchor
-import com.itos.coui.shape.CouiCapsuleShape
-import com.itos.coui.shape.CouiShape
-import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.imagegen.ImageGenToolCatalog
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.agent.overlay.toolDisplayName
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.coui.CouiMenu
+import io.github.mangi.eta.ui.components.coui.CouiMenuItem
+import io.github.mangi.eta.ui.components.coui.CouiPageDefaults
+import io.github.mangi.eta.ui.components.coui.couiButtonFeedback
+import io.github.mangi.eta.ui.components.coui.couiMenuAnchor
+import io.github.mangi.eta.ui.components.coui.rememberCouiMenuAnchor
 import io.github.mangi.eta.ui.markdown.EditorialLineHeightStyle
 import io.github.mangi.eta.ui.markdown.MarkdownTone
 import io.github.mangi.eta.ui.markdown.StaticMarkdown
@@ -128,7 +124,12 @@ import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.voice.SpeechReadAloudButton
+import io.github.suqi8.coui.kmp.squircle.SquircleShape as CouiShape
+import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import java.io.File
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.RichTooltip
@@ -147,9 +148,40 @@ private val chatImageBitmapCache = object : LruCache<String, ImageBitmap>(48 * 1
 }
 
 @Composable
-internal fun rememberDataUrlBitmap(dataUrl: String): ImageBitmap? = remember(dataUrl) {
-    chatImageBitmapCache.get(dataUrl)
-        ?: decodeDataUrlBitmap(dataUrl)?.also { chatImageBitmapCache.put(dataUrl, it) }
+internal fun rememberDataUrlBitmap(dataUrl: String): ImageBitmap? =
+    rememberChatImageBitmap(source = dataUrl, maxDimensionPx = 1600)
+
+/**
+ * 统一聊天图片解码器：
+ * - `data:image/...;base64,...` 同步命中/写入 LRU 缓存，保持现有用户预览图零首帧闪烁；
+ * - 本地原图文件（含 AI 生图 1K~4K 高清图）在 IO 线程按 [maxDimensionPx] 采样解码，避免主线程卡顿与 OOM。
+ */
+@Composable
+internal fun rememberChatImageBitmap(
+    source: String,
+    maxDimensionPx: Int = 1600,
+): ImageBitmap? {
+    val cacheKey = remember(source, maxDimensionPx) { "$maxDimensionPx|$source" }
+    val cached = remember(cacheKey) {
+        chatImageBitmapCache.get(cacheKey)
+            ?: if (source.startsWith("data:", ignoreCase = true)) {
+                decodeDataUrlBitmap(source)?.also { chatImageBitmapCache.put(cacheKey, it) }
+            } else {
+                null
+            }
+    }
+    var asyncBitmap by remember(cacheKey) { mutableStateOf(cached) }
+    LaunchedEffect(cacheKey) {
+        if (asyncBitmap != null || source.isBlank() || source.startsWith("data:", ignoreCase = true)) return@LaunchedEffect
+        val decoded = withContext(Dispatchers.IO) {
+            decodeLocalFileBitmap(source, maxDimensionPx)
+        }
+        if (decoded != null) {
+            chatImageBitmapCache.put(cacheKey, decoded)
+            asyncBitmap = decoded
+        }
+    }
+    return asyncBitmap
 }
 
 internal fun decodeDataUrlBitmap(dataUrl: String): ImageBitmap? {
@@ -158,6 +190,27 @@ internal fun decodeDataUrlBitmap(dataUrl: String): ImageBitmap? {
     return runCatching {
         val bytes = Base64.decode(base64, Base64.NO_WRAP)
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+    }.getOrNull()
+}
+
+private fun decodeLocalFileBitmap(source: String, maxDimensionPx: Int): ImageBitmap? {
+    val file = File(source.removePrefix("file://").trim())
+    if (!file.isFile) return null
+    return runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        val w = bounds.outWidth
+        val h = bounds.outHeight
+        if (w <= 0 || h <= 0) return null
+        var sample = 1
+        val limit = maxDimensionPx.coerceAtLeast(256)
+        while ((w / sample) > limit || (h / sample) > limit) {
+            sample *= 2
+        }
+        BitmapFactory.decodeFile(
+            file.absolutePath,
+            BitmapFactory.Options().apply { inSampleSize = sample },
+        )?.asImageBitmap()
     }.getOrNull()
 }
 
@@ -236,10 +289,8 @@ internal fun ChatMessageItem(
     onDeleteMessage: (String) -> Unit = {},
     onRegenerateMessage: (String) -> Unit = {},
     onBranchMessage: (String) -> Unit = {},
-    onQuoteMessage: (String, String?) -> Unit = { _, _ -> },
-    onSaveMemoryMessage: (String) -> Unit = {},
-    onSaveSkillMessage: (String) -> Unit = {},
     onSelectReplyCandidate: (String, Int) -> Unit = { _, _ -> },
+    onEditGeneratedImage: ((String) -> Unit)? = null,
 ) {
     when (message) {
         is UserMessageUi -> UserMessageBubble(
@@ -260,9 +311,6 @@ internal fun ChatMessageItem(
             showMessageActions = showMessageActions,
             showBranchAction = showBranchAction,
             onBranch = { onBranchMessage(message.id) },
-            onQuote = { selected -> onQuoteMessage(message.id, selected) },
-            onSaveMemory = { onSaveMemoryMessage(message.id) },
-            onSaveSkill = { onSaveSkillMessage(message.id) },
             messageActionsEnabled = messageActionsEnabled,
             onDelete = { onDeleteMessage(message.id) },
             onRegenerate = { onRegenerateMessage(message.id) },
@@ -313,13 +361,22 @@ internal fun ChatMessageItem(
             compact = compact,
         )
         is RunTraceMessageUi -> RunTraceRow(message = message, onClick = onRunTraceClick, modifier = modifier)
-        is ToolActivityMessageUi -> ToolActivityInline(
-            message = message,
-            onOpenBrowser = onOpenBrowser,
-            showBrowserShortcut = showBrowserShortcut,
-            modifier = modifier,
-            compact = compact,
-        )
+        is ToolActivityMessageUi -> if (message.toolName == ImageGenToolCatalog.TOOL_NAME) {
+            GeneratedImageMessageCard(
+                message = message,
+                assistantOverlay = assistantOverlay,
+                onEditImage = onEditGeneratedImage,
+                modifier = modifier,
+            )
+        } else {
+            ToolActivityInline(
+                message = message,
+                onOpenBrowser = onOpenBrowser,
+                showBrowserShortcut = showBrowserShortcut,
+                modifier = modifier,
+                compact = compact,
+            )
+        }
         is ToolSummaryMessageUi -> ToolSummaryInline(message = message, modifier = modifier, compact = compact)
         is SuggestionChipsMessageUi -> SuggestionChipsRow(message = message, onSuggestionClick = onSuggestionClick, modifier = modifier)
     }
@@ -357,10 +414,6 @@ private fun UserMessageBubble(
     }
     val visiblePrompt = remember(message.content) {
         AgentFileReferencePromptCodec.parse(message.content)
-    }
-    // 气泡上限跟随屏宽（约 75%）：固定 316dp 在宽屏/折叠屏上会过早折行
-    val maxBubbleWidth = with(androidx.compose.ui.platform.LocalConfiguration.current) {
-        (screenWidthDp * 0.75f).dp
     }
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     val uiStyle = LocalUiStyle.current
@@ -418,29 +471,28 @@ private fun UserMessageBubble(
         if (uiStyle == AppearanceUiStyle.COUI && !assistantOverlay) {
             val couiDark = CouiTheme.isDark
             val couiBubbleBg = if (couiDark) Color(0xFF202634) else Color(0xFFEEF2FA)
-            val couiColors = CouiPageDefaults.themeColors(couiDark)
-            val destructiveColor = CouiDialogDefaults.themeColors(couiDark).destructive
+            val couiColors = CouiPageDefaults.themeColors()
+            val destructiveColor = CouiTheme.colorScheme.error
             val copyText = stringResource(R.string.ui_copy_4edd1d)
             val editText = stringResource(R.string.ui_edit_a7f814)
             val deleteText = stringResource(R.string.ui_delete_3755f5)
-            val menuActions = remember(canCopy, copyText, editText, deleteText) {
+            val menuItems = remember(canCopy, copyText, editText, deleteText, destructiveColor) {
                 buildList {
                     if (canCopy) {
-                        add(MessageActionItem(0, copyText, Icons.Rounded.ContentCopy))
+                        add(CouiMenuItem(value = 0, text = copyText, icon = Icons.Rounded.ContentCopy))
                     }
-                    add(MessageActionItem(1, editText, Icons.Rounded.Edit))
+                    add(CouiMenuItem(value = 1, text = editText, icon = Icons.Rounded.Edit))
                     add(
-                        MessageActionItem(
-                            key = 2,
-                            label = deleteText,
+                        CouiMenuItem(
+                            value = 2,
+                            text = deleteText,
                             icon = Icons.Rounded.Delete,
-                            destructive = true,
+                            iconTint = destructiveColor,
                             dividerBefore = true,
                         ),
                     )
                 }
             }
-            val menuItems = messageActionMenuItems(menuActions, destructiveColor)
             val openCouiMenu: (() -> Unit)? = if (actionsEnabled) {
                 {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -471,7 +523,7 @@ private fun UserMessageBubble(
                     if (hasTextBubble) {
                         Column(
                             modifier = Modifier
-                                .widthIn(max = maxBubbleWidth)
+                                .widthIn(max = 316.dp)
                                 .clip(UserBubbleShape)
                                 .background(couiBubbleBg, UserBubbleShape)
                                 .then(
@@ -499,7 +551,7 @@ private fun UserMessageBubble(
                         )
                     }
                 }
-                Menu(
+                CouiMenu(
                     expanded = showCouiMenu && actionsEnabled,
                     onDismissRequest = { showCouiMenu = false },
                     items = menuItems,
@@ -586,7 +638,7 @@ private fun UserMessageBubble(
                         }
                         Column(
                             modifier = Modifier
-                                .widthIn(max = maxBubbleWidth)
+                                .widthIn(max = 316.dp)
                                 .clip(bubbleShape)
                                 .background(
                                     color = if (assistantOverlay) {
@@ -963,9 +1015,6 @@ private fun AgentMessageBlock(
     onRegenerate: () -> Unit,
     onEdit: () -> Unit = {},
     onSelectCandidate: (Int) -> Unit = {},
-    onQuote: (String?) -> Unit = {},
-    onSaveMemory: () -> Unit = {},
-    onSaveSkill: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
@@ -1001,67 +1050,6 @@ private fun AgentMessageBlock(
         }
     }
 
-    var showAnswerMenu by remember(message.id) { mutableStateOf(false) }
-    val answerAnchor = rememberCouiMenuAnchor()
-    val answerMenuItems = messageActionMenuItems(
-        actions = buildList {
-            if (message.content.isNotBlank()) {
-                add(MessageActionItem(10, stringResource(R.string.copy_answer), ChatActionIcons.Copy))
-            }
-            if (showMessageActions && message.characterEditable) {
-                add(
-                    MessageActionItem(
-                        11,
-                        stringResource(R.string.chat_edit_character_reply),
-                        ChatActionIcons.Edit,
-                    ),
-                )
-            }
-            if (showMessageActions) {
-                add(
-                    MessageActionItem(
-                        12,
-                        stringResource(R.string.ui_regenerate_reply_84a7d9),
-                        ChatActionIcons.Refresh,
-                    ),
-                )
-            }
-            if (showBranchAction) {
-                add(
-                    MessageActionItem(
-                        13,
-                        stringResource(R.string.conversation_branch),
-                        ChatActionIcons.Branch,
-                    ),
-                )
-            }
-            if (message.content.isNotBlank()) {
-                add(MessageActionItem(15, "引用追问", ChatActionIcons.Copy))
-            }
-            if (!showBranchAction && message.content.isNotBlank()) {
-                // 不满足分支条件时，明确给出「只引用片段」的继续方式，不冒充继承历史
-                add(MessageActionItem(18, "引用片段继续（不继承历史）", ChatActionIcons.Branch))
-            }
-            if (message.content.isNotBlank()) {
-                add(MessageActionItem(16, "保存记忆", ChatActionIcons.Check))
-            }
-            if (message.content.isNotBlank()) {
-                add(MessageActionItem(17, "保存技能", ChatActionIcons.Branch))
-            }
-            if (showMessageActions) {
-                add(
-                    MessageActionItem(
-                        key = 14,
-                        label = stringResource(R.string.ui_delete_this_conversation_3f351b),
-                        icon = ChatActionIcons.Trash,
-                        destructive = true,
-                        dividerBefore = true,
-                    ),
-                )
-            }
-        },
-        destructiveColor = CouiDialogDefaults.themeColors(CouiTheme.isDark).destructive,
-    )
     val character = LocalRoleplayChat.current.takeUnless { assistantOverlay }
     val isGreeting = character != null && message.id.startsWith(GreetingMessagePrefix)
     Column(
@@ -1094,7 +1082,6 @@ private fun AgentMessageBlock(
                 )
             }
             message.renderMarkdown -> {
-                MessageSelectionToolbar(messageText = message.content, onQuote = onQuote, messageId = message.id) {
                 SelectionContainer {
                     StaticMarkdown(
                         content = message.content,
@@ -1103,10 +1090,8 @@ private fun AgentMessageBlock(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                }
             }
             message.content.isNotBlank() -> {
-                MessageSelectionToolbar(messageText = message.content, onQuote = onQuote, messageId = message.id) {
                 SelectionContainer {
                     Text(
                         text = message.content,
@@ -1116,7 +1101,6 @@ private fun AgentMessageBlock(
                         ),
                         color = MiuixTheme.colorScheme.onSurface,
                     )
-                }
                 }
             }
         }
@@ -1159,12 +1143,17 @@ private fun AgentMessageBlock(
                 if (allowSpeech) SpeechReadAloudButton(message.id, message.content)
                 if (showMessageActions) {
                     if (message.characterEditable) {
-                        AnswerActionButton(
-                            icon = ChatActionIcons.Edit,
-                            contentDescription = stringResource(R.string.chat_edit_character_reply),
-                            onClick = onEdit,
+                        TooltipBox(
+                            text = stringResource(R.string.chat_edit_character_reply),
                             enabled = messageActionsEnabled,
-                        )
+                        ) {
+                            AnswerActionButton(
+                                icon = ChatActionIcons.Edit,
+                                contentDescription = stringResource(R.string.chat_edit_character_reply),
+                                onClick = onEdit,
+                                enabled = messageActionsEnabled,
+                            )
+                        }
                     }
                     TooltipBox(text = stringResource(R.string.ui_regenerate_2e1905), enabled = messageActionsEnabled) {
                         AnswerActionButton(
@@ -1207,86 +1196,8 @@ private fun AgentMessageBlock(
                             onSelect = onSelectCandidate,
                         )
                     }
-                    Box(modifier = Modifier.couiMenuAnchor(answerAnchor)) {
-                AnswerActionButton(
-                    icon = Icons.Rounded.MoreHoriz,
-                    contentDescription = "更多",
-                    onClick = { showAnswerMenu = true },
-                    enabled = messageActionsEnabled,
-                )
-                Menu(
-                    expanded = showAnswerMenu && messageActionsEnabled,
-                    onDismissRequest = { showAnswerMenu = false },
-                    items = answerMenuItems,
-                    onItemClick = { item ->
-                        showAnswerMenu = false
-                        when (item.value) {
-                            10 -> {
-                                @Suppress("DEPRECATION")
-                                clipboardManager.setText(AnnotatedString(message.content))
-                                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                            }
-                            11 -> onEdit()
-                            12 -> onRegenerate()
-                            13 -> onBranch()
-                            14 -> onDelete()
-                            15 -> onQuote(null)
-                            16 -> onSaveMemory()
-                            17 -> onSaveSkill()
-                            18 -> onQuote(null)
-                        }
-                    },
-                    anchor = answerAnchor,
-                )
-            }
                 }
             }
-
-
-        }
-    }
-}
-
-/** 开场白消息由开始对话时写入，标识前缀与写入方保持一致。 */
-private const val GreetingMessagePrefix = "greeting-"
-
-/**
- * 角色回复的署名行：小头像加角色名，开场白额外标注“故事开始”。
- * 正文保持与普通回答同宽，避免为头像缩进后长段落在窄屏上过于拥挤。
- */
-@Composable
-private fun CharacterReplyHeader(character: RoleplayChatUi, isGreeting: Boolean) {
-    Row(
-        modifier = Modifier.padding(bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CharacterAvatar(
-            name = character.characterName,
-            avatarPath = character.avatarPath,
-            size = 28.dp,
-            shape = CircleShape,
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = character.characterName,
-            style = MiuixTheme.textStyles.body2,
-            fontWeight = FontWeight.Medium,
-            color = MiuixTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
-        )
-        if (isGreeting) {
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.chat_character_story_start),
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(percent = 50))
-                    .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.1f))
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-            )
         }
     }
 }
@@ -1730,3 +1641,52 @@ private fun SuggestionChipsRow(
         }
     }
 }
+
+private const val GreetingMessagePrefix = "greeting-"
+
+@Composable
+private fun CharacterReplyHeader(character: RoleplayChatUi, isGreeting: Boolean) {
+    Row(
+        modifier = Modifier.padding(bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CharacterAvatar(
+            name = character.characterName,
+            avatarPath = character.avatarPath,
+            size = 28.dp,
+            shape = CircleShape,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = character.characterName,
+            style = MiuixTheme.textStyles.body2,
+            fontWeight = FontWeight.Medium,
+            color = MiuixTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (isGreeting) {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.chat_character_story_start),
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(percent = 50))
+                    .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.1f))
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+            )
+        }
+    }
+}
+
+/** 思考卡片与运行记录等全宽描边卡片共用的圆角与描边强度，相邻时轮廓一致。 */
+private val ChatCardCorner = 12.dp
+private const val ChatCardOutlineAlpha = 0.5f
+
+/** 回答操作按钮的紧凑触控尺寸（28.dp 盒 + 16.dp 图标）；行整体左移 6.dp 对齐正文左边缘。 */
+internal val AnswerActionSize = 28.dp
+private val AnswerActionCenterOffset = 6.dp
+
+/** 回答下方的轻量操作：图标显式着色，因此禁用态需要自己换成禁用色，否则看起来仍可点。 */
