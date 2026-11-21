@@ -1,6 +1,14 @@
 package io.github.mangi.eta.ui.app
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.platform.LocalDensity
+import android.util.DisplayMetrics
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Density
+import io.github.mangi.eta.data.model.DEFAULT_INTERFACE_SCALE
+import io.github.mangi.eta.data.model.normalizeInterfaceScale
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,6 +63,7 @@ fun AgentAppTheme(
     provideGlassHost: Boolean = false,
     onResolvedDarkModeChange: (Boolean) -> Unit = {},
     systemOverlay: Boolean = false,
+    applyInterfaceScale: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val systemDark = isSystemInDarkTheme()
@@ -96,6 +105,50 @@ fun AgentAppTheme(
     }
 
     LaunchedEffect(isDark) { onResolvedDarkModeChange(isDark) }
+
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val initialDisplayDensity = remember(context) { context.resources.displayMetrics.density }
+    val baseDensity = if (configuration.densityDpi > 0) {
+        configuration.densityDpi.toFloat() / DisplayMetrics.DENSITY_DEFAULT
+    } else {
+        initialDisplayDensity
+    }
+    val effectiveScale = if (applyInterfaceScale) {
+        normalizeInterfaceScale(appearance.interfaceScale)
+    } else {
+        DEFAULT_INTERFACE_SCALE
+    }
+    val targetDensity = baseDensity * effectiveScale
+    val platformDensity = remember(context, baseDensity, configuration.fontScale) {
+        val saved = context.resources.displayMetrics.density
+        context.resources.displayMetrics.density = baseDensity
+        Density(context).also { context.resources.displayMetrics.density = saved }
+    }
+    if (applyInterfaceScale) {
+        // 独立窗口（Dialog / Popup）的新 AndroidComposeView 从宿主 Context.resources 读取密度；
+        // 以 configuration.densityDpi / 160f 为 100% 尺寸基准同步写入，保证页面与独立窗口缩放一致。
+        context.resources.displayMetrics.density = targetDensity
+        @Suppress("DEPRECATION")
+        context.resources.displayMetrics.scaledDensity = targetDensity * configuration.fontScale
+    }
+    DisposableEffect(context, applyInterfaceScale, baseDensity, configuration.fontScale) {
+        onDispose {
+            if (applyInterfaceScale) {
+                context.resources.displayMetrics.density = baseDensity
+                @Suppress("DEPRECATION")
+                context.resources.displayMetrics.scaledDensity = baseDensity * configuration.fontScale
+            }
+        }
+    }
+    val appDensity = remember(context, targetDensity, configuration.fontScale, applyInterfaceScale) {
+        if (applyInterfaceScale) {
+            context.resources.displayMetrics.density = targetDensity
+            Density(context)
+        } else {
+            platformDensity
+        }
+    }
 
     val currentContent by rememberUpdatedState(content)
     // 切换 UI 样式时移动同一内容树，保留导航栈、页面草稿与正在运行的任务状态。
@@ -155,6 +208,8 @@ fun AgentAppTheme(
                 LocalContentColor provides themedMiuixColors.onBackground,
                 LocalAppearanceSettings provides appearance,
                 LocalUiStyle provides appearance.uiStyle,
+                LocalPlatformDensity provides platformDensity,
+                LocalDensity provides appDensity,
             ) {
                 if (appearance.uiStyle == AppearanceUiStyle.COUI) {
                     // 使用 colors 重载避免拉入 COUI ThemeController 对 material-color-utilities 5.0

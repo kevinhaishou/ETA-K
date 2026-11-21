@@ -66,7 +66,15 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                 }
                 if (settings.tts != TtsProvider.NONE) {
                     SpeechConnectionSection(store, synthesis = true)
-                    SpeechVoiceSection(store)
+                    if (settings.tts == TtsProvider.ANDROID) {
+                        SystemTtsSection(store)
+                    } else if (settings.tts != TtsProvider.CLONE) {
+                        SpeechVoiceSection(store)
+                    }
+                    // 克隆是独立引擎：系统朗读与克隆都要能配它，单独一处入口。
+                    if (settings.tts == TtsProvider.ANDROID || settings.tts == TtsProvider.CLONE) {
+                        CloneVoiceSection()
+                    }
                     SpeechPreviewSection(store)
                 }
                 SpeechSaveBlock(store) {
@@ -110,7 +118,16 @@ internal fun SpeechSynthesisScreen(onBack: () -> Unit) {
                         SpeechConnectionSection(store, synthesis = true)
                     }
                     item(key = "voice") {
-                        SpeechVoiceSection(store)
+                        if (settings.tts == TtsProvider.ANDROID) {
+                            SystemTtsSection(store)
+                        } else if (settings.tts != TtsProvider.CLONE) {
+                            SpeechVoiceSection(store)
+                        }
+                        if (settings.tts == TtsProvider.ANDROID ||
+                            settings.tts == TtsProvider.CLONE
+                        ) {
+                            CloneVoiceSection()
+                        }
                     }
                     item(key = "preview") {
                         SpeechPreviewSection(store)

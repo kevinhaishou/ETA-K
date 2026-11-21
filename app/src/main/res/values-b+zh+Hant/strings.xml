@@ -1467,4 +1467,9 @@
   <string name="subagent_settings_name_exists">已存在名為「%1$s」的自訂 Subagent，請改用其他名稱</string>
   <string name="subagent_settings_delete_title">刪除 Subagent</string>
   <string name="subagent_settings_delete_confirm">確定刪除自訂 Subagent「%1$s」？對應的 agents/%1$s.md 檔案將被移除，此操作無法復原。</string>
+  <string name="appearance_interface_scale">介面縮放</string>
+  <string name="appearance_interface_scale_summary" formatted="false">調整全域顯示比例（80%–110%）</string>
+  <string name="appearance_interface_scale_dialog_title">介面縮放</string>
+  <string name="appearance_interface_scale_dialog_summary">請輸入 80 至 110 之間的整數</string>
+  <string name="appearance_interface_scale_input_label">百分比</string>
 </resources>

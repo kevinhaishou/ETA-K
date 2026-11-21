@@ -1590,4 +1590,9 @@
   <string name="subagent_settings_name_exists">A custom Subagent named “%1$s” already exists. Choose a different name.</string>
   <string name="subagent_settings_delete_title">Delete Subagent</string>
   <string name="subagent_settings_delete_confirm">Delete custom Subagent “%1$s”? Its agents/%1$s.md file will be removed and cannot be undone.</string>
+  <string name="appearance_interface_scale">Interface scale</string>
+  <string name="appearance_interface_scale_summary" formatted="false">Adjust the global display scale (80%–110%)</string>
+  <string name="appearance_interface_scale_dialog_title">Interface scale</string>
+  <string name="appearance_interface_scale_dialog_summary">Enter an integer from 80 to 110</string>
+  <string name="appearance_interface_scale_input_label">Percentage</string>
 </resources>

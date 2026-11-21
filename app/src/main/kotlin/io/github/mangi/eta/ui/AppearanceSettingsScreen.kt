@@ -33,6 +33,7 @@ import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.data.model.AppearanceThemeMode
 import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.data.model.normalizeInterfaceScale
 import io.github.mangi.eta.data.repository.AppearanceSettingsRepository
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
 import io.github.mangi.eta.ui.app.LocalUiStyle
@@ -55,6 +56,9 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
     val appearance = LocalAppearanceSettings.current
     val coroutineScope = rememberCoroutineScope()
+    var scaleDraft by remember(appearance.interfaceScale) {
+        mutableFloatStateOf(appearance.interfaceScale * 100f)
+    }
 
     fun update(transform: (AppearanceSettings) -> AppearanceSettings) {
         coroutineScope.launch {
@@ -66,6 +70,12 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         coroutineScope.launch {
             AppearanceSettingsRepository.selectUiStyle(uiStyle)
         }
+    }
+
+    fun commitScale(percent: Float) {
+        val scale = normalizeInterfaceScale(percent.roundToInt() / 100f)
+        scaleDraft = scale * 100f
+        update { current -> current.copy(interfaceScale = scale) }
     }
 
     val context = LocalContext.current
@@ -93,6 +103,9 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
     val sidebarSteps = listOf(0f, 10f, 20f, 30f, 40f)
     val sidebarLabels = sidebarSteps.map { "${it.roundToInt()}%" }
     val sidebarIndex = sidebarSteps.indices.minByOrNull { abs(sidebarSteps[it] - sidebarDraft) } ?: 0
+    val scaleSteps = listOf(80f, 85f, 90f, 95f, 100f, 105f, 110f)
+    val scaleLabels = scaleSteps.map { "${it.roundToInt()}%" }
+    val scaleIndex = scaleSteps.indices.minByOrNull { abs(scaleSteps[it] - scaleDraft) } ?: 4
     val wallpaperPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
@@ -195,6 +208,20 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                             checked = appearance.predictiveBackEnabled,
                             onCheckedChange = { enabled ->
                                 update { current -> current.copy(predictiveBackEnabled = enabled) }
+                            },
+                        )
+                    }
+                    item {
+                        CouiDropdownPreference(
+                            title = stringResource(R.string.appearance_interface_scale),
+                            summary = stringResource(R.string.appearance_interface_scale_summary),
+                            items = scaleLabels,
+                            selectedIndex = scaleIndex,
+                            onSelectedIndexChange = { index ->
+                                scaleSteps.getOrNull(index)?.let { value ->
+                                    scaleDraft = value
+                                    commitScale(value)
+                                }
                             },
                         )
                     }
@@ -393,6 +420,19 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                                 },
                             )
                         }
+                        GlassDropdownPreference(
+                            title = stringResource(R.string.appearance_interface_scale),
+                            summary = stringResource(R.string.appearance_interface_scale_summary),
+                            items = scaleLabels,
+                            selectedIndex = scaleIndex,
+                            backdrop = currentGlassOverlayBackdrop(),
+                            onSelectedIndexChange = { index ->
+                                scaleSteps.getOrNull(index)?.let { value ->
+                                    scaleDraft = value
+                                    commitScale(value)
+                                }
+                            },
+                        )
                     }
                 }
                 item(key = "appearance_chat_background") {

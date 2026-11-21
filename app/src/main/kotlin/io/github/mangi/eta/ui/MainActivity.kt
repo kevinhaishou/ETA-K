@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
                 AgentAppTheme(
                     appearance = appearance,
                     provideGlassHost = true,
+                    applyInterfaceScale = true,
                     onResolvedDarkModeChange = ::updateSystemBars,
                 ) {
                     AgentAppRoot(
