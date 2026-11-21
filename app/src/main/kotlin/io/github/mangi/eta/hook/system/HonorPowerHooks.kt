@@ -43,7 +43,8 @@ internal object HonorPowerHooks {
         return hooks.install {
             val pwmExClass = resolveBootClass(classLoader, ModuleConfig.HONOR_PWM_EX_CLASS)
             if (pwmExClass == null) {
-                // 非荣耀机型没有这个类，属于正常缺失，不产生告警噪音。
+                // 非荣耀机型没有这个类，属于正常缺失；用 warn 打一条，便于在 lspd 日志里确认。
+                hooks.logger.warn("当前机型无 ${ModuleConfig.HONOR_PWM_EX_CLASS}，跳过荣耀电源键接管")
                 hooks.skipped(
                     id = "system.honor-ai-power",
                     description = "HwPhoneWindowManagerEx.notifyAIPower",
@@ -70,7 +71,14 @@ internal object HonorPowerHooks {
                 executable = notifyMethod,
                 description = "HwPhoneWindowManagerEx.notifyAIPower"
             ) { chain ->
-                val target = Prefs.powerAssistantTarget()
+                // 荣耀自带的 com.hihonor.magicvoice 已被停用时，"系统默认助手" 等于什么都不弹。
+                // 模块在荣耀上启用本身就表示要接管，因此把 OEM 也当作 Eta，避免默认值把长按放空。
+                val configured = Prefs.powerAssistantTarget()
+                val target = if (configured == PowerAssistantTarget.OEM) {
+                    PowerAssistantTarget.ETA
+                } else {
+                    configured
+                }
                 val binding = assistantBindingFor(target)
                 if (binding == null) {
                     return@intercept chain.proceed()
