@@ -23,6 +23,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
@@ -30,6 +31,9 @@ import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -59,14 +63,13 @@ import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.data.repository.AppearanceSettingsRepository
 import io.github.mangi.eta.ui.MainActivity
+import io.github.mangi.eta.ui.conversationHandoffStartMode
 import io.github.mangi.eta.ui.app.AgentAppTheme
 import io.github.mangi.eta.ui.app.AgentRunEventCoalescer
 import io.github.mangi.eta.ui.app.AgentRunMessageProjector
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.SystemNoticeCode
-import io.github.mangi.eta.ui.model.ThinkingMessageUi
-import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -133,13 +136,15 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var backInvokedCallback: OnBackInvokedCallback? = null
     private var runJob: Job? = null
     private var dismissalJob: Job? = null
-    // 浮层是全屏 TYPE_APPLICATION_OVERLAY：内容未就绪前必须保持不可触摸，
-    // 否则整块屏幕的点击都会被这个空窗口吃掉（表现为"屏幕点不动"）。
+    // 浮层是全屏 TYPE_APPLICATION_OVERLAY：内容未就绪前必须不可触摸，
+    // 否则整块屏幕的点击都会被空窗口吃掉（表现为"屏幕点不动"）。
     private var touchGuardJob: Job? = null
     private var overlayDismissReceiver: BroadcastReceiver? = null
     private var activeRunId: String? = null
     private var entryGeneration = 0L
     private var presentedEntryGeneration = -1L
+    @Volatile
+    private var entryShownUptimeMs = 0L
     private var entryInputPending = false
     private var entryEntranceComplete by mutableStateOf(false)
     private var entryContentReady = false
@@ -147,7 +152,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var hiddenForForegroundOperation = false
     private var handoffInProgress by mutableStateOf(false)
     private var handoffExitRequested by mutableStateOf(false)
-    private var inputText by mutableStateOf("")
+    private val inputText = TextFieldState()
     private var inputFocusRequestKey by mutableIntStateOf(-1)
     private var uiState by mutableStateOf(EtaVoiceUiState())
 
@@ -177,7 +182,9 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         scope.launch(Dispatchers.Main.immediate) {
             speechInput.state.collect { state ->
                 speechLevel = state.level
-                if (state.preview.isNotBlank()) inputText = state.preview
+                if (state.preview.isNotBlank() && state.preview != inputText.text.toString()) {
+                    inputText.setTextAndPlaceCursorAtEnd(state.preview)
+                }
                 speechState = EtaSpeechState(
                     phase = state.phase,
                     // 连接、聆听、识别中的阶段播报由语音条目与波形承担，反馈条只保留错误提示，
@@ -195,13 +202,6 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         when (intent?.action) {
             AssistantSpeechForeground.ACTION_STOP -> { speechInput.cancel(); playback.stop() }
             ACTION_SHOW -> showEntry(intent.getStringExtra(EXTRA_SCREEN_CONTEXT_ID))
-            ACTION_RUN_AUTOMATION -> {
-                val prompt = intent.getStringExtra(EXTRA_AUTOMATION_PROMPT)?.trim().orEmpty()
-                if (prompt.isNotBlank()) {
-                    showEntry(null)
-                    submitPrompt(prompt)
-                }
-            }
             ACTION_HANDOFF_READY -> finishHandoff()
             else -> Unit
         }
@@ -212,6 +212,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
 
     override fun onDestroy() {
         entryGeneration++
+        entryShownUptimeMs = 0L
         EtaAssistantScreenContexts.release(entryScreenContext?.id)
         entryScreenContext = null
         cancelCurrentRun()
@@ -233,6 +234,16 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             stopSelf()
             return
         }
+        // 长按电源键的按下/松开或双路派发可能跨越 1s 去重窗后再次到达，
+        // 浮窗仍处于刚唤起的初始空闲态时直接合并，避免重建窗口重播入场光效。
+        if (isFreshVisibleEntry()) {
+            if (entryScreenContext == null && screenContextId != null) {
+                entryScreenContext = EtaAssistantScreenContexts.find(screenContextId)
+            } else if (entryScreenContext?.id != screenContextId) {
+                EtaAssistantScreenContexts.release(screenContextId)
+            }
+            return
+        }
         dismissalJob?.cancel()
         dismissalJob = null
         cancelCurrentRun()
@@ -247,7 +258,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         entryEntranceComplete = false
         entryContentReady = false
         inputFocusRequestKey = -1
-        inputText = ""
+        inputText.clearText()
         uiState = EtaVoiceUiState()
         hiddenForForegroundOperation = false
         handoffInProgress = false
@@ -260,11 +271,27 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         presentedEntryGeneration = generation
         showWindow()
         if (windowView == null) {
+            entryShownUptimeMs = 0L
             stopSelf()
             return
         }
+        entryShownUptimeMs = SystemClock.uptimeMillis()
         presentEntryInput()
     }
+
+    private fun isFreshVisibleEntry(nowUptimeMs: Long = SystemClock.uptimeMillis()): Boolean =
+        shouldCoalesceFreshEntry(
+            hasWindow = windowView != null,
+            isDetaching = detachingWindowView != null,
+            isDismissing = dismissalJob != null,
+            hiddenForForegroundOperation = hiddenForForegroundOperation,
+            handoffInProgress = handoffInProgress,
+            handoffExitRequested = handoffExitRequested,
+            hasActiveRun = activeRunId != null,
+            hasMessages = uiState.messages.isNotEmpty(),
+            entryShownUptimeMs = entryShownUptimeMs,
+            nowUptimeMs = nowUptimeMs,
+        )
 
     private fun presentEntryInput() {
         if (!entryInputPending || windowView == null || activeRunId != null) return
@@ -299,7 +326,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             return
         }
         inputFocusRequestKey = -1
-        inputText = ""
+        inputText.clearText()
         updateSoftInput(visible = false)
         windowView?.let { view ->
             (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)
@@ -318,16 +345,6 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         speechState = EtaSpeechState()
     }
 
-    /** 电源键：录音中直接结束并提交，识别中保持不动，空闲时关闭浮窗。 */
-    private fun handlePowerKey() {
-        val phase = speechInput.state.value.phase
-        when {
-            phase == EtaSpeechPhase.STARTING || phase == EtaSpeechPhase.LISTENING -> speechInput.finish()
-            phase == EtaSpeechPhase.RECOGNIZING -> Unit
-            else -> dismissAndStop()
-        }
-    }
-
     private fun switchToKeyboard() {
         speechInput.cancel()
         speechState = EtaSpeechState()
@@ -343,6 +360,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 .collectAsState(initial = AppearanceSettings())
             AgentAppTheme(
                 appearance = appearance,
+                systemOverlay = true,
             ) {
                 // ColorOS 在 Overlay 窗口切换期间可能短暂使用软件画布；RuntimeShader
                 // 无法在该画布绘制，因此浮窗统一使用 Miuix 的圆角回退路径。
@@ -358,7 +376,6 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                         onEntranceFinished = {
                             if (generation == entryGeneration) {
                                 entryEntranceComplete = true
-                                // 入场动画完成即视为可见可点，先解除触摸屏蔽再等首帧内容。
                                 setWindowTouchable(true)
                                 presentEntryInput()
                             }
@@ -387,8 +404,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                         onKeyboard = ::switchToKeyboard,
                         input = inputText,
                         inputFocusRequestKey = inputFocusRequestKey,
-                        onInputChange = {
-                            inputText = it
+                        onInputEdited = {
                             if (!speechState.active && speechState.hasFeedback) {
                                 speechState = EtaSpeechState()
                             }
@@ -408,14 +424,17 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 }
             }
         }
+        // 窗口由 Service 通过 WindowManager 挂载，Activity.setShowWhenLocked 无法作用于该窗口。
+        @Suppress("DEPRECATION")
+        val showWhenLocked = WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                showWhenLocked or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                 WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS,
@@ -487,7 +506,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     }
 
     private fun submitInput() {
-        val prompt = inputText.trim()
+        val prompt = inputText.text.toString().trim()
         if (prompt.isBlank() || activeRunId != null) return
         submitPrompt(prompt)
     }
@@ -503,7 +522,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         speechState = EtaSpeechState()
         playback.stop()
         val capture = entryScreenContext
-        inputText = ""
+        inputText.clearText()
         activeRunId = UUID.randomUUID().toString()
         val runId = activeRunId ?: return
         uiState = uiState.copy(
@@ -532,14 +551,12 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                     config = config.copy(supportsSearchSuggestions = true),
                     images = runImages,
                     history = conversationHistory,
+                    modelSessionId = conversationKey,
                     handoff = AgentRuntimeWire.EntryHandoff(
                         id = "$conversationKey:$runId",
                         source = AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE,
                         payload = payload.toJson(),
-                        // 普通问答不应把入口浮窗顶掉：识别提交后由 Runtime 打开对话页也会走同名开关，
-                        // 用户看到的就是“说完话浮窗自己退了”。真正需要前台时由
-                        // AgentOverlayVisibilityPolicy 在拿到 GUI 控制权后收起。
-                        dismissEntrySurfaceOnForegroundOperation = false,
+                        dismissEntrySurfaceOnForegroundOperation = true,
                     ),
                 ),
                 onEvent = { event -> handleRuntimeEvent(runId, event) },
@@ -658,7 +675,12 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         }
         val notice = when {
             result.ok && result.content.isBlank() -> SystemNoticeCode.EmptyResult
-            !result.ok && result.error == LEGACY_STOPPED_ERROR -> SystemNoticeCode.Stopped
+            !result.ok && (
+                result.error == LEGACY_STOPPED_ERROR ||
+                    result.error == SYNTHETIC_STOPPED ||
+                    result.error == "Stopped" ||
+                    result.error == getString(R.string.runtime_err_stopped)
+                ) -> SystemNoticeCode.Stopped
             !result.ok -> SystemNoticeCode.RuntimeFailed
             else -> null
         }
@@ -733,11 +755,6 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         removeWindow(onComplete)
     }
 
-    /**
-     * 内容就绪前窗口保持 FLAG_NOT_TOUCHABLE。
-     * 浮窗是全屏 TYPE_APPLICATION_OVERLAY，内容没出来时它照样吞掉整屏触摸，
-     * 直接表现就是"屏幕点不动，只能重启"。
-     */
     private fun setWindowTouchable(touchable: Boolean) {
         val view = windowView ?: return
         val wm = windowManager ?: return
@@ -800,6 +817,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private fun removeWindow(onComplete: ((Boolean) -> Unit)? = null) {
         touchGuardJob?.cancel()
         touchGuardJob = null
+        entryShownUptimeMs = 0L
         entryInputPending = false
         playback.stop()
         speechInput.cancel()
@@ -899,12 +917,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             )
         val creatorOptions = ActivityOptions.makeBasic().apply {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-                pendingIntentCreatorBackgroundActivityStartMode =
-                    if (Build.VERSION.SDK_INT >= 36) {
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
-                    } else {
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-                    }
+                pendingIntentCreatorBackgroundActivityStartMode = conversationHandoffStartMode()
             }
         }
         val pendingIntent = PendingIntent.getActivity(
@@ -915,14 +928,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             creatorOptions.toBundle(),
         )
         val senderOptions = ActivityOptions.makeBasic().apply {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                pendingIntentBackgroundActivityStartMode =
-                    if (Build.VERSION.SDK_INT >= 36) {
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
-                    } else {
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-                    }
-            }
+            pendingIntentBackgroundActivityStartMode = conversationHandoffStartMode()
         }
         runCatching { pendingIntent.send(this, 0, null, null, null, null, senderOptions.toBundle()) }
             .onFailure {
@@ -956,11 +962,11 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         private const val TOUCH_GUARD_TIMEOUT_MS = 8_000L
         private const val ACTION_DISMISS_OVERLAY = "io.github.kevinhaishou.etak.action.DISMISS_OVERLAY"
 
-        const val ACTION_SHOW = "io.github.kevinhaishou.etak.agent.voice.SHOW"
-        const val ACTION_OPEN_CONVERSATION = "io.github.kevinhaishou.etak.agent.voice.OPEN_CONVERSATION"
-        const val EXTRA_CONVERSATION_KEY = "io.github.kevinhaishou.etak.agent.voice.extra.CONVERSATION_KEY"
+        const val ACTION_SHOW = "io.github.mangi.eta.agent.voice.SHOW"
+        const val ACTION_OPEN_CONVERSATION = "io.github.mangi.eta.agent.voice.OPEN_CONVERSATION"
+        const val EXTRA_CONVERSATION_KEY = "io.github.mangi.eta.agent.voice.extra.CONVERSATION_KEY"
         private const val EXTRA_SCREEN_CONTEXT_ID = "assistant_screen_context_id"
-        private const val ACTION_HANDOFF_READY = "io.github.kevinhaishou.etak.agent.voice.HANDOFF_READY"
+        private const val ACTION_HANDOFF_READY = "io.github.mangi.eta.agent.voice.HANDOFF_READY"
         private const val HANDOFF_TIMEOUT_MS = 5_000L
         private const val HANDOFF_EXIT_DURATION_MS = 220L
         private const val HANDOFF_REQUEST_CODE = 0x455441
@@ -968,10 +974,34 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         private const val SYNTHETIC_STOPPED = "eta_status:stopped"
         private const val SYNTHETIC_RUNTIME_FAILED = "eta_status:runtime_failed"
         private const val FOREGROUND_DISMISS_TIMEOUT_MS = 2_000L
+        internal const val FRESH_ENTRY_COALESCE_WINDOW_MS = 5_000L
         private val mainHandler = Handler(Looper.getMainLooper())
 
         @Volatile
         private var activeService: EtaAssistantOverlayService? = null
+
+        fun hasFreshVisibleEntry(nowUptimeMs: Long = SystemClock.uptimeMillis()): Boolean =
+            activeService?.isFreshVisibleEntry(nowUptimeMs) == true
+
+        internal fun shouldCoalesceFreshEntry(
+            hasWindow: Boolean,
+            isDetaching: Boolean,
+            isDismissing: Boolean,
+            hiddenForForegroundOperation: Boolean,
+            handoffInProgress: Boolean,
+            handoffExitRequested: Boolean,
+            hasActiveRun: Boolean,
+            hasMessages: Boolean,
+            entryShownUptimeMs: Long,
+            nowUptimeMs: Long,
+            coalesceWindowMs: Long = FRESH_ENTRY_COALESCE_WINDOW_MS,
+        ): Boolean {
+            if (!hasWindow || isDetaching || isDismissing) return false
+            if (hiddenForForegroundOperation || handoffInProgress || handoffExitRequested) return false
+            if (hasActiveRun || hasMessages) return false
+            if (entryShownUptimeMs <= 0L) return false
+            return nowUptimeMs - entryShownUptimeMs in 0L..coalesceWindowMs
+        }
 
         /**
          * Eta 自己拥有入口浮层，直接关闭并等待具体 View detach；不能按包名猜测，
@@ -1014,23 +1044,6 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             }
         }
 
-        const val ACTION_RUN_AUTOMATION = "io.github.kevinhaishou.etak.agent.voice.RUN_AUTOMATION"
-        const val EXTRA_AUTOMATION_PROMPT = "io.github.kevinhaishou.etak.agent.voice.extra.AUTOMATION_PROMPT"
-        const val EXTRA_AUTOMATION_SOURCE = "io.github.kevinhaishou.etak.agent.voice.extra.AUTOMATION_SOURCE"
-
-        /**
-         * 通知触发自动化：从后台启动浮层并提交 prompt。
-         * 需要悬浮窗 appops allow，否则浮层弹不出来（Activity 会静默 finish）。
-         */
-        fun runAutomation(context: Context, source: String, prompt: String) {
-            context.startService(
-                Intent(context, EtaAssistantOverlayService::class.java)
-                    .setAction(ACTION_RUN_AUTOMATION)
-                    .putExtra(EXTRA_AUTOMATION_PROMPT, prompt)
-                    .putExtra(EXTRA_AUTOMATION_SOURCE, source),
-            )
-        }
-
         fun show(context: Context, screenContextId: String?) {
             context.applicationContext.startService(
                 Intent(context.applicationContext, EtaAssistantOverlayService::class.java)
@@ -1043,20 +1056,6 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             context.applicationContext.stopService(
                 Intent(context.applicationContext, EtaAssistantOverlayService::class.java),
             )
-        }
-
-        /** 系统会话收到电源键时转交给入口浮层，语义与浮层内的结束 / 关闭一致。 */
-        fun handlePowerKey(context: Context) {
-            val service = activeService
-            if (service == null) {
-                EtaVoiceInteractionSession.requestHideForForegroundOperation(context)
-                return
-            }
-            if (Looper.myLooper() == Looper.getMainLooper()) {
-                service.handlePowerKey()
-            } else {
-                mainHandler.post { activeService?.handlePowerKey() }
-            }
         }
 
         fun notifyHandoffReady(context: Context) {
