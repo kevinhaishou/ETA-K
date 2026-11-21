@@ -1519,11 +1519,6 @@
   <string name="speech_tts_clone">Voice clone (on-device)</string>
   <string name="settings_keep_screen_on">Keep screen on while running</string>
   <string name="settings_keep_screen_on_summary">Prevent screen sleep while an agent task is running</string>
-  <string name="image_gen_settings_title">AI image generation</string>
-  <string name="image_gen_gallery_title">Generated images</string>
-  <string name="image_gen_configure_action">Configure</string>
-  <string name="tool_generate_image">AI image generation</string>
-  <string name="tool_generate_image_description">Create images from a text description, or edit and restyle a reference image using the configured image model.</string>
   <string name="route_scheduled_tasks">Scheduled Tasks</string>
   <string name="route_scheduled_task_detail">Task Details</string>
   <string name="route_scheduled_task_new">New Scheduled Task</string>
