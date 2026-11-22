@@ -317,10 +317,16 @@ internal class AgentAppState(
         }
     }
 
-    suspend fun exportBackup(output: OutputStream): EtaBackupSummary =
-        EtaBackupRepository.export(appContext, output)
+    suspend fun exportBackup(
+        output: OutputStream,
+        onProgressPhase: (String) -> Unit = {},
+    ): EtaBackupSummary =
+        EtaBackupRepository.export(appContext, output, onProgressPhase)
 
-    suspend fun importBackup(input: InputStream): EtaBackupSummary {
+    suspend fun importBackup(
+        input: InputStream,
+        onProgressPhase: (String) -> Unit = {},
+    ): EtaBackupSummary {
         val locallyBusy = withContext(Dispatchers.Main.immediate) {
             branchingConversationId != null || runStore.hasActiveRuns || conversationsById.values.any { it.isStreaming }
         }
@@ -353,7 +359,7 @@ internal class AgentAppState(
             pendingPersistence?.join()
             return conversationLoadMutex.withLock {
                 try {
-                    val summary = EtaBackupRepository.import(appContext, input, onCommitted = { imported = true })
+                    val summary = EtaBackupRepository.import(appContext, input, onCommitted = { imported = true }, onProgressPhase = onProgressPhase)
                     reloadConversationsAfterBackup()
                     reloaded = true
                     summary

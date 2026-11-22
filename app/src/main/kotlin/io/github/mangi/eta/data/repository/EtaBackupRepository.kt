@@ -75,7 +75,11 @@ internal class EtaBackupException(message: String, cause: Throwable? = null) :
 internal object EtaBackupRepository {
     private const val EXPORT_PAGE_SIZE = 64
 
-    suspend fun export(context: Context, output: OutputStream): EtaBackupSummary = withContext(Dispatchers.IO) {
+    suspend fun export(
+        context: Context,
+        output: OutputStream,
+        onProgressPhase: (String) -> Unit = {},
+    ): EtaBackupSummary = withContext(Dispatchers.IO) {
         var phase = "prepare_export"
         try {
             val appContext = context.applicationContext
@@ -83,7 +87,7 @@ internal object EtaBackupRepository {
             val database = EtaDatabase.get(appContext)
             val settings = SettingsDataStore.settings()
             val catalogRevision = SettingsDataStore.officialModelCatalogRevision()
-            EtaBackupJsonStreams.export(appContext, output, onPhase = { phase = it }) { writer ->
+            EtaBackupJsonStreams.export(appContext, output, onPhase = { phase = it; onProgressPhase(it) }) { writer ->
                 database.withTransaction {
                     val dao = database.conversationDao()
                     val providers = database.providerDao().providers().map {
@@ -102,7 +106,7 @@ internal object EtaBackupRepository {
                     val boundAvatars = linkedMapOf<String, String?>()
                     var conversationCount = 0
                     var messageCount = 0
-                    phase = "export_conversations"
+                    phase = "export_conversations"; onProgressPhase(phase)
                     writer.beginArray(EtaBackupJsonStreams.CONVERSATIONS)
                     exportRows({ dao.conversationEntityRowsPage(EXPORT_PAGE_SIZE, it) }) { raw ->
                         val row = dao.restoreConversation(raw)
@@ -113,20 +117,20 @@ internal object EtaBackupRepository {
                         conversationCount++
                     }
                     writer.endArray()
-                    phase = "export_messages"
+                    phase = "export_messages"; onProgressPhase(phase)
                     writer.beginArray(EtaBackupJsonStreams.MESSAGES)
                     exportRows({ dao.allMessageRowsPage(EXPORT_PAGE_SIZE, it) }) { raw ->
                         writer.record(ConversationMessageEntity.serializer(), dao.restoreMessage(raw))
                         messageCount++
                     }
                     writer.endArray()
-                    phase = "export_checkpoints"
+                    phase = "export_checkpoints"; onProgressPhase(phase)
                     writer.beginArray(EtaBackupJsonStreams.CHECKPOINTS)
                     exportRows({ dao.contextCheckpointRowsPage(EXPORT_PAGE_SIZE, it) }) { raw ->
                         writer.record(ConversationContextCheckpointEntity.serializer(), dao.restoreCheckpoint(raw))
                     }
                     writer.endArray()
-                    phase = "export_roleplay"
+                    phase = "export_roleplay"; onProgressPhase(phase)
                     val roleplay = CharacterBackupTransfer.snapshot(appContext, boundAvatars)
                     writer.value("roleplay", CharacterBackupData.serializer().nullable, roleplay)
                     EtaBackupSummary(providers.size, providers.sumOf { it.models.size }, conversationCount,
@@ -144,12 +148,13 @@ internal object EtaBackupRepository {
         input: InputStream,
         onCommitted: () -> Unit = {},
         forgetCredentials: (String) -> Unit = ProviderCredentialRepository::forget,
+        onProgressPhase: (String) -> Unit = {},
     ): EtaBackupSummary = withContext(Dispatchers.IO) {
         var phase = "stage_import"
         try {
             val appContext = context.applicationContext
-            EtaBackupJsonStreams.stage(appContext, input) { phase = it }.use { staged ->
-                phase = "validate_import"
+            EtaBackupJsonStreams.stage(appContext, input) { phase = it; onProgressPhase(it) }.use { staged ->
+                phase = "validate_import"; onProgressPhase(phase)
                 val summary = EtaBackupValidation.validate(staged)
                 val document = staged.header
                 val database = EtaDatabase.get(appContext)
@@ -157,7 +162,7 @@ internal object EtaBackupRepository {
                 val previousRoleMemories = document.roleplay?.assets.orEmpty().associate {
                     it.characterId to CharacterMemoryRepository.snapshot(appContext, it.characterId).content
                 }
-                phase = "restore_assets"
+                phase = "restore_assets"; onProgressPhase(phase)
                 val avatarPaths = document.roleplay?.let { CharacterBackupTransfer.restoreAssets(appContext, it) }.orEmpty()
                 val cancellation = currentCoroutineContext()
                 val oauthProviders = document.providers.map { it.provider }
@@ -169,13 +174,13 @@ internal object EtaBackupRepository {
                     try {
                         database.withTransaction {
                             cancellation.ensureActive()
-                            phase = "restore_providers"
+                            phase = "restore_providers"; onProgressPhase(phase); onProgressPhase(phase)
                             credentialIds += database.providerDao().providers().map { it.provider.id }
                             database.providerDao().replaceAll(document.providers.map {
                                 ProviderWithModelsSeed(it.provider.awaitingCredentialCleanup(), it.models)
                             })
                             val dao = database.conversationDao()
-                            phase = "clear_conversations"
+                            phase = "clear_conversations"; onProgressPhase(phase); onProgressPhase(phase)
                             dao.deleteMessages()
                             dao.deleteContextCheckpoints()
                             dao.deleteConversations()
@@ -196,13 +201,13 @@ internal object EtaBackupRepository {
                                 dao.insertContextCheckpoints(listOf(it))
                             }
                             document.conversationState?.let { dao.insertState(it) }
-                            phase = "restore_roleplay"
+                            phase = "restore_roleplay"; onProgressPhase(phase); onProgressPhase(phase)
                             document.roleplay?.let { roleplay ->
                                 database.characterDao().replaceAll(
                                     roleplay.characters.map { it.copy(avatarPath = avatarPaths[it.id]) }, roleplay.persona,
                                 )
                             }
-                            phase = "restore_memory"
+                            phase = "restore_memory"; onProgressPhase(phase); onProgressPhase(phase)
                             cancellation.ensureActive()
                             memoryWriteStarted = true
                             AgentMemoryRepository.replaceAll(document.memoryMd)

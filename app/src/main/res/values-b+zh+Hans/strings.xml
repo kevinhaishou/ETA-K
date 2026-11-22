@@ -1497,6 +1497,7 @@
   <string name="prompt_library_list">已导入的提示词</string>
   <string name="prompt_library_imported">已导入 %1$d 条</string>
   <string name="prompt_library_import_failed">没有读到可用文本</string>
+  <string name="prompt_library_import_unreadable">选了 %1$d 个文件，但都没读到文本（可能是目录或非纯文本）</string>
   <string name="prompt_library_saved_name">当前提示词</string>
   <string name="prompt_library_saved_ok">已保存为预设</string>
   <string name="prompt_library_default_name">导入的提示词</string>

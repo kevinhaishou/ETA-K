@@ -35,6 +35,10 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import import androidx.compose.foundation.layout.Box
+import import androidx.compose.foundation.layout.fillMaxWidth
+import import io.github.mangi.eta.ui.components.coui.CouiPreferenceGroup
+import import io.github.mangi.eta.ui.components.coui.CouiSectionTitle
 
 /**
  * 自定义系统提示词。
@@ -42,6 +46,7 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
  * 生效内容依旧是单条（输入即保存），额外提供「提示词库」：可以从文件一次导入多条，
  * 列表里点哪条就把那条的内容写进生效字段。运行时读取路径没有变化。
  */
+@Composable
 @Composable
 internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -64,6 +69,14 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
             val entries = withContext(Dispatchers.IO) {
                 picked.mapNotNull { uri -> readPromptDocument(context, uri) }
             }
+            if (entries.isEmpty()) {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.prompt_library_import_unreadable, picked.size),
+                    Toast.LENGTH_LONG,
+                ).show()
+                return@launch
+            }
             val count = CustomizationStore.importPromptPresets(entries)
             val message = if (count > 0) {
                 context.getString(R.string.prompt_library_imported, count)
@@ -76,7 +89,7 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
 
     val onImport: () -> Unit = {
         runCatching {
-            importer.launch(arrayOf("text/plain", "text/markdown", "text/*", "*/*"))
+            importer.launch(arrayOf("*/*"))
         }.onFailure {
             Toast.makeText(
                 context,
@@ -110,38 +123,60 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.custom_prompt_title),
                 onBack = onBack,
             ) {
-                CouiPreference(
-                    title = stringResource(R.string.prompt_library_import_title),
-                    summary = stringResource(R.string.prompt_library_import_summary),
-                    onClick = onImport,
-                )
-                CouiPreference(
-                    title = stringResource(R.string.prompt_library_save_current),
-                    summary = stringResource(R.string.prompt_library_save_current_summary),
-                    onClick = onSaveCurrent,
-                )
-                if (presets.isEmpty()) {
-                    CouiPreference(
-                        title = stringResource(R.string.prompt_library_empty),
-                        summary = null,
-                        enabled = false,
-                    )
-                } else {
-                    presets.forEach { preset ->
+                CouiPreferenceGroup(title = stringResource(R.string.prompt_library_group)) {
+                    item(key = "import") {
                         CouiPreference(
-                            title = presetTitle(preset, preset.id == activeId),
-                            summary = presetSummary(preset.content),
-                            onClick = { CustomizationStore.applyPromptPreset(preset.id) },
+                            title = stringResource(R.string.prompt_library_import_title),
+                            summary = stringResource(R.string.prompt_library_import_summary),
+                            onClick = onImport,
+                        )
+                    }
+                    item(key = "save_current") {
+                        CouiPreference(
+                            title = stringResource(R.string.prompt_library_save_current),
+                            summary = stringResource(R.string.prompt_library_save_current_summary),
+                            onClick = onSaveCurrent,
                         )
                     }
                 }
-                CharacterTextField(
-                    label = stringResource(R.string.custom_prompt_hint),
-                    value = draft,
-                    onChange = onChange,
-                    enabled = true,
-                    minLines = 8,
-                )
+                if (presets.isEmpty()) {
+                    CouiPreferenceGroup {
+                        item(key = "empty") {
+                            CouiPreference(
+                                title = stringResource(R.string.prompt_library_empty),
+                                summary = null,
+                                enabled = false,
+                            )
+                        }
+                    }
+                } else {
+                    CouiPreferenceGroup(title = stringResource(R.string.prompt_library_list)) {
+                        presets.forEach { preset ->
+                            item(key = "preset_${preset.id}") {
+                                CouiPreference(
+                                    title = presetTitle(preset, preset.id == activeId),
+                                    summary = presetSummary(preset.content),
+                                    onClick = { CustomizationStore.applyPromptPreset(preset.id) },
+                                )
+                            }
+                        }
+                    }
+                }
+                CouiSectionTitle(stringResource(R.string.custom_prompt_summary))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 12.dp),
+                ) {
+                    CharacterTextField(
+                        label = stringResource(R.string.custom_prompt_hint),
+                        value = draft,
+                        onChange = onChange,
+                        enabled = true,
+                        minLines = 8,
+                    )
+                }
                 CouiPageBottomSpacer()
             }
         }

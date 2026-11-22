@@ -48,11 +48,15 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 internal fun DataBackupScreen(
     context: Context,
     onBack: () -> Unit,
-    onExport: suspend (OutputStream) -> EtaBackupSummary,
-    onImport: suspend (InputStream) -> EtaBackupSummary,
+    onExport: suspend (OutputStream, (String) -> Unit) -> EtaBackupSummary,
+    onImport: suspend (InputStream, (String) -> Unit) -> EtaBackupSummary,
 ) {
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
+    // 导出/导入的阶段文案：数据量大时（数万条消息）逐条序列化要几十秒，
+    // 只显示"处理中"会让人以为是卡死。
+    var phaseText by remember { mutableStateOf("") }
+    val onPhase: (String) -> Unit = { raw -> phaseText = backupPhaseLabel(raw) }
     var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
     var showImportDialog by remember { mutableStateOf(false) }
 
@@ -72,10 +76,11 @@ internal fun DataBackupScreen(
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             busy = true
+            phaseText = ""
             try {
                 val output = context.contentResolver.openOutputStream(uri)
                     ?: error(context.getString(R.string.data_backup_file_open_failed))
-                val summary = output.use { onExport(it) }
+                val summary = output.use { onExport(it, onPhase) }
                 Toast.makeText(
                     context,
                     context.getString(
@@ -122,7 +127,7 @@ internal fun DataBackupScreen(
                 try {
                     val input = context.contentResolver.openInputStream(uri)
                         ?: error(context.getString(R.string.data_backup_file_open_failed))
-                    val summary = input.use { onImport(it) }
+                    val summary = input.use { onImport(it, onPhase) }
                     Toast.makeText(
                         context,
                         context.getString(
@@ -175,7 +180,7 @@ internal fun DataBackupScreen(
                         CouiPreference(
                             title = stringResource(R.string.data_backup_export),
                             summary = if (busy) {
-                                stringResource(R.string.data_backup_working)
+                                phaseText.ifBlank { stringResource(R.string.data_backup_working) }
                             } else {
                                 stringResource(R.string.data_backup_export_summary)
                             },
@@ -279,3 +284,20 @@ internal fun DataBackupScreen(
 
 private fun defaultBackupFileName(): String =
     "Eta-backup-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}.eta-backup.json"
+
+/** 把导出/导入阶段名映射成可读文案：数万条消息时用户能看到进度在走。 */
+private fun backupPhaseLabel(raw: String): String = when (raw) {
+    "prepare_export", "read_header" -> "\u6b63\u5728\u51c6\u5907\u2026"
+    "stage_export" -> "\u6b63\u5728\u5199\u5165\u6570\u636e\u2026"
+    "copy_export" -> "\u6b63\u5728\u5b8c\u6210\u5199\u5165\u2026"
+    "export_conversations" -> "\u6b63\u5728\u5bfc\u51fa\u5bf9\u8bdd\u5217\u8868\u2026"
+    "export_messages" -> "\u6b63\u5728\u5bfc\u51fa\u6d88\u606f\uff08\u6570\u4e07\u6761\u65f6\u8f83\u4e45\uff09\u2026"
+    "export_checkpoints" -> "\u6b63\u5728\u5bfc\u51fa\u4e0a\u4e0b\u6587\u5feb\u7167\u2026"
+    "export_roleplay" -> "\u6b63\u5728\u5bfc\u51fa\u89d2\u8272\u4e0e\u5934\u50cf\u2026"
+    "read_conversations" -> "\u6b63\u5728\u8bfb\u53d6\u5bf9\u8bdd\u5217\u8868\u2026"
+    "read_messages" -> "\u6b63\u5728\u8bfb\u53d6\u6d88\u606f\uff08\u6570\u4e07\u6761\u65f6\u8f83\u4e45\uff09\u2026"
+    "read_checkpoints" -> "\u6b63\u5728\u8bfb\u53d6\u4e0a\u4e0b\u6587\u5feb\u7167\u2026"
+    "read_roleplay" -> "\u6b63\u5728\u8bfb\u53d6\u89d2\u8272\u4e0e\u5934\u50cf\u2026"
+    "apply_import" -> "\u6b63\u5728\u5199\u5165\u6570\u636e\u5e93\u2026"
+    else -> if (raw.startsWith("read_")) "\u6b63\u5728\u8bfb\u53d6\u6570\u636e\u2026" else "\u5904\u7406\u4e2d\u2026"
+}
