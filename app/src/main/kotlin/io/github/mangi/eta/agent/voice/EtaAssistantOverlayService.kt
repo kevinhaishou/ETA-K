@@ -203,10 +203,20 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             AssistantSpeechForeground.ACTION_STOP -> { speechInput.cancel(); playback.stop() }
             ACTION_SHOW -> showEntry(intent.getStringExtra(EXTRA_SCREEN_CONTEXT_ID))
             ACTION_HANDOFF_READY -> finishHandoff()
+            ACTION_RUN_AUTOMATION -> {
+                val prompt = intent.getStringExtra(EXTRA_AUTOMATION_PROMPT).orEmpty()
+                if (prompt.isNotBlank()) {
+                    pendingAutomationPrompt = prompt
+                    showEntry(null)
+                }
+            }
             else -> Unit
         }
         return START_NOT_STICKY
     }
+
+    /** 通知触发自动化：浮层内容就绪后立即提交的 prompt。 */
+    private var pendingAutomationPrompt: String? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -395,6 +405,11 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                                 entryContentReady = true
                                 setWindowTouchable(true)
                                 presentEntryInput()
+                                // 通知触发自动化：内容就绪后立刻提交动作指令，无需用户再点一次。
+                                pendingAutomationPrompt?.let { prompt ->
+                                    pendingAutomationPrompt = null
+                                    submitPrompt(prompt)
+                                }
                             }
                         },
                         onInputFocus = {
@@ -973,6 +988,10 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         private const val ACTION_DISMISS_OVERLAY = "io.github.kevinhaishou.etak.action.DISMISS_OVERLAY"
 
         const val ACTION_SHOW = "io.github.mangi.eta.agent.voice.SHOW"
+        // ETA-K 定制：通知触发自动化入口
+        const val ACTION_RUN_AUTOMATION = "io.github.mangi.eta.agent.voice.RUN_AUTOMATION"
+        private const val EXTRA_AUTOMATION_PROMPT = "automation_prompt"
+        private const val EXTRA_AUTOMATION_SOURCE = "automation_source"
         const val ACTION_OPEN_CONVERSATION = "io.github.mangi.eta.agent.voice.OPEN_CONVERSATION"
         const val EXTRA_CONVERSATION_KEY = "io.github.mangi.eta.agent.voice.extra.CONVERSATION_KEY"
         private const val EXTRA_SCREEN_CONTEXT_ID = "assistant_screen_context_id"
@@ -1052,6 +1071,16 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 Thread.currentThread().interrupt()
                 false
             }
+        }
+
+        /** 通知触发自动化：把规则动作指令提交给浮层执行。 */
+        fun runAutomation(context: Context, source: String, prompt: String) {
+            context.applicationContext.startService(
+                Intent(context.applicationContext, EtaAssistantOverlayService::class.java)
+                    .setAction(ACTION_RUN_AUTOMATION)
+                    .putExtra(EXTRA_AUTOMATION_PROMPT, prompt)
+                    .putExtra(EXTRA_AUTOMATION_SOURCE, source),
+            )
         }
 
         fun show(context: Context, screenContextId: String?) {
