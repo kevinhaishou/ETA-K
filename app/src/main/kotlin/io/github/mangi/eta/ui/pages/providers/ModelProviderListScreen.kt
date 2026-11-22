@@ -142,24 +142,23 @@ internal fun ModelProviderListScreen(
                         onDismissRequest = { providerToDelete = null },
                         onDismissFinished = { if (providerToDelete == null) retainedProviderToDelete = null },
                     )
-                    // ETA-K 定制：自动排序对话框（玻璃底，跟随壁纸）
-                    GlassDialog(
-                        show = showSortDialog,
-                        backdrop = currentGlassOverlayBackdrop(),
+                    // ETA-K 定制：自动排序对话框。
+                    // 用 CouiConfirmDialog（项目内已验证可弹出的组件），避免 GlassDialog 在
+                    // backdrop 缺失时不渲染内容的隐患。
+                    CouiConfirmDialog(
+                        visible = showSortDialog,
                         title = "\u6392\u5e8f\u65b9\u5f0f",
-                        summary = "\u9009\u62e9\u81ea\u52a8\u6392\u5e8f\u89c4\u5219\uff0c\u7acb\u5373\u5e94\u7528\u5230\u5217\u8868\u987a\u5e8f",
+                        message = "\u9009\u62e9\u81ea\u52a8\u6392\u5e8f\u89c4\u5219\uff0c\u7acb\u5373\u5e94\u7528\u5230\u5217\u8868\u987a\u5e8f",
+                        confirmText = "\u5b8c\u6210",
+                        onConfirm = { showSortDialog = false },
                         onDismissRequest = { showSortDialog = false },
                     ) {
                         ProviderSortOptions(
                             onPick = { mode ->
+                                android.util.Log.w("EtaProviderSort", "picked mode=$mode")
                                 scope.launch { ProviderRepository.autoSortProviders(mode) }
                                 showSortDialog = false
                             },
-                        )
-                        MiuixDialogActions(
-                            confirmText = "\u5b8c\u6210",
-                            onCancel = { showSortDialog = false },
-                            onConfirm = { showSortDialog = false },
                         )
                     }
                 },
