@@ -80,6 +80,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
 import io.github.mangi.eta.agent.imagegen.ImageGenToolCatalog
@@ -1118,15 +1120,18 @@ private fun AgentChatBottomBar(
             .imePadding(),
     ) {
         // 底部以连续垂直渐隐承接悬浮输入胶囊，避免一整块不透明实心矩形把消息流生硬截断。
+        // ETA-K 定制：壁纸模式下各档透明度按侧栏可见程度缩放，否则底部会压出一条实心黑带。
+        val wallpaperActive = LocalChatBackgroundActive.current
+        val scrimFactor = if (wallpaperActive) LocalSidebarAlpha.current.coerceIn(0.0f, 1.0f) else 1f
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .background(
                     Brush.verticalGradient(
                         0.0f to Color.Transparent,
-                        0.26f to surface.copy(alpha = 0.86f),
-                        0.55f to surface.copy(alpha = 0.98f),
-                        1.0f to surface,
+                        0.26f to surface.copy(alpha = 0.86f * scrimFactor),
+                        0.55f to surface.copy(alpha = 0.98f * scrimFactor),
+                        1.0f to surface.copy(alpha = scrimFactor),
                     ),
                 ),
         )
