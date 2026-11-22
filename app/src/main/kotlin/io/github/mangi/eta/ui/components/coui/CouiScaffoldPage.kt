@@ -30,6 +30,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import io.github.mangi.eta.ui.components.rememberWallpaperBitmap
+import io.github.mangi.eta.ui.components.drawWallpaperBitmap
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.CustomizationStore
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll

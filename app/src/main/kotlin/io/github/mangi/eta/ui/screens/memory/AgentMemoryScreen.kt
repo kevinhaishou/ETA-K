@@ -299,7 +299,7 @@ internal fun AgentMemoryScreen(
     }
 }
 
-@Composable
+/**
  * 召回测试：输入关键词，直接调用与 memory_get 相同的检索（打分 + 过期标注），
  * 让用户直观看到「这条查询能召回哪些记忆、新旧程度如何」，发现记错/记旧。
  */
