@@ -47,7 +47,6 @@ import io.github.mangi.eta.ui.components.coui.CouiSectionTitle
  * 列表里点哪条就把那条的内容写进生效字段。运行时读取路径没有变化。
  */
 @Composable
-@Composable
 internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
