@@ -72,6 +72,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import io.github.mangi.eta.data.repository.ProviderHealth
 import io.github.mangi.eta.data.repository.ProviderHealthRepository
 import io.github.mangi.eta.data.repository.ProviderHealthState
+import androidx.compose.foundation.layout.Column
 
 @Composable
 internal fun ModelProviderListScreen(
