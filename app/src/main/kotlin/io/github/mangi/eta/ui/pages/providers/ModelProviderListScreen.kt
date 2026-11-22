@@ -67,6 +67,11 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.glass.GlassDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import io.github.mangi.eta.data.repository.ProviderHealth
+import io.github.mangi.eta.data.repository.ProviderHealthRepository
+import io.github.mangi.eta.data.repository.ProviderHealthState
 
 @Composable
 internal fun ModelProviderListScreen(
@@ -80,6 +85,8 @@ internal fun ModelProviderListScreen(
     var providerToDelete by remember { mutableStateOf<ProviderSetting?>(null) }
     var retainedProviderToDelete by remember { mutableStateOf<ProviderSetting?>(null) }
     if (providerToDelete != null) retainedProviderToDelete = providerToDelete
+    var showSortDialog by remember { mutableStateOf(false) }
+    val providerHealth by ProviderHealthRepository.health.collectAsState(initial = emptyMap())
 
     LaunchedEffect(Unit) {
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
@@ -176,6 +183,22 @@ internal fun ModelProviderListScreen(
                         }
                     }
                 }
+                item(key = "reorder_entry") {
+                    CouiPreference(
+                        title = "\u6392\u5e8f\u65b9\u5f0f",
+                        summary = "\u81ea\u52a8\u6309\u540d\u79f0\u6216\u521b\u5efa\u65f6\u95f4\u6392\u5217\uff0c\u6216\u7528\u5217\u8868\u9879\u4e0a\u7684\u7bad\u5934\u624b\u52a8\u5fae\u8c03",
+                        icon = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
+                        onClick = { showSortDialog = true },
+                    )
+                }
+                item(key = "health_test_entry") {
+                    CouiPreference(
+                        title = "\u68c0\u6d4b\u5168\u90e8\u4f9b\u5e94\u5546",
+                        summary = providerHealthSummary(providerHealth),
+                        icon = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
+                        onClick = { ProviderHealthRepository.testAll(providers) },
+                    )
+                }
                 item(key = "configured_providers") {
                     CouiSectionTitle(
                         pluralStringResource(R.plurals.provider_configured_count, filteredProviders.size, filteredProviders.size),
@@ -219,6 +242,11 @@ internal fun ModelProviderListScreen(
                                         RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
                                     }
                                 },
+                                health = providerHealth[provider.id],
+                                canMoveUp = index > 0,
+                                canMoveDown = index < filteredProviders.lastIndex,
+                                onMoveUp = { scope.launch { ProviderRepository.moveProvider(provider.id, -1) } },
+                                onMoveDown = { scope.launch { ProviderRepository.moveProvider(provider.id, 1) } },
                             )
                         }
                     }
@@ -362,13 +390,20 @@ private fun ProviderListItem(
     onOpen: () -> Unit,
     onDelete: (() -> Unit)?,
     onSelect: () -> Unit,
+    health: ProviderHealth? = null,
+    canMoveUp: Boolean = false,
+    canMoveDown: Boolean = false,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
 ) {
     val opacity = if (provider.isEnabled) 1f else 0.6f
+    val healthLabel = providerHealthLabel(health)
     val subtitle = listOfNotNull(
         provider.typeLabel,
         pluralStringResource(R.plurals.provider_models_count, provider.models.size, provider.models.size),
         stringResource(R.string.ui_built_in_09ceea).takeIf { provider.isBuiltIn },
         stringResource(R.string.ui_disabled_0fe5a9).takeIf { !provider.isEnabled },
+        healthLabel?.first,
     ).joinToString(" · ")
 
     when (LocalUiStyle.current) {
@@ -416,23 +451,31 @@ private fun ProviderListItem(
                     )
                 },
                 trailing = {
-                    Box(
-                        modifier = Modifier
-                            .padding(start = 12.dp)
-                            .size(32.dp)
-                            .clickable(
-                                enabled = provider.isEnabled,
-                                role = Role.RadioButton,
-                                onClick = onSelect,
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        RadioButton(
-                            modifier = Modifier.size(24.dp),
-                            selected = isSelected,
-                            onClick = null,
-                            enabled = provider.isEnabled,
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ProviderReorderArrows(
+                            canMoveUp = canMoveUp,
+                            canMoveDown = canMoveDown,
+                            onMoveUp = onMoveUp,
+                            onMoveDown = onMoveDown,
                         )
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 12.dp)
+                                .size(32.dp)
+                                .clickable(
+                                    enabled = provider.isEnabled,
+                                    role = Role.RadioButton,
+                                    onClick = onSelect,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            RadioButton(
+                                modifier = Modifier.size(24.dp),
+                                selected = isSelected,
+                                onClick = null,
+                                enabled = provider.isEnabled,
+                            )
+                        }
                     }
                 },
             )
@@ -485,5 +528,59 @@ private fun ProviderListItem(
                 )
             }
         }
+    }
+}
+
+/** 列表项健康状态：测试中/可用/失败，未测返回 null。 */
+private fun providerHealthLabel(health: ProviderHealth?): Pair<String, Boolean>? {
+    return when (health?.state) {
+        ProviderHealthState.Testing -> "\u68c0\u6d4b\u4e2d\u2026" to true
+        ProviderHealthState.Reachable -> "\u5bf9\u8bdd\u53ef\u7528 \u00b7 ${health.modelCount} \u4e2a\u6a21\u578b" to true
+        ProviderHealthState.Unreachable -> "\u8fde\u63a5\u5931\u8d25\uff1a${health.detail.orEmpty()}" to false
+        else -> null
+    }
+}
+
+/** 顶部入口摘要：未测 / 进行中 / 结果统计。 */
+private fun providerHealthSummary(health: Map<String, ProviderHealth>): String {
+    if (health.isEmpty()) return "\u5bf9\u6bcf\u4e2a\u5df2\u542f\u7528\u4f9b\u5e94\u5546\u53d1\u4e00\u6761\u6781\u5c0f\u6d88\u606f\u5b9e\u6d4b\u5bf9\u8bdd\uff0c\u7ed3\u679c\u4ee3\u8868\u771f\u5b9e\u53ef\u7528\u6027"
+    if (health.values.any { it.state == ProviderHealthState.Testing }) return "\u68c0\u6d4b\u4e2d\u2026"
+    val reachable = health.values.count { it.state == ProviderHealthState.Reachable }
+    val failed = health.values.count { it.state == ProviderHealthState.Unreachable }
+    return "\u53ef\u7528 $reachable \u4e2a \u00b7 \u8fde\u63a5\u5931\u8d25 $failed \u4e2a"
+}
+
+/** 手动微调上下箭头；到顶/到底时对应箭头变灰。 */
+@Composable
+private fun ProviderReorderArrows(
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: (() -> Unit)?,
+    onMoveDown: (() -> Unit)?,
+) {
+    val colors = if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
+        CouiPageDefaults.themeColors()
+    } else {
+        null
+    }
+    val activeTint = colors?.accent ?: MiuixTheme.colorScheme.primary
+    val idleTint = (colors?.summary ?: MiuixTheme.colorScheme.onSurfaceVariantSummary).copy(alpha = 0.35f)
+    Column {
+        Icon(
+            imageVector = Icons.Rounded.KeyboardArrowUp,
+            contentDescription = "\u4e0a\u79fb",
+            tint = if (canMoveUp) activeTint else idleTint,
+            modifier = Modifier
+                .size(22.dp)
+                .clickable(enabled = canMoveUp) { onMoveUp?.invoke() },
+        )
+        Icon(
+            imageVector = Icons.Rounded.KeyboardArrowDown,
+            contentDescription = "\u4e0b\u79fb",
+            tint = if (canMoveDown) activeTint else idleTint,
+            modifier = Modifier
+                .size(22.dp)
+                .clickable(enabled = canMoveDown) { onMoveDown?.invoke() },
+        )
     }
 }
