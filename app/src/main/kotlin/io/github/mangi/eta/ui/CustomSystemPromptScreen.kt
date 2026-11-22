@@ -39,6 +39,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import io.github.mangi.eta.ui.components.coui.CouiPreferenceGroup
 import io.github.mangi.eta.ui.components.coui.CouiSectionTitle
+import androidx.compose.foundation.clickable
+import io.github.mangi.eta.ui.components.MiuixDialogActions
+import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
+import io.github.mangi.eta.ui.components.currentGlassOverlayBackdrop
+import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
+import top.yukonga.miuix.kmp.glass.GlassDialog
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 自定义系统提示词。
@@ -52,6 +60,7 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val revision by CustomizationStore.revision.collectAsState()
     var draft by remember { mutableStateOf(CustomizationStore.systemPrompt()) }
+    var pendingDelete by remember { mutableStateOf<PromptPreset?>(null) }
     val presets = remember(revision) { CustomizationStore.promptPresets() }
     val activeId = remember(revision) { CustomizationStore.activePresetId() }
 
@@ -116,6 +125,45 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
         ).show()
     }
 
+    // 删除预设确认
+    pendingDelete?.let { target ->
+        when (LocalUiStyle.current) {
+            AppearanceUiStyle.COUI -> {
+                CouiConfirmDialog(
+                    visible = true,
+                    title = "\u5220\u9664\u9884\u8bbe",
+                    message = "\u5220\u9664\u300c${target.name}\u300d\uff1f\u5f53\u524d\u751f\u6548\u7684\u63d0\u793a\u8bcd\u4e0d\u4f1a\u88ab\u6e05\u7a7a\u3002",
+                    confirmText = "\u5220\u9664",
+                    destructive = true,
+                    onConfirm = {
+                        CustomizationStore.deletePromptPreset(target.id)
+                        pendingDelete = null
+                    },
+                    onDismissRequest = { pendingDelete = null },
+                )
+            }
+            AppearanceUiStyle.MIUIX -> {
+                GlassDialog(
+                    show = true,
+                    backdrop = currentGlassOverlayBackdrop(),
+                    title = "\u5220\u9664\u9884\u8bbe",
+                    summary = "\u5220\u9664\u300c${target.name}\u300d\uff1f\u5f53\u524d\u751f\u6548\u7684\u63d0\u793a\u8bcd\u4e0d\u4f1a\u88ab\u6e05\u7a7a\u3002",
+                    onDismissRequest = { pendingDelete = null },
+                ) {
+                    MiuixDialogActions(
+                        confirmText = "\u5220\u9664",
+                        destructive = true,
+                        onCancel = { pendingDelete = null },
+                        onConfirm = {
+                            CustomizationStore.deletePromptPreset(target.id)
+                            pendingDelete = null
+                        },
+                    )
+                }
+            }
+        }
+    }
+
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
             CouiScaffoldPage(
@@ -156,6 +204,16 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                                     title = presetTitle(preset, preset.id == activeId),
                                     summary = presetSummary(preset.content),
                                     onClick = { CustomizationStore.applyPromptPreset(preset.id) },
+                                    trailing = {
+                                        Text(
+                                            text = "\u5220\u9664",
+                                            color = CouiTheme.colorScheme.error,
+                                            style = MiuixTheme.textStyles.footnote2,
+                                            modifier = Modifier
+                                                .clickable { pendingDelete = preset }
+                                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        )
+                                    },
                                 )
                             }
                         }
@@ -221,6 +279,16 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                                     title = presetTitle(preset, preset.id == activeId),
                                     summary = presetSummary(preset.content),
                                     onClick = { CustomizationStore.applyPromptPreset(preset.id) },
+                                    endActions = {
+                                        Text(
+                                            text = "\u5220\u9664",
+                                            color = MiuixTheme.colorScheme.error,
+                                            style = MiuixTheme.textStyles.footnote2,
+                                            modifier = Modifier
+                                                .clickable { pendingDelete = preset }
+                                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        )
+                                    },
                                 )
                             }
                         }
