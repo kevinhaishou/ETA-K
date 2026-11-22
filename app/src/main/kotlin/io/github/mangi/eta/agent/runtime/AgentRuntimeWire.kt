@@ -100,7 +100,7 @@ internal object AgentRuntimeWire {
     const val MSG_STEER_RESPONSE = 19
 
     private const val MODULE_PACKAGE = "io.github.kevinhaishou.etak"
-    private const val SERVICE_CLASS = "io.github.kevinhaishou.etak.agent.runtime.AgentRuntimeService"
+    private const val SERVICE_CLASS = "io.github.mangi.eta.agent.runtime.AgentRuntimeService"
 
     private const val KEY_TYPE = "type"
     private const val KEY_RUN_ID = "run_id"

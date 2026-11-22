@@ -820,7 +820,7 @@ internal class AccessibilityServiceEnforcer(
     private companion object {
         const val APP_PACKAGE = "io.github.kevinhaishou.etak"
         const val SERVICE_CLASS =
-            "io.github.kevinhaishou.etak.agent.accessibility.AgentAccessibilityService"
+            "io.github.mangi.eta.agent.accessibility.AgentAccessibilityService"
         const val DISABLED = 0
         const val ENABLED = 1
         const val LOG_INTERVAL_MS = 10_000L
