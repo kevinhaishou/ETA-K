@@ -134,6 +134,7 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -1787,12 +1788,18 @@ internal fun NotificationTriggerSection() {
                                     style = MiuixTheme.textStyles.body1,
                                     modifier = Modifier.weight(1f),
                                 )
-                                Switch(
-                                    checked = rule.enabled,
-                                    onCheckedChange = { enabled ->
-                                        update(rules.map {
-                                            if (it.id == rule.id) it.copy(enabled = enabled) else it
-                                        })
+                                Text(
+                                    text = if (rule.enabled) "\u5df2\u5f00\u542f" else "\u5df2\u5173\u95ed",
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = if (rule.enabled) MiuixTheme.colorScheme.primary
+                                    else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    modifier = Modifier.clickable {
+                                        val next = !rule.enabled
+                                        update(
+                                            rules.map {
+                                                if (it.id == rule.id) it.copy(enabled = next) else it
+                                            },
+                                        )
                                     },
                                 )
                             }
