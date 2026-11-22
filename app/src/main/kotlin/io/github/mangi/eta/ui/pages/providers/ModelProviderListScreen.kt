@@ -345,6 +345,21 @@ internal fun ModelProviderListScreen(
                     }
                 }
 
+                item(key = "tools_section") {
+                    ProviderSection(title = "\u7ba1\u7406") {
+                        ArrowPreference(
+                            title = "\u6392\u5e8f\u65b9\u5f0f",
+                            summary = "\u81ea\u52a8\u6309\u540d\u79f0\u6216\u521b\u5efa\u65f6\u95f4\u6392\u5217",
+                            onClick = { showSortDialog = true },
+                        )
+                        ArrowPreference(
+                            title = "\u68c0\u6d4b\u5168\u90e8\u4f9b\u5e94\u5546",
+                            summary = providerHealthSummary(providerHealth),
+                            onClick = { ProviderHealthRepository.testAll(providers) },
+                        )
+                    }
+                }
+
                 item(key = "list_section") {
                     ProviderSection(title = pluralStringResource(R.plurals.provider_configured_count, filteredProviders.size, filteredProviders.size)) {
                         if (filteredProviders.isEmpty()) {
@@ -390,6 +405,21 @@ internal fun ModelProviderListScreen(
     }
 
     if (LocalUiStyle.current == AppearanceUiStyle.MIUIX) {
+        GlassDialog(
+            show = showSortDialog,
+            backdrop = currentGlassOverlayBackdrop(),
+            title = "\u6392\u5e8f\u65b9\u5f0f",
+            summary = "\u9009\u62e9\u81ea\u52a8\u6392\u5e8f\u89c4\u5219",
+            onDismissRequest = { showSortDialog = false },
+            onDismissFinished = {},
+        ) {
+            ProviderSortOptions(
+                onPick = { mode ->
+                    scope.launch { ProviderRepository.autoSortProviders(mode) }
+                    showSortDialog = false
+                },
+            )
+        }
         GlassDialog(
             show = providerToDelete != null,
             backdrop = currentGlassOverlayBackdrop(),
