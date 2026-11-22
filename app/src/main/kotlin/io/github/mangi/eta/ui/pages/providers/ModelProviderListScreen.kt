@@ -87,6 +87,12 @@ internal fun ModelProviderListScreen(
     var retainedProviderToDelete by remember { mutableStateOf<ProviderSetting?>(null) }
     if (providerToDelete != null) retainedProviderToDelete = providerToDelete
     var showSortDialog by remember { mutableStateOf(false) }
+    if (showSortDialog) {
+        ProviderSortDialog(
+            onDismiss = { showSortDialog = false },
+            onPick = { mode -> scope.launch { ProviderRepository.autoSortProviders(mode) } },
+        )
+    }
     val providerHealth by ProviderHealthRepository.health.collectAsState(initial = emptyMap())
 
     LaunchedEffect(Unit) {
@@ -141,6 +147,22 @@ internal fun ModelProviderListScreen(
                         onDismissRequest = { providerToDelete = null },
                         onDismissFinished = { if (providerToDelete == null) retainedProviderToDelete = null },
                     )
+                    // ETA-K 定制：自动排序对话框
+                    CouiConfirmDialog(
+                        visible = showSortDialog,
+                        title = "\u6392\u5e8f\u65b9\u5f0f",
+                        message = "\u9009\u62e9\u81ea\u52a8\u6392\u5e8f\u89c4\u5219\uff0c\u7acb\u5373\u5e94\u7528\u5230\u5217\u8868\u987a\u5e8f",
+                        confirmText = "\u5b8c\u6210",
+                        onConfirm = { showSortDialog = false },
+                        onDismissRequest = { showSortDialog = false },
+                    ) {
+                        ProviderSortOptions(
+                            onPick = { mode ->
+                                scope.launch { ProviderRepository.autoSortProviders(mode) }
+                                showSortDialog = false
+                            },
+                        )
+                    }
                 },
             ) { searching ->
                 if (!searching) item(key = "new_providers") {
@@ -380,6 +402,29 @@ internal fun ModelProviderListScreen(
             )
         }
     }
+
+    if (showSortDialog) {
+        WindowDialog(
+            show = true,
+            title = "\u6392\u5e8f\u65b9\u5f0f",
+            summary = "\u9009\u62e9\u81ea\u52a8\u6392\u5e8f\u89c4\u5219\uff0c\u7acb\u5373\u5e94\u7528\u5230\u5217\u8868\u987a\u5e8f",
+            onDismissRequest = { showSortDialog = false },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProviderSortOptions(
+                    onPick = { mode ->
+                        scope.launch { ProviderRepository.autoSortProviders(mode) }
+                        showSortDialog = false
+                    },
+                )
+            }
+            MiuixDialogActions(
+                confirmText = "\u5b8c\u6210",
+                onCancel = { showSortDialog = false },
+                onConfirm = { showSortDialog = false },
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -583,5 +628,59 @@ private fun ProviderReorderArrows(
                 .size(22.dp)
                 .clickable(enabled = canMoveDown) { onMoveDown?.invoke() },
         )
+    }
+}
+
+/** 自动排序规则选择：一次重写全部 sortOrder。 */
+@Composable
+private fun ProviderSortDialog(
+    onDismiss: () -> Unit,
+    onPick: (ProviderRepository.ProviderSortMode) -> Unit,
+) {
+    val modes = listOf(
+        "\u6309\u540d\u79f0 A \u2192 Z" to ProviderRepository.ProviderSortMode.NAME_ASC,
+        "\u6309\u540d\u79f0 Z \u2192 A" to ProviderRepository.ProviderSortMode.NAME_DESC,
+        "\u6309\u521b\u5efa\u65f6\u95f4\uff08\u65b0 \u2192 \u65e7\uff09" to ProviderRepository.ProviderSortMode.CREATED_DESC,
+    )
+    CouiConfirmDialog(
+        visible = true,
+        title = "\u6392\u5e8f\u65b9\u5f0f",
+        message = "\u9009\u4e00\u4e2a\u89c4\u5219\uff0c\u7acb\u5373\u91cd\u6392\u6574\u4e2a\u5217\u8868",
+        confirmText = "\u5b8c\u6210",
+        onConfirm = onDismiss,
+        onDismissRequest = onDismiss,
+    ) {
+        modes.forEach { (label, mode) ->
+            CouiPreference(
+                title = label,
+                onClick = {
+                    onPick(mode)
+                    onDismiss()
+                },
+            )
+        }
+    }
+}
+
+/** 自动排序选项：点一项立即应用并关闭对话框。 */
+@Composable
+private fun ProviderSortOptions(onPick: (ProviderRepository.ProviderSortMode) -> Unit) {
+    val options = listOf(
+        "\u6309\u540d\u79f0 A \u2192 Z" to ProviderRepository.ProviderSortMode.NAME_ASC,
+        "\u6309\u540d\u79f0 Z \u2192 A" to ProviderRepository.ProviderSortMode.NAME_DESC,
+        "\u6309\u521b\u5efa\u65f6\u95f4\uff08\u65b0 \u2192 \u65e7\uff09" to ProviderRepository.ProviderSortMode.CREATED_DESC,
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.forEach { (label, mode) ->
+            Text(
+                text = label,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onPick(mode) }
+                    .padding(vertical = 8.dp),
+            )
+        }
     }
 }
