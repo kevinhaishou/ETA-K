@@ -72,6 +72,8 @@ import io.github.mangi.eta.ui.CustomSystemPromptScreen
 import io.github.mangi.eta.ui.IncomingShareRequest
 import io.github.mangi.eta.ui.SettingsScreen
 import io.github.mangi.eta.ui.components.ChatBackgroundScaffold
+import io.github.mangi.eta.ui.components.ChatImagePreviewHost
+import io.github.mangi.eta.ui.components.LocalChatImagePreviewer
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
 import io.github.mangi.eta.ui.components.coui.CouiInputDialog
@@ -469,6 +471,13 @@ fun AgentAppRoot(
     val swipeDismiss: NavSwipeDirection? = null
     key(navigationResetKey) {
         ChatBackgroundScaffold {
+            // 全屏图片预览宿主放在导航外层：生图页与画廊不在 Shell 内，
+            // 宿主留在 Shell 里会导致这两处点图无反应。
+            val previewer = LocalChatImagePreviewer.current
+            LaunchedEffect(backStack.lastOrNull(), navigationResetKey) {
+                if (previewer?.request != null) previewer.closeImmediately()
+            }
+            ChatImagePreviewHost(modifier = Modifier.fillMaxSize()) {
             NavDisplay(
                 backStack = backStack,
                 onBack = { popRoute() },
@@ -983,6 +992,7 @@ fun AgentAppRoot(
                         onBack = ::popRoute
                     )
                 }
+            }
             }
         }
 

@@ -125,6 +125,12 @@ internal class ChatImagePreviewer {
         targetOpen = false
     }
 
+    /** 路由切换或导航重置时立即关闭，避免飞回已销毁页面的旧缩略图位置。 */
+    fun closeImmediately() {
+        targetOpen = false
+        request = null
+    }
+
     /** 绘制阶段读取：当前正在飞行或全屏展示的缩略图隐藏原位，避免开合过渡出现重影。 */
     fun isPresenting(groupKey: Any?, index: Int): Boolean {
         val current = request ?: return false

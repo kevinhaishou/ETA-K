@@ -57,6 +57,7 @@ import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.customization.pageBackgroundColor
 import io.github.mangi.eta.ui.components.ChatBackground
 import io.github.mangi.eta.ui.components.ChatImagePreviewHost
+import io.github.mangi.eta.ui.components.LocalChatImagePreviewer
 import io.github.mangi.eta.ui.components.ConversationSidePaneScaffold
 import io.github.mangi.eta.ui.components.EtaTopLayer
 import io.github.mangi.eta.ui.components.MiuixBackButton
@@ -282,7 +283,7 @@ internal fun AgentAppShell(
         }
     }
 
-    ChatImagePreviewHost(modifier = modifier) {
+    val shellContent: @Composable () -> Unit = {
         if (conversationPaneState != null && currentRoute is AppRoute.Home) {
             ConversationSidePaneScaffold(
                 state = conversationPaneState,
@@ -311,6 +312,18 @@ internal fun AgentAppShell(
             }
         } else {
             pageContent()
+        }
+    }
+
+    // 全屏图片预览宿主已提升到 AgentAppRoot 的导航外层，这里只在没有外层宿主时兜底，
+    // 避免同一个预览器被两层 Host 同时消费导致点图无反应。
+    if (LocalChatImagePreviewer.current != null) {
+        Box(modifier = modifier.fillMaxSize()) {
+            shellContent()
+        }
+    } else {
+        ChatImagePreviewHost(modifier = modifier) {
+            shellContent()
         }
     }
 }
