@@ -88,6 +88,40 @@ internal object ProviderRepository {
         return added
     }
 
+    internal enum class ProviderSortMode { NAME_ASC, NAME_DESC, CREATED_DESC }
+
+    suspend fun autoSortProviders(mode: ProviderSortMode) {
+        mutationMutex.withLock {
+            val sorted = when (mode) {
+                ProviderSortMode.NAME_ASC ->
+                    allProviders().sortedWith(compareBy { it.name.lowercase() })
+                ProviderSortMode.NAME_DESC ->
+                    allProviders().sortedWith(compareByDescending { it.name.lowercase() })
+                ProviderSortMode.CREATED_DESC ->
+                    allProviders().sortedByDescending { it.createdAt }
+            }
+            dao().upsertProviders(sorted.mapIndexed { index, provider ->
+                provider.withSortOrder(index).toEntity()
+            })
+        }
+    }
+
+    /** 手动微调：把供应商与相邻项交换位置（delta = -1 上移，+1 下移）。 */
+    suspend fun moveProvider(id: String, delta: Int) {
+        mutationMutex.withLock {
+            val list = allProviders().sortedBy { it.sortOrder }
+            val from = list.indexOfFirst { it.id == id }
+            val to = from + delta
+            if (from < 0 || to !in list.indices) return
+            val swapped = list.toMutableList()
+            val item = swapped.removeAt(from)
+            swapped.add(to, item)
+            dao().upsertProviders(swapped.mapIndexed { index, provider ->
+                provider.withSortOrder(index).toEntity()
+            })
+        }
+    }
+
     suspend fun updateProvider(provider: ProviderSetting) {
         mutationMutex.withLock {
             val previous = requireNotNull(providerById(provider.id)) {
