@@ -171,10 +171,13 @@ internal fun conversationPaneContainerColor(): Color {
 
 @Composable
 internal fun conversationPaneCardColor(): Color {
+    // ETA-K 定制：壁纸模式下卡片跟随侧栏可见程度，否则会在半透明侧栏上压出实心色块。
+    val wallpaperActive = LocalChatBackgroundActive.current
+    val alpha = if (wallpaperActive) LocalSidebarAlpha.current.coerceAtLeast(0.06f) else 1f
     if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
-        return CouiTheme.colorScheme.cardBackground
+        return CouiTheme.colorScheme.cardBackground.copy(alpha = alpha)
     }
-    return MiuixTheme.colorScheme.surfaceContainer
+    return MiuixTheme.colorScheme.surfaceContainer.copy(alpha = alpha)
 }
 
 @Composable

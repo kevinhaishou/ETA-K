@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
 import io.github.mangi.eta.ui.layout.TopBarBackdropLayout
 import io.github.suqi8.coui.kmp.blur.LayerBackdrop
 import io.github.suqi8.coui.kmp.blur.TopAppBarGlow
@@ -20,14 +21,20 @@ internal fun CouiFixedTopBar(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    // ETA-K 定制：壁纸模式下顶栏不绘制凝光底，让全局背景整条透出。
+    val wallpaperActive = LocalChatBackgroundActive.current
     TopBarBackdropLayout(
         modifier = modifier.fillMaxWidth(),
         backgroundHeight = { height ->
             if (backdrop == null) height else height + TopAppBarGlowDefaults.ExtraHeight.roundToPx()
         },
-        backgroundModifier = if (backdrop == null) Modifier.background(backgroundColor) else Modifier,
+        backgroundModifier = when {
+            wallpaperActive -> Modifier
+            backdrop == null -> Modifier.background(backgroundColor)
+            else -> Modifier
+        },
         background = {
-            if (backdrop != null) CouiFixedTopBarGlow(backdrop, backgroundColor)
+            if (backdrop != null && !wallpaperActive) CouiFixedTopBarGlow(backdrop, backgroundColor)
         },
     ) {
         ProvideCouiMaterial(backdrop, content)

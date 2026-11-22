@@ -222,7 +222,8 @@ internal fun AgentAppShell(
                                 SmallTopAppBar(
                                     title = titleForRoute(currentRoute),
                                     navigationIcon = { CouiBackButton(onClick = onBack) },
-                                    color = colors.background,
+                                    // ETA-K 定制：壁纸模式下二级页顶栏透明，露出全局背景。
+                                    color = pageBackgroundColor(colors.background),
                                 )
                             }
                         }
