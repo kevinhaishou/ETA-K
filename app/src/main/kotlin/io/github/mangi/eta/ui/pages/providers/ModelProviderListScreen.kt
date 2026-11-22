@@ -142,13 +142,12 @@ internal fun ModelProviderListScreen(
                         onDismissRequest = { providerToDelete = null },
                         onDismissFinished = { if (providerToDelete == null) retainedProviderToDelete = null },
                     )
-                    // ETA-K 定制：自动排序对话框
-                    CouiConfirmDialog(
-                        visible = showSortDialog,
+                    // ETA-K 定制：自动排序对话框（玻璃底，跟随壁纸）
+                    GlassDialog(
+                        show = showSortDialog,
+                        backdrop = currentGlassOverlayBackdrop(),
                         title = "\u6392\u5e8f\u65b9\u5f0f",
-                        message = "\u9009\u62e9\u81ea\u52a8\u6392\u5e8f\u89c4\u5219\uff0c\u7acb\u5373\u5e94\u7528\u5230\u5217\u8868\u987a\u5e8f",
-                        confirmText = "\u5b8c\u6210",
-                        onConfirm = { showSortDialog = false },
+                        summary = "\u9009\u62e9\u81ea\u52a8\u6392\u5e8f\u89c4\u5219\uff0c\u7acb\u5373\u5e94\u7528\u5230\u5217\u8868\u987a\u5e8f",
                         onDismissRequest = { showSortDialog = false },
                     ) {
                         ProviderSortOptions(
@@ -156,6 +155,11 @@ internal fun ModelProviderListScreen(
                                 scope.launch { ProviderRepository.autoSortProviders(mode) }
                                 showSortDialog = false
                             },
+                        )
+                        MiuixDialogActions(
+                            confirmText = "\u5b8c\u6210",
+                            onCancel = { showSortDialog = false },
+                            onConfirm = { showSortDialog = false },
                         )
                     }
                 },
@@ -612,7 +616,7 @@ private fun ProviderSortOptions(onPick: (ProviderRepository.ProviderSortMode) ->
         "\u6309\u540d\u79f0 Z \u2192 A" to ProviderRepository.ProviderSortMode.NAME_DESC,
         "\u6309\u521b\u5efa\u65f6\u95f4\uff08\u65b0 \u2192 \u65e7\uff09" to ProviderRepository.ProviderSortMode.CREATED_DESC,
     )
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         options.forEach { (label, mode) ->
             Text(
                 text = label,
@@ -621,7 +625,7 @@ private fun ProviderSortOptions(onPick: (ProviderRepository.ProviderSortMode) ->
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onPick(mode) }
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 10.dp, horizontal = 2.dp),
             )
         }
     }
