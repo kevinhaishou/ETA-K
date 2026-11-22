@@ -68,7 +68,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.mangi.eta.BuildConfig
 import io.github.mangi.eta.EtaApp
+import androidx.compose.foundation.text.input.TextFieldState
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.components.coui.CouiTextField
 import io.github.mangi.eta.ui.components.coui.CouiNoticeDialog
 import io.github.mangi.eta.agent.device.NotificationTriggerStore
 import io.github.mangi.eta.agent.device.NotificationTriggerRule
@@ -130,6 +132,7 @@ import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -1818,10 +1821,13 @@ internal fun NotificationTriggerSection() {
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 modifier = Modifier.padding(top = 2.dp),
                             )
-                            TextButton(
+                            Text(
                                 text = "删除",
-                                onClick = { pendingDelete = rule },
-                                modifier = Modifier.padding(top = 4.dp),
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .padding(top = 4.dp)
+                                    .clickable { pendingDelete = rule },
                             )
                         }
                     }
@@ -1833,9 +1839,11 @@ internal fun NotificationTriggerSection() {
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
-                TextButton(
-                    text = "添加规则",
-                    onClick = {
+                Text(
+                    text = "\u6dfb\u52a0\u89c4\u5219",
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier.clickable {
                         showList = false
                         showEditor = true
                     },
@@ -1922,9 +1930,11 @@ internal fun NotificationTriggerSection() {
                         }
                     }
                     if (triggerLog.isNotEmpty()) {
-                        TextButton(
-                            text = "清空记录",
-                            onClick = {
+                        Text(
+                            text = "\u6e05\u7a7a\u8bb0\u5f55",
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = MiuixTheme.colorScheme.primary,
+                            modifier = Modifier.clickable {
                                 NotificationTriggerLogStore.clear(context)
                                 triggerLog = emptyList()
                             },
@@ -2003,11 +2013,16 @@ private fun ruleConditionText(rule: NotificationTriggerRule): String = buildStri
 
 @Composable
 private fun RuleEditorDialog(onDismiss: () -> Unit, onSaved: (NotificationTriggerRule) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var packageName by remember { mutableStateOf("") }
-    var titleKeyword by remember { mutableStateOf("") }
-    var textKeyword by remember { mutableStateOf("") }
-    var actionPrompt by remember { mutableStateOf("") }
+    val nameState = remember { TextFieldState() }
+    val packageState = remember { TextFieldState() }
+    val titleState = remember { TextFieldState() }
+    val textState = remember { TextFieldState() }
+    val promptState = remember { TextFieldState() }
+    val name = nameState.text.toString()
+    val packageName = packageState.text.toString()
+    val titleKeyword = titleState.text.toString()
+    val textKeyword = textState.text.toString()
+    val actionPrompt = promptState.text.toString()
 
     if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
         CouiConfirmDialog(
@@ -2036,30 +2051,13 @@ private fun RuleEditorDialog(onDismiss: () -> Unit, onSaved: (NotificationTrigge
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                CouiTextField(state = nameState, label = "\u89c4\u5219\u540d\u79f0")
+                CouiTextField(state = packageState, label = "\u6765\u6e90\u5305\u540d\uff08\u7559\u7a7a = \u4efb\u610f\uff09")
+                CouiTextField(state = titleState, label = "\u6807\u9898\u5173\u952e\u8bcd\uff08\u7559\u7a7a = \u4e0d\u9650\uff09")
+                CouiTextField(state = textState, label = "\u5185\u5bb9\u5173\u952e\u8bcd\uff08\u7559\u7a7a = \u4e0d\u9650\uff09")
                 CouiTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = "规则名称",
-                )
-                CouiTextField(
-                    value = packageName,
-                    onValueChange = { packageName = it },
-                    label = "来源包名（留空 = 任意）",
-                )
-                CouiTextField(
-                    value = titleKeyword,
-                    onValueChange = { titleKeyword = it },
-                    label = "标题关键词（留空 = 不限）",
-                )
-                CouiTextField(
-                    value = textKeyword,
-                    onValueChange = { textKeyword = it },
-                    label = "内容关键词（留空 = 不限）",
-                )
-                CouiTextField(
-                    value = actionPrompt,
-                    onValueChange = { actionPrompt = it },
-                    label = "动作指令（交给 agent 的 prompt）",
+                    state = promptState,
+                    label = "\u52a8\u4f5c\u6307\u4ee4",
                     singleLine = false,
                     minLines = 3,
                 )
@@ -2075,40 +2073,11 @@ private fun RuleEditorDialog(onDismiss: () -> Unit, onSaved: (NotificationTrigge
         onDismissRequest = onDismiss,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextField(
-                value = name,
-                onValueChange = { name = it },
-                label = "规则名称",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            TextField(
-                value = packageName,
-                onValueChange = { packageName = it },
-                label = "来源包名（留空 = 任意）",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            TextField(
-                value = titleKeyword,
-                onValueChange = { titleKeyword = it },
-                label = "标题关键词（留空 = 不限）",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            TextField(
-                value = textKeyword,
-                onValueChange = { textKeyword = it },
-                label = "内容关键词（留空 = 不限）",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            TextField(
-                value = actionPrompt,
-                onValueChange = { actionPrompt = it },
-                label = "动作指令（交给 agent 的 prompt）",
-                modifier = Modifier.fillMaxWidth(),
-            )
+            CouiTextField(state = nameState, label = "\u89c4\u5219\u540d\u79f0", modifier = Modifier.fillMaxWidth())
+            CouiTextField(state = packageState, label = "\u6765\u6e90\u5305\u540d\uff08\u7559\u7a7a = \u4efb\u610f\uff09", modifier = Modifier.fillMaxWidth())
+            CouiTextField(state = titleState, label = "\u6807\u9898\u5173\u952e\u8bcd\uff08\u7559\u7a7a = \u4e0d\u9650\uff09", modifier = Modifier.fillMaxWidth())
+            CouiTextField(state = textState, label = "\u5185\u5bb9\u5173\u952e\u8bcd\uff08\u7559\u7a7a = \u4e0d\u9650\uff09", modifier = Modifier.fillMaxWidth())
+            CouiTextField(state = promptState, label = "\u52a8\u4f5c\u6307\u4ee4", modifier = Modifier.fillMaxWidth())
         }
         MiuixDialogActions(
             confirmText = "保存",
