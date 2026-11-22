@@ -73,6 +73,7 @@ import io.github.mangi.eta.data.repository.ProviderHealth
 import io.github.mangi.eta.data.repository.ProviderHealthRepository
 import io.github.mangi.eta.data.repository.ProviderHealthState
 import androidx.compose.foundation.layout.Column
+import top.yukonga.miuix.kmp.window.WindowDialog
 
 @Composable
 internal fun ModelProviderListScreen(
