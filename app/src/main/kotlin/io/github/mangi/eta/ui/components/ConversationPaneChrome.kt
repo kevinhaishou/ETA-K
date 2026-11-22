@@ -376,11 +376,13 @@ internal fun ConversationPaneBottomDock(
     val progressiveMiuixBackdrop = if (progressiveBlurEnabled) activeMiuixBackdrop else null
     val activeCouiBackdrop = if (isCoui) couiBackdrop else null
 
+    // ETA-K 定制：各档透明度跟随容器自身 alpha，壁纸模式下不会在底部重新压出实心色。
     val bottomScrimBrush = remember(containerColor) {
+        val baseAlpha = containerColor.alpha
         Brush.verticalGradient(
             0.0f to Color.Transparent,
-            0.25f to containerColor.copy(alpha = 0.72f),
-            0.55f to containerColor.copy(alpha = 0.94f),
+            0.25f to containerColor.copy(alpha = baseAlpha * 0.72f),
+            0.55f to containerColor.copy(alpha = baseAlpha * 0.94f),
             1.0f to containerColor,
         )
     }
@@ -520,7 +522,11 @@ internal fun ConversationPaneBottomDock(
                     val miuixColors = MiuixTheme.colorScheme
                     val miuixDark = miuixColors.surface.luminance() < 0.5f
                     val pillShape = remember { GlassShape(ConversationPanelMetrics.BottomDockHeight / 2) }
-                    val fallbackBg = GlassTopAppBarDefaults.buttonFill()
+                    val fallbackBg = if (LocalChatBackgroundActive.current) {
+                        Color.Transparent
+                    } else {
+                        GlassTopAppBarDefaults.buttonFill()
+                    }
                     CoordinatedDockSearchLayout(
                         searchExpanded = searchExpanded,
                         buttonsProgress = { buttonsProgress },
