@@ -210,7 +210,10 @@ internal fun ModelProviderListScreen(
                         title = "\u6392\u5e8f\u65b9\u5f0f",
                         summary = "\u81ea\u52a8\u6309\u540d\u79f0\u6216\u521b\u5efa\u65f6\u95f4\u6392\u5217\uff0c\u6216\u7528\u5217\u8868\u9879\u4e0a\u7684\u7bad\u5934\u624b\u52a8\u5fae\u8c03",
                         icon = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
-                        onClick = { showSortDialog = true },
+                        onClick = {
+                            android.util.Log.w("EtaProviderSort", "reorder_entry clicked")
+                            showSortDialog = true
+                        },
                     )
                 }
                 item(key = "health_test_entry") {
@@ -218,7 +221,10 @@ internal fun ModelProviderListScreen(
                         title = "\u68c0\u6d4b\u5168\u90e8\u4f9b\u5e94\u5546",
                         summary = providerHealthSummary(providerHealth),
                         icon = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
-                        onClick = { ProviderHealthRepository.testAll(providers) },
+                        onClick = {
+                            android.util.Log.w("EtaProviderSort", "health_entry clicked")
+                            ProviderHealthRepository.testAll(providers)
+                        },
                     )
                 }
                 item(key = "configured_providers") {
