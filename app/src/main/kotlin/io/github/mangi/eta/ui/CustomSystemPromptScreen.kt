@@ -35,10 +35,10 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import import androidx.compose.foundation.layout.Box
-import import androidx.compose.foundation.layout.fillMaxWidth
-import import io.github.mangi.eta.ui.components.coui.CouiPreferenceGroup
-import import io.github.mangi.eta.ui.components.coui.CouiSectionTitle
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import io.github.mangi.eta.ui.components.coui.CouiPreferenceGroup
+import io.github.mangi.eta.ui.components.coui.CouiSectionTitle
 
 /**
  * 自定义系统提示词。
