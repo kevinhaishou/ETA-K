@@ -61,6 +61,8 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
 import io.github.mangi.eta.ui.app.LocalUiStyle
@@ -150,16 +152,21 @@ internal object ConversationPanelMetrics {
  */
 @Composable
 internal fun conversationPaneContainerColor(): Color {
+    // ETA-K 定制：壁纸模式下侧栏容器半透明，让全局背景透出可读。
+    val wallpaperActive = LocalChatBackgroundActive.current
+    val alpha = if (wallpaperActive) LocalSidebarAlpha.current.coerceAtLeast(0.06f) else 1f
     if (LocalUiStyle.current == AppearanceUiStyle.COUI) {
         val scheme = CouiTheme.colorScheme
-        return if (scheme.isDark) scheme.backgroundElevatedWithCard else scheme.backgroundWithCard
+        val base = if (scheme.isDark) scheme.backgroundElevatedWithCard else scheme.backgroundWithCard
+        return base.copy(alpha = alpha)
     }
     val colors = MiuixTheme.colorScheme
-    return if (colors.surface.luminance() > 0.5f) {
+    val base = if (colors.surface.luminance() > 0.5f) {
         colors.surface
     } else {
         lerp(colors.surface, colors.surfaceContainer, 0.45f)
     }
+    return base.copy(alpha = alpha)
 }
 
 @Composable

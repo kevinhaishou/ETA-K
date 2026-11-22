@@ -282,14 +282,6 @@ internal fun AgentAppShell(
     }
 
     ChatImagePreviewHost(modifier = modifier) {
-        // 硬不透明底：即便上层 entry 有 alpha，也不会看到下层页面内容
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(androidx.compose.ui.graphics.Color(0xFF101114)),
-        )
-        ChatBackground()
-
         if (conversationPaneState != null && currentRoute is AppRoute.Home) {
             ConversationSidePaneScaffold(
                 state = conversationPaneState,
