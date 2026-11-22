@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.components
 
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.ui.components.coui.CouiMenu
 import io.github.mangi.eta.ui.components.coui.CouiMenuItem
 import io.github.mangi.eta.ui.components.coui.couiButtonFeedback
@@ -340,11 +342,15 @@ internal fun AgentChatInputBar(
         val couiColors = CouiTheme.colorScheme
         val couiInputShape = remember { CouiShape(24.dp, 2.3f) }
         val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
-        val miuixInputBg = if (!isDark && MiuixTheme.colorScheme.surfaceContainer == MiuixTheme.colorScheme.surface) {
+        // ETA-K 定制：壁纸模式下输入胶囊半透明，让全局背景透出并保留可读性。
+        val inputAlpha = if (LocalChatBackgroundActive.current) {
+            LocalSidebarAlpha.current.coerceIn(0.55f, 0.92f)
+        } else 1f
+        val miuixInputBg = (if (!isDark && MiuixTheme.colorScheme.surfaceContainer == MiuixTheme.colorScheme.surface) {
             Color(0xFFF5F6F8)
         } else {
             MiuixTheme.colorScheme.surfaceContainer
-        }
+        }).copy(alpha = inputAlpha)
         val defaultInputBorderColor = if (isCoui) {
             couiColors.divider
         } else {
@@ -389,11 +395,22 @@ internal fun AgentChatInputBar(
                                 )
                                 .clip(couiInputShape)
                                 .then(
-                                    if (couiBackdrop != null) Modifier.couiViewBlur(
-                                        backdrop = couiBackdrop,
-                                        style = ViewBlurDefaults.frameworkBottomBar(couiDark),
-                                        shape = couiInputShape,
-                                    ) else Modifier.background(couiColors.surface, couiInputShape),
+                                    if (LocalChatBackgroundActive.current) {
+                                        Modifier.background(
+                                            couiColors.surface.copy(
+                                                alpha = LocalSidebarAlpha.current.coerceIn(0.55f, 0.92f),
+                                            ),
+                                            couiInputShape,
+                                        )
+                                    } else if (couiBackdrop != null) {
+                                        Modifier.couiViewBlur(
+                                            backdrop = couiBackdrop,
+                                            style = ViewBlurDefaults.frameworkBottomBar(couiDark),
+                                            shape = couiInputShape,
+                                        )
+                                    } else {
+                                        Modifier.background(couiColors.surface, couiInputShape)
+                                    },
                                 )
                                 .border(
                                     width = inputBorderWidth,

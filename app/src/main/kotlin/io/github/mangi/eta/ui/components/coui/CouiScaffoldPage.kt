@@ -322,7 +322,8 @@ internal fun CouiScaffold(
     val scaffoldWallpaperDim = remember(scaffoldWallpaper) { CustomizationStore.wallpaperDim() }
     val scaffoldWallpaperScale = remember(scaffoldWallpaper) { CustomizationStore.wallpaperScale() }
     val scaffoldBaseColor = colors.background
-    val glow: (@Composable BoxScope.() -> Unit)? = if (backdrop == null) {
+    // ETA-K 定制：壁纸模式下不绘制顶栏凝光，否则整条顶栏会压成不透明深色。
+    val glow: (@Composable BoxScope.() -> Unit)? = if (backdrop == null || LocalChatBackgroundActive.current) {
         null
     } else {
         {

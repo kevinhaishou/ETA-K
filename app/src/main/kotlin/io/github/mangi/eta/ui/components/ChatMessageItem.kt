@@ -101,6 +101,8 @@ import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.agent.overlay.toolDisplayName
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.customization.LocalChatBackgroundActive
+import io.github.mangi.eta.customization.LocalSidebarAlpha
 import io.github.mangi.eta.ui.components.coui.CouiMenu
 import io.github.mangi.eta.ui.components.coui.CouiMenuItem
 import io.github.mangi.eta.ui.components.coui.CouiPageDefaults
@@ -470,7 +472,11 @@ private fun UserMessageBubble(
     ) {
         if (uiStyle == AppearanceUiStyle.COUI && !assistantOverlay) {
             val couiDark = CouiTheme.isDark
-            val couiBubbleBg = if (couiDark) Color(0xFF202634) else Color(0xFFEEF2FA)
+            // ETA-K 定制：壁纸模式下气泡半透明，让全局背景透出并保留可读性。
+            val bubbleAlpha = if (LocalChatBackgroundActive.current) {
+                LocalSidebarAlpha.current.coerceIn(0.55f, 0.92f)
+            } else 1f
+            val couiBubbleBg = (if (couiDark) Color(0xFF202634) else Color(0xFFEEF2FA)).copy(alpha = bubbleAlpha)
             val couiColors = CouiPageDefaults.themeColors()
             val destructiveColor = CouiTheme.colorScheme.error
             val copyText = stringResource(R.string.ui_copy_4edd1d)
@@ -643,6 +649,10 @@ private fun UserMessageBubble(
                                 .background(
                                     color = if (assistantOverlay) {
                                         overlayBubbleColor
+                                    } else if (LocalChatBackgroundActive.current) {
+                                        MiuixTheme.colorScheme.surfaceContainerHigh.copy(
+                                            alpha = LocalSidebarAlpha.current.coerceIn(0.55f, 0.92f),
+                                        )
                                     } else {
                                         MiuixTheme.colorScheme.surfaceContainerHigh
                                     },
