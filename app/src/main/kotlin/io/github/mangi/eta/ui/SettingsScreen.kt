@@ -130,6 +130,19 @@ import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.ui.platform.LocalContext
+import top.yukonga.miuix.kmp.window.WindowDialog
+import io.github.mangi.eta.ui.components.StatusError
+import io.github.mangi.eta.ui.components.coui.CouiText
+import io.github.mangi.eta.ui.components.coui.CouiTextKind
 
 private object SettingsIconColors {
     val Blue = Color(0xFF4285F4)
