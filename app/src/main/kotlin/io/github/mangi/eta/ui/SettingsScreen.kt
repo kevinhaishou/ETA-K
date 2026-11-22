@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccessibilityNew
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BrightnessHigh
@@ -739,6 +740,18 @@ private fun SettingsPageContent(
                     }
                 }
 
+                // ETA-K 定制：账号与连接（GitHub OAuth 设备流）
+                CouiPreferenceGroup(title = "\u8d26\u53f7\u4e0e\u8fde\u63a5") {
+                    item {
+                        CouiPreference(
+                            title = "GitHub \u8d26\u53f7",
+                            summary = "OAuth \u8bbe\u5907\u7801\u6388\u6743\uff0c\u4ee4\u724c\u4ec5\u5b58\u672c\u673a",
+                            icon = { CouiSettingsIcon(Icons.Rounded.AccountCircle, SettingsIconColors.Blue) },
+                            onClick = { onNavigate(AppRoute.GitHubAccount) },
+                        )
+                    }
+                }
+
                 CouiPreferenceGroup(title = stringResource(R.string.ui_tool_a72ef1)) {
                     item {
                         CouiPreference(
@@ -1192,6 +1205,21 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.conversation_dock_characters),
                             startAction = { SettingsIcon(Icons.Rounded.SportsBar) },
                             onClick = { onNavigate(AppRoute.Characters) },
+                        )
+                    }
+                }
+
+                // ETA-K 定制：账号与连接（GitHub OAuth 设备流）
+                item(key = "section_accounts_title") {
+                    SmallTitle("\u8d26\u53f7\u4e0e\u8fde\u63a5")
+                }
+                item(key = "section_accounts") {
+                    SettingsGroupCard {
+                        ArrowPreference(
+                            title = "GitHub \u8d26\u53f7",
+                            summary = "OAuth \u8bbe\u5907\u7801\u6388\u6743\uff0c\u4ee4\u724c\u4ec5\u5b58\u672c\u673a",
+                            startAction = { SettingsIcon(Icons.Rounded.AccountCircle) },
+                            onClick = { onNavigate(AppRoute.GitHubAccount) },
                         )
                     }
                 }
