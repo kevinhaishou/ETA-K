@@ -71,6 +71,8 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
     val promptMode = remember(revision) { CustomizationStore.promptMode() }
     val presetModified = remember(revision) { CustomizationStore.promptModifiedFromPreset() }
     var naming by remember { mutableStateOf(false) }
+    var confirmReplace by remember { mutableStateOf(false) }
+    var previewing by remember { mutableStateOf(false) }
     var nameTarget by remember { mutableStateOf<PromptPreset?>(null) }
     var nameText by remember { mutableStateOf("") }
 
@@ -143,6 +145,31 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
             }
         }
         naming = false
+    }
+
+    val replaceMsg = "替换后不再发送内置提示词，工具调用格式等规则会丢失，可能导致工具调用失败。确定切换？"
+    val onReplaceOk: () -> Unit = { CustomizationStore.setPromptMode(CustomizationStore.PromptMode.REPLACE); confirmReplace = false }
+    val previewText = remember(previewing, revision) { if (previewing) CustomizationStore.composeSystemPrompt("〔内置系统提示词〕") else "" }
+    if (confirmReplace || previewing) {
+        val t = if (confirmReplace) "切换为替换模式" else "最终提示词预览 · ${previewText.length} 字"
+        val m = if (confirmReplace) replaceMsg else previewText
+        val ok: () -> Unit = if (confirmReplace) onReplaceOk else ({ previewing = false })
+        val dismiss: () -> Unit = { confirmReplace = false; previewing = false }
+        when (LocalUiStyle.current) {
+            AppearanceUiStyle.COUI -> CouiConfirmDialog(
+                visible = true, title = t, message = m,
+                confirmText = if (confirmReplace) "切换" else "关闭",
+                confirmEnabled = true, onConfirm = ok, onDismissRequest = dismiss,
+            ) {}
+            AppearanceUiStyle.MIUIX -> GlassDialog(
+                show = true, backdrop = currentGlassOverlayBackdrop(), title = t, onDismissRequest = dismiss,
+            ) {
+                Column {
+                    Text(text = m, style = MiuixTheme.textStyles.body2, modifier = Modifier.padding(bottom = 12.dp))
+                    MiuixDialogActions(confirmText = if (confirmReplace) "切换" else "关闭", onCancel = dismiss, onConfirm = ok)
+                }
+            }
+        }
     }
 
     if (naming) {
@@ -231,13 +258,16 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                             onCheckedChange = { CustomizationStore.setPromptEnabled(it) },
                         )
                     }
+                    item(key = "prompt_preview") {
+                        CouiPreference(title = "预览最终提示词", summary = "查看合成后发给模型的系统提示词", onClick = { previewing = true })
+                    }
                     PROMPT_MODE_OPTIONS.forEach { (mode, label, desc) ->
                         item(key = "mode_${mode.name}") {
                             CouiPreference(
                                 title = if (mode == promptMode) "✓ $label" else label,
                                 summary = desc,
                                 enabled = promptEnabled,
-                                onClick = { CustomizationStore.setPromptMode(mode) },
+                                onClick = { if (mode == CustomizationStore.PromptMode.REPLACE && promptMode != mode) confirmReplace = true else CustomizationStore.setPromptMode(mode) },
                             )
                         }
                     }
@@ -301,7 +331,7 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                         }
                     }
                 }
-                CouiSectionTitle(stringResource(R.string.custom_prompt_summary) + " · ${draft.length}/${CustomizationStore.MAX_PROMPT_CHARS}")
+                CouiSectionTitle(stringResource(R.string.custom_prompt_summary) + " · ${draft.length} 字")
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -338,11 +368,12 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                             checked = promptEnabled,
                             onCheckedChange = { CustomizationStore.setPromptEnabled(it) },
                         )
+                        BasicComponent(title = "预览最终提示词", summary = "查看合成后发给模型的系统提示词", onClick = { previewing = true })
                         PROMPT_MODE_OPTIONS.forEach { (mode, label, desc) ->
                             BasicComponent(
                                 title = if (mode == promptMode) "✓ $label" else label,
                                 summary = desc,
-                                onClick = { if (promptEnabled) CustomizationStore.setPromptMode(mode) },
+                                onClick = { if (promptEnabled) { if (mode == CustomizationStore.PromptMode.REPLACE && promptMode != mode) confirmReplace = true else CustomizationStore.setPromptMode(mode) } },
                             )
                         }
                     }
@@ -409,7 +440,7 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                     }
                 }
                 item(key = "custom_prompt") {
-                    SmallTitle(text = stringResource(R.string.custom_prompt_summary) + " · ${draft.length}/${CustomizationStore.MAX_PROMPT_CHARS}")
+                    SmallTitle(text = stringResource(R.string.custom_prompt_summary) + " · ${draft.length} 字")
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)

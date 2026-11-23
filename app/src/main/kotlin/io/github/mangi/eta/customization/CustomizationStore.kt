@@ -74,7 +74,6 @@ internal object CustomizationStore {
     /** 注入方式：APPEND 追加；STYLE 风格语气优先、工具格式按内置；PRIORITY 全面优先；REPLACE 替换内置。 */
     enum class PromptMode { APPEND, STYLE, PRIORITY, REPLACE }
 
-    const val MAX_PROMPT_CHARS = 8000
 
     fun promptEnabled(): Boolean = prefs?.getBoolean("custom_prompt_enabled", true) ?: true
 
@@ -102,7 +101,7 @@ internal object CustomizationStore {
     /** 按开关与注入方式合成最终系统提示词。 */
     fun composeSystemPrompt(builtin: String): String {
         val base = builtin.trim()
-        val custom = systemPrompt().trim().take(MAX_PROMPT_CHARS)
+        val custom = systemPrompt().trim()
         if (!promptEnabled() || custom.isEmpty()) return base
         if (base.isEmpty()) return custom
         return when (promptMode()) {
