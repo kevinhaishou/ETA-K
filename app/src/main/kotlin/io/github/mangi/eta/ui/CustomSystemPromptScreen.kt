@@ -147,17 +147,17 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
         naming = false
     }
 
-    val replaceMsg = "替换后不再发送内置提示词，工具调用格式等规则会丢失，可能导致工具调用失败。确定切换？"
+    val replaceMsg = "替换后不再发送服务商内置的系统提示词，其中的人设与风格设定会丢失。手机操作与工具使用规则由运行时另行附加，不受影响。确定切换？"
     val onReplaceOk: () -> Unit = { CustomizationStore.setPromptMode(CustomizationStore.PromptMode.REPLACE); confirmReplace = false }
     var previewText by remember { mutableStateOf("") }
     androidx.compose.runtime.LaunchedEffect(previewing, revision) {
         if (previewing) {
             val builtin = runCatching { io.github.mangi.eta.data.repository.RuntimeConfigRepository.selectedProvider()?.systemPrompt.orEmpty() }.getOrDefault("")
-            previewText = CustomizationStore.composeSystemPrompt(builtin).ifBlank { "（最终提示词为空）" }
+            previewText = "【第一段 · 可自定义】\n" + CustomizationStore.composeSystemPrompt(builtin).ifBlank { "（为空，不发送）" } + "\n\n【第二段 · 运行时附加，不可修改】\n每次请求时自动生成：当前模型名、手机操作与工具使用规则，以及 Root、技能、记忆等上下文。内容随会话状态变化，此处不展开。\n\n注：角色扮演会话中不发送第一段。"
         }
     }
     if (confirmReplace || previewing) {
-        val t = if (confirmReplace) "切换为替换模式" else "最终提示词预览 · ${previewText.length} 字"
+        val t = if (confirmReplace) "切换为替换模式" else "最终提示词预览"
         val m = if (confirmReplace) replaceMsg else previewText
         val ok: () -> Unit = if (confirmReplace) onReplaceOk else ({ previewing = false })
         val dismiss: () -> Unit = { confirmReplace = false; previewing = false }
