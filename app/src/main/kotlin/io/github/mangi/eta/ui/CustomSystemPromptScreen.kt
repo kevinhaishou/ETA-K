@@ -149,7 +149,13 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
 
     val replaceMsg = "替换后不再发送内置提示词，工具调用格式等规则会丢失，可能导致工具调用失败。确定切换？"
     val onReplaceOk: () -> Unit = { CustomizationStore.setPromptMode(CustomizationStore.PromptMode.REPLACE); confirmReplace = false }
-    val previewText = remember(previewing, revision) { if (previewing) CustomizationStore.composeSystemPrompt("〔内置系统提示词〕") else "" }
+    var previewText by remember { mutableStateOf("") }
+    androidx.compose.runtime.LaunchedEffect(previewing, revision) {
+        if (previewing) {
+            val builtin = runCatching { io.github.mangi.eta.data.repository.RuntimeConfigRepository.selectedProvider()?.systemPrompt.orEmpty() }.getOrDefault("")
+            previewText = CustomizationStore.composeSystemPrompt(builtin).ifBlank { "（最终提示词为空）" }
+        }
+    }
     if (confirmReplace || previewing) {
         val t = if (confirmReplace) "切换为替换模式" else "最终提示词预览 · ${previewText.length} 字"
         val m = if (confirmReplace) replaceMsg else previewText
