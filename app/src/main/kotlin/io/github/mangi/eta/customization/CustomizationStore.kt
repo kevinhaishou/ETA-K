@@ -71,6 +71,50 @@ internal object CustomizationStore {
 
     fun systemPrompt(): String = prefs?.getString(KEY_SYSTEM_PROMPT, null).orEmpty()
 
+    /** 注入方式：APPEND 追加；STYLE 风格语气优先、工具格式按内置；PRIORITY 全面优先；REPLACE 替换内置。 */
+    enum class PromptMode { APPEND, STYLE, PRIORITY, REPLACE }
+
+    const val MAX_PROMPT_CHARS = 8000
+
+    fun promptEnabled(): Boolean = prefs?.getBoolean("custom_prompt_enabled", true) ?: true
+
+    fun setPromptEnabled(value: Boolean) {
+        prefs?.edit()?.putBoolean("custom_prompt_enabled", value)?.apply()
+        bump()
+    }
+
+    fun promptMode(): PromptMode =
+        runCatching { PromptMode.valueOf(prefs?.getString("custom_prompt_mode", null) ?: "STYLE") }
+            .getOrDefault(PromptMode.STYLE)
+
+    fun setPromptMode(mode: PromptMode) {
+        prefs?.edit()?.putString("custom_prompt_mode", mode.name)?.apply()
+        bump()
+    }
+
+    /** 当前内容与激活预设不一致时返回 true，用于显示「已修改」。 */
+    fun promptModifiedFromPreset(): Boolean {
+        val id = activePresetId() ?: return false
+        val preset = promptPresets().firstOrNull { it.id == id } ?: return false
+        return preset.content.trim() != systemPrompt().trim()
+    }
+
+    /** 按开关与注入方式合成最终系统提示词。 */
+    fun composeSystemPrompt(builtin: String): String {
+        val base = builtin.trim()
+        val custom = systemPrompt().trim().take(MAX_PROMPT_CHARS)
+        if (!promptEnabled() || custom.isEmpty()) return base
+        if (base.isEmpty()) return custom
+        return when (promptMode()) {
+            PromptMode.APPEND -> base + "\n\n## \u7528\u6237\u8865\u5145\u6307\u4ee4\n" + custom
+            PromptMode.STYLE -> base + "\n\n## 用户自定义指令（风格优先）\n" +
+                "以下指令在角色、风格、语气、语言和回答方式上覆盖上文要求；工具调用格式与输出协议仍以上文为准。\n\n" + custom
+            PromptMode.PRIORITY -> base + "\n\n## 用户自定义指令（最高优先级）\n" +
+                "以下指令与上文任何要求冲突时，一律以以下指令为准。\n\n" + custom
+            PromptMode.REPLACE -> custom
+        }
+    }
+
     fun setSystemPrompt(value: String) {
         val persisted = prefs ?: return
         persisted.edit().putString(KEY_SYSTEM_PROMPT, value).apply()

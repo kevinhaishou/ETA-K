@@ -47,6 +47,10 @@ import io.github.suqi8.coui.kmp.theme.COUITheme as CouiTheme
 import top.yukonga.miuix.kmp.glass.GlassDialog
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 
 /**
  * 自定义系统提示词。
@@ -63,6 +67,12 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
     var pendingDelete by remember { mutableStateOf<PromptPreset?>(null) }
     val presets = remember(revision) { CustomizationStore.promptPresets() }
     val activeId = remember(revision) { CustomizationStore.activePresetId() }
+    val promptEnabled = remember(revision) { CustomizationStore.promptEnabled() }
+    val promptMode = remember(revision) { CustomizationStore.promptMode() }
+    val presetModified = remember(revision) { CustomizationStore.promptModifiedFromPreset() }
+    var naming by remember { mutableStateOf(false) }
+    var nameTarget by remember { mutableStateOf<PromptPreset?>(null) }
+    var nameText by remember { mutableStateOf("") }
 
     LaunchedEffect(revision) {
         draft = CustomizationStore.systemPrompt()
@@ -113,16 +123,58 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
     }
 
     val onSaveCurrent: () -> Unit = {
-        val saved = CustomizationStore.saveCurrentAsPreset(
-            context.getString(R.string.prompt_library_saved_name)
-        )
-        Toast.makeText(
-            context,
-            context.getString(
-                if (saved) R.string.prompt_library_saved_ok else R.string.prompt_library_import_failed
-            ),
-            Toast.LENGTH_SHORT,
-        ).show()
+        nameTarget = null
+        nameText = context.getString(R.string.prompt_library_saved_name)
+        naming = true
+    }
+    val onNameConfirm: () -> Unit = {
+        val name = nameText.trim()
+        if (name.isNotEmpty()) {
+            val target = nameTarget
+            if (target == null) {
+                val saved = CustomizationStore.saveCurrentAsPreset(name)
+                Toast.makeText(
+                    context,
+                    context.getString(if (saved) R.string.prompt_library_saved_ok else R.string.prompt_library_import_failed),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } else {
+                CustomizationStore.renamePromptPreset(target.id, name)
+            }
+        }
+        naming = false
+    }
+
+    if (naming) {
+        val dialogTitle = if (nameTarget == null) "保存为预设" else "重命名预设"
+        when (LocalUiStyle.current) {
+            AppearanceUiStyle.COUI -> CouiConfirmDialog(
+                visible = true,
+                title = dialogTitle,
+                message = null,
+                confirmText = "保存",
+                confirmEnabled = nameText.isNotBlank(),
+                onConfirm = onNameConfirm,
+                onDismissRequest = { naming = false },
+            ) {
+                CharacterTextField(label = "预设名称", value = nameText, onChange = { nameText = it }, enabled = true, singleLine = true)
+            }
+            AppearanceUiStyle.MIUIX -> GlassDialog(
+                show = true,
+                backdrop = currentGlassOverlayBackdrop(),
+                title = dialogTitle,
+                onDismissRequest = { naming = false },
+            ) {
+                Column {
+                    CharacterTextField(label = "预设名称", value = nameText, onChange = { nameText = it }, enabled = true, singleLine = true)
+                    MiuixDialogActions(
+                        confirmText = "保存",
+                        onCancel = { naming = false },
+                        onConfirm = onNameConfirm,
+                    )
+                }
+            }
+        }
     }
 
     // 删除预设确认
@@ -170,6 +222,26 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.custom_prompt_title),
                 onBack = onBack,
             ) {
+                CouiPreferenceGroup(title = "注入设置") {
+                    item(key = "prompt_enabled") {
+                        CouiSwitchPreference(
+                            title = "启用自定义提示词",
+                            summary = if (promptEnabled) "已启用" else "已停用，内容保留但不生效",
+                            checked = promptEnabled,
+                            onCheckedChange = { CustomizationStore.setPromptEnabled(it) },
+                        )
+                    }
+                    PROMPT_MODE_OPTIONS.forEach { (mode, label, desc) ->
+                        item(key = "mode_${mode.name}") {
+                            CouiPreference(
+                                title = if (mode == promptMode) "✓ $label" else label,
+                                summary = desc,
+                                enabled = promptEnabled,
+                                onClick = { CustomizationStore.setPromptMode(mode) },
+                            )
+                        }
+                    }
+                }
                 CouiPreferenceGroup(title = stringResource(R.string.prompt_library_group)) {
                     item(key = "import") {
                         CouiPreference(
@@ -201,10 +273,19 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                         presets.forEach { preset ->
                             item(key = "preset_${preset.id}") {
                                 CouiPreference(
-                                    title = presetTitle(preset, preset.id == activeId),
+                                    title = presetTitle(preset, preset.id == activeId, presetModified),
                                     summary = presetSummary(preset.content),
                                     onClick = { CustomizationStore.applyPromptPreset(preset.id) },
                                     trailing = {
+                                        Row {
+                                        Text(
+                                            text = "改名",
+                                            color = MiuixTheme.colorScheme.primary,
+                                            style = MiuixTheme.textStyles.footnote2,
+                                            modifier = Modifier
+                                                .clickable { nameTarget = preset; nameText = preset.name; naming = true }
+                                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        )
                                         Text(
                                             text = "\u5220\u9664",
                                             color = CouiTheme.colorScheme.error,
@@ -213,13 +294,14 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                                                 .clickable { pendingDelete = preset }
                                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                                         )
+                                        }
                                     },
                                 )
                             }
                         }
                     }
                 }
-                CouiSectionTitle(stringResource(R.string.custom_prompt_summary))
+                CouiSectionTitle(stringResource(R.string.custom_prompt_summary) + " · ${draft.length}/${CustomizationStore.MAX_PROMPT_CHARS}")
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -243,6 +325,28 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.custom_prompt_title),
                 onBack = onBack,
             ) {
+                item(key = "prompt_inject") {
+                    SmallTitle(text = "注入设置")
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        SwitchPreference(
+                            title = "启用自定义提示词",
+                            summary = if (promptEnabled) "已启用" else "已停用，内容保留但不生效",
+                            checked = promptEnabled,
+                            onCheckedChange = { CustomizationStore.setPromptEnabled(it) },
+                        )
+                        PROMPT_MODE_OPTIONS.forEach { (mode, label, desc) ->
+                            BasicComponent(
+                                title = if (mode == promptMode) "✓ $label" else label,
+                                summary = desc,
+                                onClick = { if (promptEnabled) CustomizationStore.setPromptMode(mode) },
+                            )
+                        }
+                    }
+                }
                 item(key = "prompt_library_actions") {
                     SmallTitle(text = stringResource(R.string.prompt_library_group))
                     Card(
@@ -276,10 +380,19 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                         ) {
                             presets.forEach { preset ->
                                 BasicComponent(
-                                    title = presetTitle(preset, preset.id == activeId),
+                                    title = presetTitle(preset, preset.id == activeId, presetModified),
                                     summary = presetSummary(preset.content),
                                     onClick = { CustomizationStore.applyPromptPreset(preset.id) },
                                     endActions = {
+                                        Row {
+                                        Text(
+                                            text = "改名",
+                                            color = MiuixTheme.colorScheme.primary,
+                                            style = MiuixTheme.textStyles.footnote2,
+                                            modifier = Modifier
+                                                .clickable { nameTarget = preset; nameText = preset.name; naming = true }
+                                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        )
                                         Text(
                                             text = "\u5220\u9664",
                                             color = MiuixTheme.colorScheme.error,
@@ -288,6 +401,7 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                                                 .clickable { pendingDelete = preset }
                                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                                         )
+                                        }
                                     },
                                 )
                             }
@@ -295,7 +409,7 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
                     }
                 }
                 item(key = "custom_prompt") {
-                    SmallTitle(text = stringResource(R.string.custom_prompt_summary))
+                    SmallTitle(text = stringResource(R.string.custom_prompt_summary) + " · ${draft.length}/${CustomizationStore.MAX_PROMPT_CHARS}")
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
@@ -315,8 +429,18 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
     }
 }
 
-private fun presetTitle(preset: PromptPreset, active: Boolean): String =
-    if (active) "${preset.name} · 当前使用" else preset.name
+private fun presetTitle(preset: PromptPreset, active: Boolean, modified: Boolean): String = when {
+    active && modified -> "${preset.name} · 已修改"
+    active -> "${preset.name} · 当前使用"
+    else -> preset.name
+}
+
+private val PROMPT_MODE_OPTIONS = listOf(
+    Triple(CustomizationStore.PromptMode.APPEND, "追加", "附加在内置提示词之后，冲突时由模型自行判断"),
+    Triple(CustomizationStore.PromptMode.STYLE, "风格优先（推荐）", "角色、风格、语气听自定义的，工具调用格式仍按内置"),
+    Triple(CustomizationStore.PromptMode.PRIORITY, "完全优先", "与内置冲突时一律以自定义为准，可能影响工具调用"),
+    Triple(CustomizationStore.PromptMode.REPLACE, "替换", "只使用自定义内容，不发送内置提示词"),
+)
 
 private fun presetSummary(content: String): String {
     val flat = content.replace(Regex("\\s+"), " ").trim()

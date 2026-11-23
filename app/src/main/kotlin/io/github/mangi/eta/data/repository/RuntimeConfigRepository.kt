@@ -292,19 +292,11 @@ internal object RuntimeConfigRepository {
         json.encodeToString(if (config.authMode == ProviderAuthModes.API_KEY) config else config.copy(apiKey = ""))
 
     fun buildRuntimeConfig(provider: ProviderSetting, model: Model): AgentModelClient.ModelConfig {
-        // 自定义系统提示词（设置 → 自定义系统提示词）此前只写进 CustomizationStore，
-        // 运行时只读 provider 自带提示词，导致用户改的内容完全不生效。
-        // 这里把自定义内容追加在内置提示词之后：内置部分承载工具约定与输出格式，
-        // 覆盖会破坏工具调用，所以只追加不替换。
-        val builtinPrompt = provider.systemPrompt.orEmpty().trim()
-        val customPrompt = runCatching {
-            io.github.mangi.eta.customization.CustomizationStore.systemPrompt()
-        }.getOrNull().orEmpty().trim()
-        val systemPrompt = when {
-            customPrompt.isBlank() -> builtinPrompt
-            builtinPrompt.isBlank() -> customPrompt
-            else -> builtinPrompt + "\n\n" + customPrompt
-        }
+        // 自定义系统提示词按「开关 + 注入方式（追加/优先/替换）」合成，见 CustomizationStore.composeSystemPrompt。
+        val builtinPrompt = provider.systemPrompt.orEmpty()
+        val systemPrompt = runCatching {
+            io.github.mangi.eta.customization.CustomizationStore.composeSystemPrompt(builtinPrompt)
+        }.getOrElse { builtinPrompt.trim() }
         val sourceType = ProviderSourceRegistry.resolve(provider)
         val profile = ProviderConnectionProfile.forAuthMode(provider.authMode)
         val endpointMode = profile?.endpointMode ?: provider.endpointMode()
