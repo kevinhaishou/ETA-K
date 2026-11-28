@@ -319,7 +319,9 @@ internal fun CouiScaffold(
     // 与 CouiScaffoldPage 保持一致：壁纸模式下自绘壁纸并把容器设为透明，
     // 否则这类自定义内容页（记忆等）整页是 colors.background 的实心深色。
     val scaffoldWallpaper = rememberWallpaperBitmap()
-    val scaffoldWallpaperDim = remember(scaffoldWallpaper) { CustomizationStore.wallpaperDim() }
+    val scaffoldWallpaperDim = remember(scaffoldWallpaper, dark) {
+        CustomizationStore.effectiveWallpaperDim(dark)
+    }
     val scaffoldWallpaperScale = remember(scaffoldWallpaper) { CustomizationStore.wallpaperScale() }
     val scaffoldBaseColor = colors.background
     // ETA-K 定制：壁纸模式下不绘制顶栏凝光，否则整条顶栏会压成不透明深色。

@@ -12,6 +12,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -34,7 +36,8 @@ internal fun ChatBackground(modifier: Modifier = Modifier) {
     val image by produceState<ImageBitmap?>(initialValue = null, revision) {
         value = withContext(Dispatchers.IO) { CustomizationStore.wallpaperBitmap() }
     }
-    val dim = remember(revision) { CustomizationStore.wallpaperDim() }
+    val chatDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
+    val dim = remember(revision, chatDark) { CustomizationStore.effectiveWallpaperDim(chatDark) }
     val enabled = remember(revision) { CustomizationStore.wallpaperEnabled() }
     val scale = remember(revision) { CustomizationStore.wallpaperScale() }
     val bitmap = image
