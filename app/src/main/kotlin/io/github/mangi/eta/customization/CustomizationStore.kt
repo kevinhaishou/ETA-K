@@ -43,6 +43,9 @@ internal object CustomizationStore {
 
     const val DEFAULT_DIM = 0.35f
     const val MAX_DIM = 0.85f
+    /** 深/浅色主题下的最低可读性压暗，低于此值正文不可读。 */
+    const val MIN_READABLE_DIM_DARK = 0.42f
+    const val MIN_READABLE_DIM_LIGHT = 0.30f
     const val MAX_BLUR = 24f
     const val DEFAULT_SIDEBAR_ALPHA = 0.12f
 
@@ -179,18 +182,54 @@ internal object CustomizationStore {
         return incoming.size
     }
 
-    /** 把当前编辑内容存成一条预设。 */
+    /**
+     * 把当前编辑内容存成一条预设。
+     *
+     * 同一内容不重复入列：已存在内容完全相同的预设时直接复用该条
+     * （必要时顺带更新名称），避免反复点「存为预设」堆出同名重复项。
+     */
     fun saveCurrentAsPreset(name: String): Boolean {
         val text = systemPrompt().trim()
         if (text.isEmpty()) return false
-        writePresets(
-            promptPresets() + PromptPreset(
-                id = UUID.randomUUID().toString(),
-                name = name.trim().ifBlank { "当前提示词" },
-                content = text,
-            )
+        val label = name.trim().ifBlank { "当前提示词" }
+        val existing = promptPresets()
+        val same = existing.firstOrNull { it.content.trim() == text }
+        if (same != null) {
+            if (same.name != label) {
+                writePresets(existing.map { if (it.id == same.id) it.copy(name = label) else it })
+            }
+            prefs?.edit()?.putString(KEY_PROMPT_ACTIVE, same.id)?.apply()
+            bump()
+            return true
+        }
+        val created = PromptPreset(
+            id = UUID.randomUUID().toString(),
+            name = label,
+            content = text,
         )
+        writePresets(existing + created)
+        prefs?.edit()?.putString(KEY_PROMPT_ACTIVE, created.id)?.apply()
+        bump()
         return true
+    }
+
+    /** 清掉内容完全重复的预设，保留最先出现的那条。返回删除条数。 */
+    fun dedupePromptPresets(): Int {
+        val items = promptPresets()
+        val seen = mutableSetOf<String>()
+        val kept = buildList {
+            items.forEach { preset ->
+                val key = preset.content.trim()
+                if (seen.add(key)) add(preset)
+            }
+        }
+        if (kept.size == items.size) return 0
+        val removed = items.size - kept.size
+        if (activePresetId() !in kept.map { it.id }) {
+            prefs?.edit()?.remove(KEY_PROMPT_ACTIVE)?.apply()
+        }
+        writePresets(kept)
+        return removed
     }
 
     /** 应用某条预设：写入生效字段并记下激活的预设。 */
@@ -225,6 +264,17 @@ internal object CustomizationStore {
 
     fun wallpaperDim(): Float =
         (prefs?.getFloat(KEY_WALLPAPER_DIM, DEFAULT_DIM) ?: DEFAULT_DIM).coerceIn(0f, MAX_DIM)
+
+    /**
+     * 实际绘制用的压暗浓度。
+     *
+     * 深色主题下白字压在亮壁纸上几乎不可读，因此给一个最低下限；
+     * 用户在「外观 → 压暗」里的设置值在其之上继续叠加，上限沿用 MAX_DIM。
+     */
+    fun effectiveWallpaperDim(dark: Boolean, userDim: Float = wallpaperDim()): Float {
+        val floor = if (dark) MIN_READABLE_DIM_DARK else MIN_READABLE_DIM_LIGHT
+        return maxOf(floor, userDim).coerceIn(0f, MAX_DIM)
+    }
 
     fun setWallpaperDim(value: Float) {
         val persisted = prefs ?: return

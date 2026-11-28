@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -57,7 +58,10 @@ fun MiuixScaffoldPage(
     // 页面自己画一层才既能看到壁纸、又能盖住旧页。
     // 没有壁纸时仍用不透明 surface 兜底，避免透明容器透出下层残留页面。
     val pageWallpaper = rememberWallpaperBitmap()
-    val pageWallpaperDim = remember(pageWallpaper) { CustomizationStore.wallpaperDim() }
+    val pageDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
+    val pageWallpaperDim = remember(pageWallpaper, pageDark) {
+        CustomizationStore.effectiveWallpaperDim(pageDark)
+    }
     val pageWallpaperScale = remember(pageWallpaper) { CustomizationStore.wallpaperScale() }
     val pageBaseColor = MiuixTheme.colorScheme.surface
     val wallpaperActive = pageWallpaper != null
@@ -70,6 +74,7 @@ fun MiuixScaffoldPage(
                 // 壁纸铺满整页，压暗层只作用于壁纸本身。
                 pageWallpaper?.let { bitmap ->
                     drawWallpaperBitmap(bitmap, pageWallpaperScale)
+                    // 始终画一层最低可读性压暗：白字直接压在亮壁纸上看不清。
                     if (pageWallpaperDim > 0f) drawRect(Color.Black, alpha = pageWallpaperDim)
                 }
                 drawContent()
@@ -149,7 +154,10 @@ fun MiuixScaffold(
     // 否则这类自定义内容页在壁纸下是整块不透明底。
     val topBarColor = if (LocalChatBackgroundActive.current) Color.Transparent else topBarContainerColor(backdrop)
     val pageWallpaper = rememberWallpaperBitmap()
-    val pageWallpaperDim = remember(pageWallpaper) { CustomizationStore.wallpaperDim() }
+    val pageDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
+    val pageWallpaperDim = remember(pageWallpaper, pageDark) {
+        CustomizationStore.effectiveWallpaperDim(pageDark)
+    }
     val pageWallpaperScale = remember(pageWallpaper) { CustomizationStore.wallpaperScale() }
     val pageBaseColor = MiuixTheme.colorScheme.surface
 
@@ -159,6 +167,7 @@ fun MiuixScaffold(
             .drawWithContent {
                 pageWallpaper?.let { bitmap ->
                     drawWallpaperBitmap(bitmap, pageWallpaperScale)
+                    // 始终画一层最低可读性压暗：白字直接压在亮壁纸上看不清。
                     if (pageWallpaperDim > 0f) drawRect(Color.Black, alpha = pageWallpaperDim)
                 }
                 drawContent()

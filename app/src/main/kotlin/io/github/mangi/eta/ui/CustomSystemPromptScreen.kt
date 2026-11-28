@@ -73,10 +73,16 @@ internal fun CustomSystemPromptScreen(onBack: () -> Unit) {
     var naming by remember { mutableStateOf(false) }
     var confirmReplace by remember { mutableStateOf(false) }
     var previewing by remember { mutableStateOf(false) }
+    var deduped by remember { mutableStateOf(false) }
     var nameTarget by remember { mutableStateOf<PromptPreset?>(null) }
     var nameText by remember { mutableStateOf("") }
 
     LaunchedEffect(revision) {
+        // 首次进入时顺手清掉历史遗留的重复预设（同内容只留第一条）
+        if (!deduped) {
+            deduped = true
+            CustomizationStore.dedupePromptPresets()
+        }
         draft = CustomizationStore.systemPrompt()
     }
 
